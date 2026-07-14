@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1-beta.1 (2026-07-14)
+
+- Beta-Hinweis mit Link zum Symcon-Forum-Thread in beiden Modulen (InverterHub,
+  InverterHubDiscovery) ergänzt, dismissable per „Nicht mehr anzeigen"
+
 ## 0.4.0-beta.1 (2026-07-14)
 
 - Freie Namens-Vorlage für neu angelegte Instanzen im Discovery-Modul: leer = Default
