@@ -43,6 +43,7 @@ class InverterHubDiscovery extends IPSModule
         $this->RegisterPropertyString('RangeStart', $prefix !== '' ? $prefix . '.1'   : '');
         $this->RegisterPropertyString('RangeEnd',   $prefix !== '' ? $prefix . '.254' : '');
         $this->RegisterPropertyInteger('Port', 502);
+        $this->RegisterPropertyString('NameTemplate', '');
         $this->RegisterAttributeString('ResultsJSON', '[]');
     }
 
@@ -81,10 +82,28 @@ class InverterHubDiscovery extends IPSModule
         }
 
         $existing = $this->findExistingInstances();
+        $template = trim($this->ReadPropertyString('NameTemplate'));
+
+        // Laufende Nummer je Hersteller (1, 2, 3 ...) für den Namens-Default
+        // und für den {nr}-Platzhalter der freien Vorlage.
+        $vendorCounter = [];
 
         $values = [];
         foreach ($results as $r) {
             $key = $r['ip'] . '|' . $r['unitId'];
+            $vendorCounter[$r['vendor']] = ($vendorCounter[$r['vendor']] ?? 0) + 1;
+            $nr = $vendorCounter[$r['vendor']];
+
+            if ($template !== '') {
+                $instanceName = str_replace(
+                    ['{hersteller}', '{ip}', '{unitid}', '{nr}'],
+                    [$r['label'], $r['ip'], $r['unitId'], $nr],
+                    $template
+                );
+            } else {
+                $instanceName = $r['label'] . ' ' . $nr;
+            }
+
             $values[] = [
                 'name'         => $r['label'] . ' @ ' . $r['ip'] . ' (Unit ' . $r['unitId'] . ')',
                 'manufacturer' => $r['label'],
@@ -93,7 +112,7 @@ class InverterHubDiscovery extends IPSModule
                 'instanceID'   => $existing[$key] ?? 0,
                 'create'       => [
                     'moduleID'      => self::INVERTERHUB_GUID,
-                    'name'          => $r['label'] . ' Wechselrichter (' . $r['ip'] . ')',
+                    'name'          => $instanceName,
                     'configuration' => [
                         'Host'         => $r['ip'],
                         'Port'         => $this->ReadPropertyInteger('Port'),
@@ -125,6 +144,8 @@ class InverterHubDiscovery extends IPSModule
                         ['type' => 'ValidationTextBox', 'name' => 'RangeStart', 'caption' => 'Start-IP', 'validate' => '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
                         ['type' => 'ValidationTextBox', 'name' => 'RangeEnd',   'caption' => 'End-IP',   'validate' => '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
                         ['type' => 'NumberSpinner', 'name' => 'Port', 'caption' => 'Modbus-TCP-Port', 'minimum' => 1, 'maximum' => 65535],
+                        ['type' => 'ValidationTextBox', 'name' => 'NameTemplate', 'caption' => 'Name-Vorlage (leer = Hersteller + lfd. Nr.)'],
+                        ['type' => 'Label', 'caption' => 'Platzhalter für die Vorlage: {hersteller} {ip} {unitid} {nr} — z.B. "{hersteller} Dach ({ip})"'],
                         ['type' => 'Button', 'caption' => '🔎  Netzwerk durchsuchen', 'onClick' => 'IHUBD_Discover($id);'],
                     ],
                 ],
