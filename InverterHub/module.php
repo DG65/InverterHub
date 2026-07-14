@@ -2072,7 +2072,7 @@ class InverterHub extends IPSModule
             'elements' => [
                 [
                     'type'    => 'ExpansionPanel',
-                    'caption' => '📖 Dokumentation & Hilfe',
+                    'caption' => '📖  Dokumentation & Hilfe',
                     'expanded' => false,
                     'items' => [
                         ['type' => 'Label', 'caption' => 'InverterHub liest Wechselrichter verschiedener Hersteller direkt per Modbus TCP aus. Hersteller wählen, IP-Adresse eintragen, Datenpunkt-Gruppen je nach Anlage aktivieren.'],
@@ -2097,7 +2097,7 @@ class InverterHub extends IPSModule
                 ],
                 [
                     'type'    => 'ExpansionPanel',
-                    'caption' => 'Verbindung',
+                    'caption' => '🔌  Verbindung',
                     'expanded' => true,
                     'items' => [
                         ['type' => 'ValidationTextBox', 'name' => 'Host', 'caption' => 'IP-Adresse', 'validate' => '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
@@ -2107,7 +2107,7 @@ class InverterHub extends IPSModule
                 ],
                 [
                     'type'    => 'ExpansionPanel',
-                    'caption' => 'Polling',
+                    'caption' => '⏱️  Polling',
                     'expanded' => false,
                     'items' => [
                         ['type' => 'NumberSpinner', 'name' => 'IntervalFast', 'caption' => 'Schnell-Intervall (Sekunden)', 'minimum' => 5, 'maximum' => 60, 'suffix' => 's'],
@@ -2116,7 +2116,7 @@ class InverterHub extends IPSModule
                 ],
                 [
                     'type'    => 'ExpansionPanel',
-                    'caption' => 'Datenpunkte',
+                    'caption' => '📊  Datenpunkte',
                     'expanded' => true,
                     'items' => $groupItems,
                 ],
