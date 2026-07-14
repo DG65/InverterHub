@@ -93,7 +93,7 @@ class InverterHubDiscovery extends IPSModule
                 'instanceID'   => $existing[$key] ?? 0,
                 'create'       => [
                     'moduleID'      => self::INVERTERHUB_GUID,
-                    'name'          => $r['label'] . ' ' . $r['ip'],
+                    'name'          => $r['label'] . ' Wechselrichter (' . $r['ip'] . ')',
                     'configuration' => [
                         'Host'         => $r['ip'],
                         'Port'         => $this->ReadPropertyInteger('Port'),
