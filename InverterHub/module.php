@@ -1979,6 +1979,9 @@ class InverterHub extends IPSModule
         'fronius' => 'FroniusDriver',
     ];
 
+    private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-inverterhub-multi-wechselrichter-ein-modbus-tcp-modul-fuer-goodwe-sma-fronius-sungrow-solis-growatt-solax/144121';
+    private const ATTR_REVIEW_HINT_GONE = 'ReviewHintDismissed';
+
     private $driver = null;
 
     public function Create()
@@ -1991,6 +1994,7 @@ class InverterHub extends IPSModule
         $this->RegisterPropertyInteger('UnitId', 247);
         $this->RegisterPropertyInteger('IntervalFast', 5);
         $this->RegisterPropertyInteger('IntervalSlow', 300);
+        $this->RegisterAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, false);
 
         // Treiber-spezifische Properties werden ab hier dynamisch registriert.
         $driver = $this->GetDriver();
@@ -2155,7 +2159,27 @@ class InverterHub extends IPSModule
             ],
         ];
 
+        // Einmaliger Beta-Hinweis mit Link zum Symcon-Forum-Thread, bis er
+        // per Button ausgeblendet wird (Attribut, kein Übernehmen nötig).
+        if (!$this->ReadAttributeBoolean(self::ATTR_REVIEW_HINT_GONE)) {
+            $form['elements'][] = [
+                'type' => 'RowLayout',
+                'name' => 'ReviewHint',
+                'items' => [
+                    ['type' => 'Label', 'caption' => '🧪 InverterHub ist Beta — Rückmeldungen und Testberichte sind im Symcon-Forum-Thread willkommen:'],
+                    ['type' => 'Label', 'link' => true, 'caption' => self::FORUM_THREAD_URL],
+                    ['type' => 'Button', 'caption' => 'Nicht mehr anzeigen', 'onClick' => 'IHUB_DismissReviewHint($id);'],
+                ],
+            ];
+        }
+
         return json_encode($form);
+    }
+
+    public function DismissReviewHint()
+    {
+        $this->WriteAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, true);
+        $this->UpdateFormField('ReviewHint', 'visible', false);
     }
 
     // -----------------------------------------------------------------------
