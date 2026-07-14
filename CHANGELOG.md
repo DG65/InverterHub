@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.2-beta.1 (2026-07-14)
+
+- **Kritischer Bugfix** (gemeldet von einem Beta-Tester): Für alle Hersteller außer GoodWe
+  fehlten sämtliche Datenpunkt-Gruppen-Properties bei der Instanzerstellung
+  ("Eigenschaft GroupPV/GroupBat nicht gefunden"), da `Create()` nur die Properties des zum
+  Erstellungszeitpunkt aktiven Default-Treibers (GoodWe) registrierte. Jetzt werden die
+  Properties aller Treiber registriert, unabhängig vom gewählten Hersteller
+
 ## 0.4.1-beta.1 (2026-07-14)
 
 - Beta-Hinweis mit Link zum Symcon-Forum-Thread in beiden Modulen (InverterHub,
