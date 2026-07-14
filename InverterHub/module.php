@@ -74,6 +74,58 @@ class ModbusTcpClient
         return $regs;
     }
 
+    // Read Input Registers (FC 0x04) — Sungrow, Solis, Growatt, Solax trennen
+    // Mess-/Input-Register (0x04) von Holding-/Steuerregistern (0x03).
+    public function readInput($startReg, $count)
+    {
+        $sock = @fsockopen($this->host, $this->port, $errno, $errstr, 3.0);
+        if ($sock === false) {
+            return null;
+        }
+        stream_set_timeout($sock, 3);
+
+        $tid  = mt_rand(1, 65535);
+        $pdu  = pack('Cnn', 0x04, $startReg, $count);
+        $mbap = pack('nnn', $tid, 0, strlen($pdu) + 1) . chr($this->unitId);
+
+        fwrite($sock, $mbap . $pdu);
+
+        $response = '';
+        $deadline = microtime(true) + 3.0;
+        while (microtime(true) < $deadline) {
+            $chunk = @fread($sock, 512);
+            if ($chunk === false || $chunk === '') {
+                break;
+            }
+            $response .= $chunk;
+            if (strlen($response) >= 9) {
+                $byteCount = ord($response[8]);
+                if (strlen($response) >= 9 + $byteCount) {
+                    break;
+                }
+            }
+        }
+        fclose($sock);
+
+        if (strlen($response) < 9) {
+            return null;
+        }
+
+        $fc = ord($response[7]);
+        if ($fc & 0x80 || $fc !== 0x04) {
+            return null;
+        }
+
+        $byteCount = ord($response[8]);
+        $data      = substr($response, 9, $byteCount);
+
+        $regs = [];
+        for ($i = 0; $i < $count && ($i * 2 + 1) < strlen($data); $i++) {
+            $regs[$i] = (ord($data[$i * 2]) << 8) | ord($data[$i * 2 + 1]);
+        }
+        return $regs;
+    }
+
     public function writeSingle($reg, $value)
     {
         $sock = @fsockopen($this->host, $this->port, $errno, $errstr, 3.0);
@@ -148,6 +200,16 @@ class ModbusTcpClient
             $s .= chr(($r >> 8) & 0xFF) . chr($r & 0xFF);
         }
         return rtrim($s, "\x00 ");
+    }
+
+    // IEEE-754 Float32 über 2 Register, Big-Endian (SunSpec-Konvention).
+    public function readFloat32($regs, $offset)
+    {
+        $hi  = $this->u16($regs, $offset);
+        $lo  = $this->u16($regs, $offset + 1);
+        $raw = pack('nn', $hi, $lo);
+        $val = unpack('G', $raw);
+        return (float)($val[1] ?? 0.0);
     }
 }
 
@@ -747,13 +809,1174 @@ class GoodweDriver implements InverterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
+// SungrowDriver — Sungrow SH-Hybrid-Serie (SH5.0RT...SH10RT, SH5.0RS...SH10RS)
+// Eigene, weit verstreute Einzelregister. Mess-/Statuswerte: Read Input
+// Register (FC 0x04). Steuerung: Holding Register (FC 0x03/0x06).
+// Registeradressen werden direkt verwendet (kein Offset -1 dokumentiert).
+// ---------------------------------------------------------------------------
+
+class SungrowDriver implements InverterDriverInterface
+{
+    const REG_START_STOP = 13000; // Holding: 0xCF=Start, 0xCE=Stop
+
+    const RUN_STATES = [
+        0 => 'Aus', 1 => 'Läuft', 2 => 'Fehler', 3 => 'Standby',
+    ];
+
+    public function getBaseVars()
+    {
+        return [
+            ['connected',   'Verbindung',        'B', '~Alert.Reversed', false, 'errors', ''],
+            ['running_state','Betriebsstatus',   'I', 'SGW.RunState',     true,  'device', 'RO 13000'],
+            ['pv_total',    'PV Gesamtleistung', 'F', 'SGW.Watt',         true,  'pv',     'RO 5017-5018'],
+            ['ac_power',    'AC Wirkleistung',   'F', 'SGW.Watt',         true,  'device', 'RO 13034-13035'],
+            ['meter_total', 'Netz Leistung',     'F', 'SGW.Watt',         true,  'grid',   'Σ Meter A/B/C'],
+            ['bat_power',   'Bat. Leistung',     'F', 'SGW.Watt',         true,  'bat',    'RO 5214-5215'],
+        ];
+    }
+
+    public function getOptionalGroups()
+    {
+        return [
+            'GroupPV' => ['caption' => 'PV-Details (MPPT 1-4, Spannung/Strom)', 'vars' => [
+                ['mppt1_volt', 'MPPT1 Spannung', 'F', 'SGW.Volt',   false, 'pv', 'RO 5011'],
+                ['mppt1_curr', 'MPPT1 Strom',    'F', 'SGW.Ampere', false, 'pv', 'RO 5012'],
+                ['mppt2_volt', 'MPPT2 Spannung', 'F', 'SGW.Volt',   false, 'pv', 'RO 5013'],
+                ['mppt2_curr', 'MPPT2 Strom',    'F', 'SGW.Ampere', false, 'pv', 'RO 5014'],
+                ['mppt3_volt', 'MPPT3 Spannung', 'F', 'SGW.Volt',   false, 'pv', 'RO 5015'],
+                ['mppt3_curr', 'MPPT3 Strom',    'F', 'SGW.Ampere', false, 'pv', 'RO 5016'],
+                ['mppt4_volt', 'MPPT4 Spannung', 'F', 'SGW.Volt',   false, 'pv', 'RO 5115'],
+                ['mppt4_curr', 'MPPT4 Strom',    'F', 'SGW.Ampere', false, 'pv', 'RO 5116'],
+            ]],
+            'GroupGrid' => ['caption' => 'Netz (Spannung, Blindleistung, Power Factor, Frequenz)', 'vars' => [
+                ['grid_v1',      'Netz Spannung 1', 'F', 'SGW.Volt',   false, 'grid', 'RO 5019'],
+                ['grid_v2',      'Netz Spannung 2', 'F', 'SGW.Volt',   false, 'grid', 'RO 5020'],
+                ['grid_v3',      'Netz Spannung 3', 'F', 'SGW.Volt',   false, 'grid', 'RO 5021'],
+                ['grid_reactive','Blindleistung',    'F', 'SGW.WattReactive', false, 'grid', 'RO 5033-5034'],
+                ['power_factor', 'Power Factor',     'F', 'SGW.PowerFactor',  false, 'grid', 'RO 5035'],
+                ['grid_freq',    'Netzfrequenz',     'F', 'SGW.Hertz',        false, 'grid', 'RO 5242'],
+            ]],
+            'GroupBat' => ['caption' => 'Batterie (Spannung, Strom, SOC, SOH, Temperatur)', 'vars' => [
+                ['bat_volt', 'Bat. Spannung',    'F', 'SGW.Volt',     false, 'bat', 'RO 13020'],
+                ['bat_curr', 'Bat. Strom',       'F', 'SGW.Ampere',   false, 'bat', 'RO 13021'],
+                ['bat_soc',  'Bat. SOC',         'I', '~Battery.100', true,  'bat', 'RO 13023'],
+                ['bat_soh',  'Bat. SOH',         'I', '~Intensity.100', true, 'bat', 'RO 13024'],
+                ['bat_temp', 'Bat. Temperatur',  'F', '~Temperature', true,  'bat', 'RO 13025'],
+            ]],
+            'GroupMeter' => ['caption' => 'Smart Meter (Leistung je Phase)', 'vars' => [
+                ['mt_l1_pwr', 'Meter L1 Leistung', 'F', 'SGW.Watt', true, 'meter', 'RO 5603'],
+                ['mt_l2_pwr', 'Meter L2 Leistung', 'F', 'SGW.Watt', true, 'meter', 'RO 5605'],
+                ['mt_l3_pwr', 'Meter L3 Leistung', 'F', 'SGW.Watt', true, 'meter', 'RO 5607'],
+            ]],
+            'GroupEnergy' => ['caption' => 'Energiezähler (PV, Last, Export)', 'vars' => [
+                ['e_pv_day',   'PV Heute',   'F', '~Electricity', true, 'energy', 'RO 13002'],
+                ['e_pv_total', 'PV Gesamt',  'F', '~Electricity', true, 'energy', 'RO 13003-13004'],
+                ['load_power', 'Lastleistung', 'F', 'SGW.Watt',   true, 'energy', 'RO 13008-13009'],
+                ['export_power','Einspeiseleistung', 'F', 'SGW.Watt', true, 'energy', 'RO 13010-13011'],
+            ]],
+            'GroupBackup' => ['caption' => 'Backup / Notstrom (Spannung, Strom, Leistung je Phase)', 'vars' => [
+                ['backup_total', 'Backup Gesamtleistung', 'F', 'SGW.Watt', true, 'backup', 'RO 5726-5727'],
+                ['backup_freq',  'Backup Frequenz',       'F', 'SGW.Hertz', false, 'backup', 'RO 5734'],
+            ]],
+            'GroupDevice' => ['caption' => 'Geräteinformation (Typ, Nennleistung, Seriennummer)', 'vars' => [
+                ['dev_type',    'Gerätetyp-Code', 'I', '', false, 'device', 'RO 5000'],
+                ['dev_rated_w', 'Nennleistung',    'I', '', false, 'device', 'RO 5001'],
+                ['dev_sn',      'Seriennummer',    'S', '', false, 'device', 'RO 4990-4999'],
+            ]],
+            'GroupControl' => ['caption' => 'Steuerung (Start/Stop)', 'vars' => [
+                ['ctl_run', 'Wechselrichter Ein/Aus', 'B', '~Switch', false, 'control', 'RW 13000'],
+            ]],
+        ];
+    }
+
+    public function getExtraBooleanProperties()
+    {
+        return [];
+    }
+
+    public function getProfiles()
+    {
+        return [
+            'SGW.Watt'          => [VARIABLETYPE_FLOAT,   ' W',   -40000.0, 40000.0, 1.0,  0],
+            'SGW.Volt'          => [VARIABLETYPE_FLOAT,   ' V',        0.0,  1000.0, 0.1,  1],
+            'SGW.Ampere'        => [VARIABLETYPE_FLOAT,   ' A',     -200.0,   200.0, 0.1,  1],
+            'SGW.Hertz'         => [VARIABLETYPE_FLOAT,   ' Hz',      45.0,    65.0, 0.01, 2],
+            'SGW.WattReactive'  => [VARIABLETYPE_FLOAT,   ' var', -40000.0, 40000.0, 1.0,  0],
+            'SGW.PowerFactor'   => [VARIABLETYPE_FLOAT,   '',        -1.0,     1.0, 0.001, 3],
+        ];
+    }
+
+    public function getEnumProfiles()
+    {
+        $runState = [];
+        foreach (self::RUN_STATES as $k => $label) {
+            $runState[$k] = [$label, 0x7A8A99];
+        }
+        return ['SGW.RunState' => $runState];
+    }
+
+    public function readFast($mb, $hub)
+    {
+        $dc      = $mb->readInput(5010, 12);   // 5011-5022 (MPPT1-3 + DC total + Grid Volt)
+        $mppt4   = $mb->readInput(5114, 2);    // 5115-5116
+        $reactive= $mb->readInput(5032, 4);    // 5033-5036 (reactive/PF/freq)
+        $battery = $mb->readInput(5213, 2);    // 5214-5215 Bat power wide range
+        $meter   = $mb->readInput(5602, 6);    // 5603,5605,5607 (+ Reserve dazwischen)
+        $running = $mb->readInput(12999, 2);   // 13000 running state + 13001 power flow
+        $freqhi  = $mb->readInput(5241, 1);    // 5242 high precision freq
+        $sum     = $mb->readInput(13033, 2);   // 13034-13035 total active power
+
+        $ok = ($dc !== null);
+        $hub->SetVarBool('connected', $ok);
+        if (!$ok) {
+            return false;
+        }
+
+        if ($running !== null) {
+            $hub->SetVarInt('running_state', $mb->u16($running, 0));
+        }
+        $hub->SetVarFloat('pv_total', (float)$mb->u32($dc, 6));
+        if ($sum !== null) {
+            $hub->SetVarFloat('ac_power', (float)$mb->s32($sum, 0));
+        }
+        if ($battery !== null) {
+            $hub->SetVarFloat('bat_power', (float)$mb->s32($battery, 0));
+        }
+
+        if ($hub->GetPropBool('GroupPV')) {
+            $hub->SetVarFloat('mppt1_volt', $mb->u16($dc, 0) / 10.0);
+            $hub->SetVarFloat('mppt1_curr', $mb->u16($dc, 1) / 10.0);
+            $hub->SetVarFloat('mppt2_volt', $mb->u16($dc, 2) / 10.0);
+            $hub->SetVarFloat('mppt2_curr', $mb->u16($dc, 3) / 10.0);
+            $hub->SetVarFloat('mppt3_volt', $mb->u16($dc, 4) / 10.0);
+            $hub->SetVarFloat('mppt3_curr', $mb->u16($dc, 5) / 10.0);
+            if ($mppt4 !== null) {
+                $hub->SetVarFloat('mppt4_volt', $mb->u16($mppt4, 0) / 10.0);
+                $hub->SetVarFloat('mppt4_curr', $mb->u16($mppt4, 1) / 10.0);
+            }
+        }
+
+        if ($hub->GetPropBool('GroupGrid')) {
+            $hub->SetVarFloat('grid_v1', $mb->u16($dc, 9)  / 10.0);
+            $hub->SetVarFloat('grid_v2', $mb->u16($dc, 10) / 10.0);
+            $hub->SetVarFloat('grid_v3', $mb->u16($dc, 11) / 10.0);
+            if ($reactive !== null) {
+                $hub->SetVarFloat('grid_reactive', (float)$mb->s32($reactive, 0));
+                $hub->SetVarFloat('power_factor',  $mb->s16($reactive, 2) / 1000.0);
+            }
+            if ($freqhi !== null) {
+                $hub->SetVarFloat('grid_freq', $mb->u16($freqhi, 0) / 100.0);
+            }
+        }
+
+        if ($hub->GetPropBool('GroupMeter') && $meter !== null) {
+            $hub->SetVarFloat('mt_l1_pwr', (float)$mb->s32($meter, 0));
+            $hub->SetVarFloat('mt_l2_pwr', (float)$mb->s32($meter, 2));
+            $hub->SetVarFloat('mt_l3_pwr', (float)$mb->s32($meter, 4));
+        }
+
+        if ($hub->GetPropBool('GroupBat')) {
+            $batBlk = $mb->readInput(13019, 7); // 13020-13026
+            if ($batBlk !== null) {
+                $hub->SetVarFloat('bat_volt', $mb->u16($batBlk, 0) / 10.0);
+                $hub->SetVarFloat('bat_curr', $mb->u16($batBlk, 1) / 10.0);
+                $hub->SetVarInt('bat_soc', (int)round($mb->u16($batBlk, 3) / 10.0));
+                $hub->SetVarInt('bat_soh', (int)round($mb->u16($batBlk, 4) / 10.0));
+                $hub->SetVarFloat('bat_temp', $mb->s16($batBlk, 5) / 10.0);
+            }
+        }
+
+        if ($hub->GetPropBool('GroupBackup')) {
+            $bk = $mb->readInput(5725, 10); // 5726-5735
+            if ($bk !== null) {
+                $hub->SetVarFloat('backup_total', (float)$mb->s32($bk, 0));
+                $hub->SetVarFloat('backup_freq',  $mb->u16($bk, 8) / 100.0);
+            }
+        }
+
+        return true;
+    }
+
+    public function readSlow($mb, $hub)
+    {
+        if ($hub->GetPropBool('GroupEnergy')) {
+            $e = $mb->readInput(13001, 11); // 13002-13012
+            if ($e !== null) {
+                $hub->SetVarFloat('e_pv_day',   $mb->u16($e, 0) / 10.0);
+                $hub->SetVarFloat('e_pv_total', $mb->u32($e, 1) / 10.0);
+                $hub->SetVarFloat('load_power',   (float)$mb->s32($e, 6));
+                $hub->SetVarFloat('export_power', (float)$mb->s32($e, 8));
+            }
+        }
+    }
+
+    public function readDeviceInfo($mb, $hub)
+    {
+        $dev = $mb->readInput(4999, 2); // 5000-5001
+        if ($dev !== null) {
+            $hub->SetVarInt('dev_type',    $mb->u16($dev, 0));
+            $hub->SetVarInt('dev_rated_w', $mb->u16($dev, 1) * 100);
+        }
+        $sn = $mb->readInput(4989, 10); // 4990-4999 UTF-8
+        if ($sn !== null) {
+            $hub->SetVarStr('dev_sn', $mb->readStr($sn, 0, 10));
+        }
+    }
+
+    public function writeControl($mb, $hub, $ident, $value)
+    {
+        if ($ident === 'ctl_run') {
+            $val = (bool)$value ? 0xCF : 0xCE;
+            if ($mb->writeSingle(SungrowDriver::REG_START_STOP, $val)) {
+                $hub->SetVarBool('ctl_run', (bool)$value);
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// SolisDriver — Solis Hybrid-Wechselrichter (33000er-Registerblock).
+// Registeradressen direkt verwendet. Mess-/Statuswerte: Read Input Register
+// (FC 0x04). Reine String-Wechselrichter (3000er-Block) werden derzeit
+// nicht unterstützt.
+// ---------------------------------------------------------------------------
+
+class SolisDriver implements InverterDriverInterface
+{
+    public function getBaseVars()
+    {
+        return [
+            ['connected',   'Verbindung',        'B', '~Alert.Reversed', false, 'errors', ''],
+            ['pv_total',    'PV Gesamtleistung', 'F', 'SLS.Watt', true,  'pv',       'RO 33057-33058'],
+            ['ac_power',    'AC Wirkleistung',   'F', 'SLS.Watt', true,  'device',   'RO 33079-33080'],
+            ['meter_total', 'Netz Leistung',      'F', 'SLS.Watt', true,  'grid',    'RO 33151-33152'],
+            ['bat_power',   'Bat. Leistung',     'F', 'SLS.Watt', true,  'bat',      'RO 33149-33150'],
+            ['bat_soc',     'Bat. SOC',          'I', '~Battery.100', true, 'bat',   'RO 33139'],
+        ];
+    }
+
+    public function getOptionalGroups()
+    {
+        return [
+            'GroupPV' => ['caption' => 'PV-Details (bis zu 4 Strings)', 'vars' => [
+                ['pv1_volt', 'PV1 Spannung', 'F', 'SLS.Volt',   false, 'pv', 'RO 33049'],
+                ['pv1_curr', 'PV1 Strom',    'F', 'SLS.Ampere', false, 'pv', 'RO 33050'],
+                ['pv2_volt', 'PV2 Spannung', 'F', 'SLS.Volt',   false, 'pv', 'RO 33051'],
+                ['pv2_curr', 'PV2 Strom',    'F', 'SLS.Ampere', false, 'pv', 'RO 33052'],
+                ['pv3_volt', 'PV3 Spannung', 'F', 'SLS.Volt',   false, 'pv', 'RO 33053'],
+                ['pv3_curr', 'PV3 Strom',    'F', 'SLS.Ampere', false, 'pv', 'RO 33054'],
+                ['pv4_volt', 'PV4 Spannung', 'F', 'SLS.Volt',   false, 'pv', 'RO 33055'],
+                ['pv4_curr', 'PV4 Strom',    'F', 'SLS.Ampere', false, 'pv', 'RO 33056'],
+            ]],
+            'GroupGrid' => ['caption' => 'Netz (Spannung, Strom, Blind-/Scheinleistung je Phase)', 'vars' => [
+                ['grid_l1_volt', 'Netz L1 Spannung', 'F', 'SLS.Volt',   false, 'grid', 'RO 33073'],
+                ['grid_l2_volt', 'Netz L2 Spannung', 'F', 'SLS.Volt',   false, 'grid', 'RO 33074'],
+                ['grid_l3_volt', 'Netz L3 Spannung', 'F', 'SLS.Volt',   false, 'grid', 'RO 33075'],
+                ['grid_l1_curr', 'Netz L1 Strom',    'F', 'SLS.Ampere', false, 'grid', 'RO 33076'],
+                ['grid_l2_curr', 'Netz L2 Strom',    'F', 'SLS.Ampere', false, 'grid', 'RO 33077'],
+                ['grid_l3_curr', 'Netz L3 Strom',    'F', 'SLS.Ampere', false, 'grid', 'RO 33078'],
+                ['grid_freq',    'Netzfrequenz',      'F', 'SLS.Hertz', false, 'grid', 'RO 33094'],
+            ]],
+            'GroupBat' => ['caption' => 'Batterie (Spannung, Strom, SOH)', 'vars' => [
+                ['bat_volt', 'Bat. Spannung', 'F', 'SLS.Volt',   false, 'bat', 'RO 33133'],
+                ['bat_curr', 'Bat. Strom',    'F', 'SLS.Ampere', false, 'bat', 'RO 33134'],
+                ['bat_soh',  'Bat. SOH',      'I', '~Intensity.100', true, 'bat', 'RO 33140'],
+                ['household_load', 'Hausverbrauch', 'F', 'SLS.Watt', true, 'bat', 'RO 33147'],
+                ['backup_load',    'Backup-Last',   'F', 'SLS.Watt', true, 'bat', 'RO 33148'],
+            ]],
+            'GroupMeter' => ['caption' => 'Smart Meter (Spannung, Strom je Phase)', 'vars' => [
+                ['mt_l1_volt', 'Meter L1 Spannung', 'F', 'SLS.Volt',   false, 'meter', 'RO 33251'],
+                ['mt_l2_volt', 'Meter L2 Spannung', 'F', 'SLS.Volt',   false, 'meter', 'RO 33253'],
+                ['mt_l3_volt', 'Meter L3 Spannung', 'F', 'SLS.Volt',   false, 'meter', 'RO 33255'],
+                ['mt_total_pwr', 'Meter Gesamtleistung', 'F', 'SLS.Watt', true, 'meter', 'RO 33263-33264'],
+            ]],
+            'GroupTemp' => ['caption' => 'Temperatur', 'vars' => [
+                ['temp_inv', 'Wechselrichter-Temperatur', 'F', '~Temperature', false, 'device', 'RO 33093'],
+            ]],
+            'GroupEnergy' => ['caption' => 'Energiezähler (PV, Batterie, Netz, Verbrauch)', 'vars' => [
+                ['e_pv_day',       'PV Heute',            'F', '~Electricity', true, 'energy', 'RO 33035'],
+                ['e_pv_total',     'PV Gesamt',           'F', '~Electricity', true, 'energy', 'RO 33029-33030'],
+                ['e_charge_day',   'Bat. Laden Heute',    'F', '~Electricity', true, 'energy', 'RO 33163'],
+                ['e_charge_total', 'Bat. Laden Gesamt',   'F', '~Electricity', true, 'energy', 'RO 33161-33162'],
+                ['e_disch_day',    'Bat. Entl. Heute',    'F', '~Electricity', true, 'energy', 'RO 33167'],
+                ['e_disch_total',  'Bat. Entl. Gesamt',   'F', '~Electricity', true, 'energy', 'RO 33165-33166'],
+                ['e_buy_day',      'Bezug Heute',         'F', '~Electricity', true, 'energy', 'RO 33171'],
+                ['e_buy_total',    'Bezug Gesamt',        'F', '~Electricity', true, 'energy', 'RO 33169-33170'],
+                ['e_sell_day',     'Einspeisung Heute',   'F', '~Electricity', true, 'energy', 'RO 33175'],
+                ['e_sell_total',   'Einspeisung Gesamt',  'F', '~Electricity', true, 'energy', 'RO 33173-33174'],
+            ]],
+            'GroupDevice' => ['caption' => 'Geräteinformation', 'vars' => [
+                ['dev_model', 'Modell-Nr.', 'I', '', false, 'device', 'RO 33000'],
+                ['dev_sn',    'Seriennummer', 'S', '', false, 'device', 'RO 33004-33019'],
+            ]],
+        ];
+    }
+
+    public function getExtraBooleanProperties()
+    {
+        return [];
+    }
+
+    public function getProfiles()
+    {
+        return [
+            'SLS.Watt'   => [VARIABLETYPE_FLOAT, ' W',  -40000.0, 40000.0, 1.0,  0],
+            'SLS.Volt'   => [VARIABLETYPE_FLOAT, ' V',       0.0,  1000.0, 0.1,  1],
+            'SLS.Ampere' => [VARIABLETYPE_FLOAT, ' A',    -200.0,   200.0, 0.1,  1],
+            'SLS.Hertz'  => [VARIABLETYPE_FLOAT, ' Hz',     45.0,    65.0, 0.01, 2],
+        ];
+    }
+
+    public function getEnumProfiles()
+    {
+        return [];
+    }
+
+    public function readFast($mb, $hub)
+    {
+        $pv     = $mb->readInput(33048, 12);   // 33049-33060 (PV1-4 V/I + Total DC-Bereich)
+        $ac     = $mb->readInput(33078, 6);    // 33079-33084 Wirk/Blind/Scheinleistung
+        $bat    = $mb->readInput(33131, 20);   // 33132-33151 Batterie + Household/Backup Load
+        $meter  = $mb->readInput(33150, 3);    // 33151-33152 (+33153 Reserve) Grid Port Power
+
+        $ok = ($pv !== null);
+        $hub->SetVarBool('connected', $ok);
+        if (!$ok) {
+            return false;
+        }
+
+        $hub->SetVarFloat('pv_total', (float)$mb->u32($pv, 8));  // 33057-33058
+        if ($ac !== null) {
+            $hub->SetVarFloat('ac_power', (float)$mb->s32($ac, 0));
+        }
+        if ($bat !== null) {
+            $hub->SetVarInt('bat_soc', $mb->u16($bat, 7));                // 33139
+            $hub->SetVarFloat('bat_power', (float)$mb->s32($bat, 17));    // 33149-33150
+        }
+        if ($meter !== null) {
+            $hub->SetVarFloat('meter_total', (float)$mb->s32($meter, 0));
+        }
+
+        if ($hub->GetPropBool('GroupPV')) {
+            $hub->SetVarFloat('pv1_volt', $mb->u16($pv, 0) / 10.0);
+            $hub->SetVarFloat('pv1_curr', $mb->u16($pv, 1) / 10.0);
+            $hub->SetVarFloat('pv2_volt', $mb->u16($pv, 2) / 10.0);
+            $hub->SetVarFloat('pv2_curr', $mb->u16($pv, 3) / 10.0);
+            $hub->SetVarFloat('pv3_volt', $mb->u16($pv, 4) / 10.0);
+            $hub->SetVarFloat('pv3_curr', $mb->u16($pv, 5) / 10.0);
+            $hub->SetVarFloat('pv4_volt', $mb->u16($pv, 6) / 10.0);
+            $hub->SetVarFloat('pv4_curr', $mb->u16($pv, 7) / 10.0);
+        }
+
+        if ($hub->GetPropBool('GroupGrid')) {
+            $grid = $mb->readInput(33072, 24); // 33073-33096
+            if ($grid !== null) {
+                $hub->SetVarFloat('grid_l1_volt', $mb->u16($grid, 0) / 10.0);
+                $hub->SetVarFloat('grid_l2_volt', $mb->u16($grid, 1) / 10.0);
+                $hub->SetVarFloat('grid_l3_volt', $mb->u16($grid, 2) / 10.0);
+                $hub->SetVarFloat('grid_l1_curr', $mb->u16($grid, 3) / 10.0);
+                $hub->SetVarFloat('grid_l2_curr', $mb->u16($grid, 4) / 10.0);
+                $hub->SetVarFloat('grid_l3_curr', $mb->u16($grid, 5) / 10.0);
+                $hub->SetVarFloat('grid_freq', $mb->u16($grid, 21) / 100.0);
+                if ($hub->GetPropBool('GroupTemp')) {
+                    $hub->SetVarFloat('temp_inv', $mb->s16($grid, 20) / 10.0);
+                }
+            }
+        }
+
+        if ($hub->GetPropBool('GroupBat') && $bat !== null) {
+            $hub->SetVarFloat('bat_volt', $mb->u16($bat, 1) / 10.0);       // 33133
+            $hub->SetVarFloat('bat_curr', $mb->s16($bat, 2) / 10.0);       // 33134
+            $hub->SetVarInt('bat_soh',    $mb->u16($bat, 8));              // 33140
+            $hub->SetVarFloat('household_load', (float)$mb->u16($bat, 15)); // 33147
+            $hub->SetVarFloat('backup_load',    (float)$mb->u16($bat, 16)); // 33148
+        }
+
+        if ($hub->GetPropBool('GroupMeter')) {
+            $mtV = $mb->readInput(33250, 14); // 33251-33264
+            if ($mtV !== null) {
+                $hub->SetVarFloat('mt_l1_volt', $mb->u16($mtV, 0) / 10.0);
+                $hub->SetVarFloat('mt_l2_volt', $mb->u16($mtV, 2) / 10.0);
+                $hub->SetVarFloat('mt_l3_volt', $mb->u16($mtV, 4) / 10.0);
+                $hub->SetVarFloat('mt_total_pwr', (float)$mb->s32($mtV, 12));
+            }
+        }
+
+        return true;
+    }
+
+    public function readSlow($mb, $hub)
+    {
+        if ($hub->GetPropBool('GroupEnergy')) {
+            $e1 = $mb->readInput(33028, 12);  // 33029-33040
+            if ($e1 !== null) {
+                $hub->SetVarFloat('e_pv_total', $mb->u32($e1, 0) / 10.0);
+                $hub->SetVarFloat('e_pv_day',   $mb->u16($e1, 6) / 10.0);
+            }
+            $e2 = $mb->readInput(33160, 20);  // 33161-33180
+            if ($e2 !== null) {
+                $hub->SetVarFloat('e_charge_total', $mb->u32($e2, 0)  / 10.0);
+                $hub->SetVarFloat('e_charge_day',   $mb->u16($e2, 2)  / 10.0);
+                $hub->SetVarFloat('e_disch_total',  $mb->u32($e2, 4)  / 10.0);
+                $hub->SetVarFloat('e_disch_day',    $mb->u16($e2, 6)  / 10.0);
+                $hub->SetVarFloat('e_buy_total',    $mb->u32($e2, 8)  / 10.0);
+                $hub->SetVarFloat('e_buy_day',      $mb->u16($e2, 10) / 10.0);
+                $hub->SetVarFloat('e_sell_total',   $mb->u32($e2, 12) / 10.0);
+                $hub->SetVarFloat('e_sell_day',     $mb->u16($e2, 14) / 10.0);
+            }
+        }
+    }
+
+    public function readDeviceInfo($mb, $hub)
+    {
+        $model = $mb->readInput(32999, 1);
+        if ($model !== null) {
+            $hub->SetVarInt('dev_model', $mb->u16($model, 0));
+        }
+        $sn = $mb->readInput(33003, 16);
+        if ($sn !== null) {
+            $hub->SetVarStr('dev_sn', $mb->readStr($sn, 0, 16));
+        }
+    }
+
+    public function writeControl($mb, $hub, $ident, $value)
+    {
+        // Kein Steuerregister in der ersten Ausbaustufe implementiert.
+    }
+}
+
+// ---------------------------------------------------------------------------
+// GrowattDriver — Growatt Wechselrichter (TL-X/TL3-X/MOD/MIX/SPH/WIT-Serie).
+// Durchnummerierte Input-Register (FC 0x04), 32-Bit-Werte als H/L-Paar.
+// Modellfamilien unterscheiden sich in Registerbereichen (siehe Growatt-
+// Protokoll Kapitel 1.2) — abgedeckt ist der gemeinsame Basisbereich
+// (Register-Index 0-107), der bei praktisch allen Modellfamilien gilt.
+// ---------------------------------------------------------------------------
+
+class GrowattDriver implements InverterDriverInterface
+{
+    const STATUS = [0 => 'Warte', 1 => 'Normal', 3 => 'Fehler'];
+
+    public function getBaseVars()
+    {
+        return [
+            ['connected',  'Verbindung',        'B', '~Alert.Reversed', false, 'errors', ''],
+            ['status',     'Betriebsstatus',    'I', 'GRW.Status',       true,  'device', 'Input 0'],
+            ['pv_total',   'PV Gesamtleistung', 'F', 'GRW.Watt',         true,  'pv',     'Input 1-2'],
+            ['ac_power',   'AC Wirkleistung',   'F', 'GRW.Watt',         true,  'device', 'Input 35-36'],
+            ['grid_freq',  'Netzfrequenz',      'F', 'GRW.Hertz',        false, 'grid',   'Input 37'],
+        ];
+    }
+
+    public function getOptionalGroups()
+    {
+        return [
+            'GroupPV' => ['caption' => 'PV-Details (String 1-3, Spannung/Strom/Leistung)', 'vars' => [
+                ['pv1_volt', 'PV1 Spannung', 'F', 'GRW.Volt',   false, 'pv', 'Input 3'],
+                ['pv1_curr', 'PV1 Strom',    'F', 'GRW.Ampere', false, 'pv', 'Input 4'],
+                ['pv1_power','PV1 Leistung', 'F', 'GRW.Watt',   true,  'pv', 'Input 5-6'],
+                ['pv2_volt', 'PV2 Spannung', 'F', 'GRW.Volt',   false, 'pv', 'Input 7'],
+                ['pv2_curr', 'PV2 Strom',    'F', 'GRW.Ampere', false, 'pv', 'Input 8'],
+                ['pv2_power','PV2 Leistung', 'F', 'GRW.Watt',   true,  'pv', 'Input 9-10'],
+                ['pv3_volt', 'PV3 Spannung', 'F', 'GRW.Volt',   false, 'pv', 'Input 11'],
+                ['pv3_curr', 'PV3 Strom',    'F', 'GRW.Ampere', false, 'pv', 'Input 12'],
+                ['pv3_power','PV3 Leistung', 'F', 'GRW.Watt',   true,  'pv', 'Input 13-14'],
+            ]],
+            'GroupGrid' => ['caption' => 'Netz (Spannung, Strom, Leistung je Phase)', 'vars' => [
+                ['vac1', 'Netz L1 Spannung', 'F', 'GRW.Volt',   false, 'grid', 'Input 38'],
+                ['iac1', 'Netz L1 Strom',    'F', 'GRW.Ampere', false, 'grid', 'Input 39'],
+                ['pac1', 'Netz L1 Leistung', 'F', 'GRW.Watt',   true,  'grid', 'Input 40-41'],
+                ['vac2', 'Netz L2 Spannung', 'F', 'GRW.Volt',   false, 'grid', 'Input 42'],
+                ['iac2', 'Netz L2 Strom',    'F', 'GRW.Ampere', false, 'grid', 'Input 43'],
+                ['pac2', 'Netz L2 Leistung', 'F', 'GRW.Watt',   true,  'grid', 'Input 44-45'],
+                ['vac3', 'Netz L3 Spannung', 'F', 'GRW.Volt',   false, 'grid', 'Input 46'],
+                ['iac3', 'Netz L3 Strom',    'F', 'GRW.Ampere', false, 'grid', 'Input 47'],
+                ['pac3', 'Netz L3 Leistung', 'F', 'GRW.Watt',   true,  'grid', 'Input 48-49'],
+            ]],
+            'GroupEnergy' => ['caption' => 'Energiezähler (Tag/Gesamt)', 'vars' => [
+                ['e_day',   'Ertrag Heute',  'F', '~Electricity', true, 'energy', 'Input 53-54'],
+                ['e_total', 'Ertrag Gesamt', 'F', '~Electricity', true, 'energy', 'Input 55-56'],
+            ]],
+            'GroupTemp' => ['caption' => 'Temperatur', 'vars' => [
+                ['temp1', 'Wechselrichter-Temperatur', 'F', '~Temperature', false, 'device', 'Input 93'],
+            ]],
+            'GroupErrors' => ['caption' => 'Fehlercodes', 'vars' => [
+                ['fault_main', 'Fehler-Hauptcode', 'I', '', true, 'errors', 'Input 105'],
+                ['fault_sub',  'Fehler-Subcode',   'I', '', true, 'errors', 'Input 107'],
+            ]],
+        ];
+    }
+
+    public function getExtraBooleanProperties()
+    {
+        return [];
+    }
+
+    public function getProfiles()
+    {
+        return [
+            'GRW.Watt'   => [VARIABLETYPE_FLOAT, ' W',  -40000.0, 40000.0, 1.0,  0],
+            'GRW.Volt'   => [VARIABLETYPE_FLOAT, ' V',       0.0,  1000.0, 0.1,  1],
+            'GRW.Ampere' => [VARIABLETYPE_FLOAT, ' A',    -200.0,   200.0, 0.1,  1],
+            'GRW.Hertz'  => [VARIABLETYPE_FLOAT, ' Hz',     45.0,    65.0, 0.01, 2],
+        ];
+    }
+
+    public function getEnumProfiles()
+    {
+        $status = [];
+        foreach (self::STATUS as $k => $label) {
+            $status[$k] = [$label, 0x7A8A99];
+        }
+        return ['GRW.Status' => $status];
+    }
+
+    public function readFast($mb, $hub)
+    {
+        $blk = $mb->readInput(0, 108); // Index 0-107
+
+        $ok = ($blk !== null);
+        $hub->SetVarBool('connected', $ok);
+        if (!$ok) {
+            return false;
+        }
+
+        $hub->SetVarInt('status', $mb->u16($blk, 0));
+        $hub->SetVarFloat('pv_total', $mb->u32($blk, 1) / 10.0);
+        $hub->SetVarFloat('ac_power', $mb->u32($blk, 35) / 10.0);
+        $hub->SetVarFloat('grid_freq', $mb->u16($blk, 37) / 100.0);
+
+        if ($hub->GetPropBool('GroupPV')) {
+            $hub->SetVarFloat('pv1_volt',  $mb->u16($blk, 3) / 10.0);
+            $hub->SetVarFloat('pv1_curr',  $mb->u16($blk, 4) / 10.0);
+            $hub->SetVarFloat('pv1_power', $mb->u32($blk, 5) / 10.0);
+            $hub->SetVarFloat('pv2_volt',  $mb->u16($blk, 7) / 10.0);
+            $hub->SetVarFloat('pv2_curr',  $mb->u16($blk, 8) / 10.0);
+            $hub->SetVarFloat('pv2_power', $mb->u32($blk, 9) / 10.0);
+            $hub->SetVarFloat('pv3_volt',  $mb->u16($blk, 11) / 10.0);
+            $hub->SetVarFloat('pv3_curr',  $mb->u16($blk, 12) / 10.0);
+            $hub->SetVarFloat('pv3_power', $mb->u32($blk, 13) / 10.0);
+        }
+
+        if ($hub->GetPropBool('GroupGrid')) {
+            $hub->SetVarFloat('vac1', $mb->u16($blk, 38) / 10.0);
+            $hub->SetVarFloat('iac1', $mb->u16($blk, 39) / 10.0);
+            $hub->SetVarFloat('pac1', $mb->u32($blk, 40) / 10.0);
+            $hub->SetVarFloat('vac2', $mb->u16($blk, 42) / 10.0);
+            $hub->SetVarFloat('iac2', $mb->u16($blk, 43) / 10.0);
+            $hub->SetVarFloat('pac2', $mb->u32($blk, 44) / 10.0);
+            $hub->SetVarFloat('vac3', $mb->u16($blk, 46) / 10.0);
+            $hub->SetVarFloat('iac3', $mb->u16($blk, 47) / 10.0);
+            $hub->SetVarFloat('pac3', $mb->u32($blk, 48) / 10.0);
+        }
+
+        if ($hub->GetPropBool('GroupEnergy')) {
+            $hub->SetVarFloat('e_day',   $mb->u32($blk, 53) / 10.0);
+            $hub->SetVarFloat('e_total', $mb->u32($blk, 55) / 10.0);
+        }
+
+        if ($hub->GetPropBool('GroupTemp')) {
+            $hub->SetVarFloat('temp1', $mb->s16($blk, 93) / 10.0);
+        }
+
+        if ($hub->GetPropBool('GroupErrors')) {
+            $hub->SetVarInt('fault_main', $mb->u16($blk, 105));
+            $hub->SetVarInt('fault_sub',  $mb->u16($blk, 107));
+        }
+
+        return true;
+    }
+
+    public function readSlow($mb, $hub)
+    {
+        // Alle Werte werden bereits in readFast() in einem Block gelesen.
+    }
+
+    public function readDeviceInfo($mb, $hub)
+    {
+        // Kein separates Geräteinfo-Register in der ersten Ausbaustufe gelesen.
+    }
+
+    public function writeControl($mb, $hub, $ident, $value)
+    {
+        // Kein Steuerregister in der ersten Ausbaustufe implementiert.
+    }
+}
+
+// ---------------------------------------------------------------------------
+// SolaxDriver — SolaX Hybrid X1/X3-Serie. WICHTIG: Der Wechselrichter selbst
+// spricht nur Modbus RTU — Modbus TCP läuft ausschließlich über ein
+// zusätzliches SolaX-Monitoring-Modul (Pocket WiFi/LAN) als RTU/TCP-Gateway.
+// Registeradressen direkt verwendet, Read Input Register (FC 0x04).
+// ---------------------------------------------------------------------------
+
+class SolaxDriver implements InverterDriverInterface
+{
+    public function getBaseVars()
+    {
+        return [
+            ['connected',   'Verbindung',         'B', '~Alert.Reversed', false, 'errors', ''],
+            ['grid_status', 'Netzstatus',         'I', 'SLX.GridStatus',  false, 'grid',   'RO 0x001A'],
+            ['pv_total',    'PV Gesamtleistung',  'F', 'SLX.Watt',        true,  'pv',     'RO 0x0032-0x0033'],
+            ['ongrid_total','On-Grid Gesamtleistung', 'F', 'SLX.Watt',    true,  'device', 'RO 0x0034-0x0035'],
+            ['bat_power',   'Bat. Leistung',      'F', 'SLX.Watt',        true,  'bat',    'RO 0x0038-0x0039'],
+            ['bat_soc',     'Bat. SOC',           'I', '~Battery.100',    true,  'bat',    'RO 0x003C'],
+        ];
+    }
+
+    public function getOptionalGroups()
+    {
+        return [
+            'GroupPV' => ['caption' => 'PV-Details (bis zu 6 Strings)', 'vars' => [
+                ['pv1_volt', 'PV1 Spannung', 'F', 'SLX.Volt',   false, 'pv', 'RO 0x0003'],
+                ['pv1_curr', 'PV1 Strom',    'F', 'SLX.Ampere', false, 'pv', 'RO 0x0005'],
+                ['pv1_power','PV1 Leistung', 'F', 'SLX.Watt',   true,  'pv', 'RO 0x000A'],
+                ['pv2_volt', 'PV2 Spannung', 'F', 'SLX.Volt',   false, 'pv', 'RO 0x0004'],
+                ['pv2_curr', 'PV2 Strom',    'F', 'SLX.Ampere', false, 'pv', 'RO 0x0006'],
+                ['pv2_power','PV2 Leistung', 'F', 'SLX.Watt',   true,  'pv', 'RO 0x000B'],
+                ['pv3_volt', 'PV3 Spannung', 'F', 'SLX.Volt',   false, 'pv', 'RO 0x0122'],
+                ['pv3_curr', 'PV3 Strom',    'F', 'SLX.Ampere', false, 'pv', 'RO 0x0123'],
+                ['pv3_power','PV3 Leistung', 'F', 'SLX.Watt',   true,  'pv', 'RO 0x0124'],
+                ['pv4_volt', 'PV4 Spannung', 'F', 'SLX.Volt',   false, 'pv', 'RO 0x0028'],
+                ['pv5_volt', 'PV5 Spannung', 'F', 'SLX.Volt',   false, 'pv', 'RO 0x0029'],
+                ['pv6_volt', 'PV6 Spannung', 'F', 'SLX.Volt',   false, 'pv', 'RO 0x002A'],
+                ['pv4_curr', 'PV4 Strom',    'F', 'SLX.Ampere', false, 'pv', 'RO 0x002B'],
+                ['pv5_curr', 'PV5 Strom',    'F', 'SLX.Ampere', false, 'pv', 'RO 0x002C'],
+                ['pv6_curr', 'PV6 Strom',    'F', 'SLX.Ampere', false, 'pv', 'RO 0x002D'],
+                ['pv4_power','PV4 Leistung', 'F', 'SLX.Watt',   true,  'pv', 'RO 0x002E'],
+                ['pv5_power','PV5 Leistung', 'F', 'SLX.Watt',   true,  'pv', 'RO 0x002F'],
+                ['pv6_power','PV6 Leistung', 'F', 'SLX.Watt',   true,  'pv', 'RO 0x0030'],
+            ]],
+            'GroupGridX1' => ['caption' => 'Netz einphasig (X1-Modelle)', 'vars' => [
+                ['grid_volt', 'Netz Spannung',  'F', 'SLX.Volt',   false, 'grid', 'RO 0x0000'],
+                ['grid_curr', 'Netz Strom',     'F', 'SLX.Ampere', false, 'grid', 'RO 0x0001'],
+                ['grid_pwr',  'Netz Leistung',  'F', 'SLX.Watt',   true,  'grid', 'RO 0x0002'],
+                ['grid_freq', 'Netzfrequenz',   'F', 'SLX.Hertz',  false, 'grid', 'RO 0x0007'],
+            ]],
+            'GroupGridX3' => ['caption' => 'Netz dreiphasig (X3-Modelle)', 'vars' => [
+                ['grid_r_volt', 'Netz R Spannung', 'F', 'SLX.Volt',   false, 'grid', 'RO 0x006A'],
+                ['grid_r_curr', 'Netz R Strom',    'F', 'SLX.Ampere', false, 'grid', 'RO 0x006B'],
+                ['grid_r_pwr',  'Netz R Leistung', 'F', 'SLX.Watt',   true,  'grid', 'RO 0x006C'],
+                ['grid_s_volt', 'Netz S Spannung', 'F', 'SLX.Volt',   false, 'grid', 'RO 0x006E'],
+                ['grid_s_curr', 'Netz S Strom',    'F', 'SLX.Ampere', false, 'grid', 'RO 0x006F'],
+                ['grid_s_pwr',  'Netz S Leistung', 'F', 'SLX.Watt',   true,  'grid', 'RO 0x0070'],
+                ['grid_t_volt', 'Netz T Spannung', 'F', 'SLX.Volt',   false, 'grid', 'RO 0x0072'],
+                ['grid_t_curr', 'Netz T Strom',    'F', 'SLX.Ampere', false, 'grid', 'RO 0x0073'],
+                ['grid_t_pwr',  'Netz T Leistung', 'F', 'SLX.Watt',   true,  'grid', 'RO 0x0074'],
+            ]],
+            'GroupBat' => ['caption' => 'Batterie-Systemwerte (Gesamt)', 'vars' => [
+                ['bat_capacity', 'Bat. installierte Kapazität', 'F', '~Electricity', false, 'bat', 'RO 0x003A-0x003B'],
+                ['bat_soh',      'Bat. SOH', 'I', '~Intensity.100', true, 'bat', 'RO 0x003D'],
+            ]],
+            'GroupMeter' => ['caption' => 'Meter/CT (Einspeiseleistung)', 'vars' => [
+                ['feedin_total', 'Einspeiseleistung Gesamt', 'F', 'SLX.Watt', true, 'meter', 'RO 0x0046-0x0047'],
+                ['feedin_r',     'Einspeiseleistung R',      'F', 'SLX.Watt', true, 'meter', 'RO 0x0082-0x0083'],
+                ['feedin_s',     'Einspeiseleistung S',      'F', 'SLX.Watt', true, 'meter', 'RO 0x0084-0x0085'],
+            ]],
+            'GroupOffgrid' => ['caption' => 'Off-Grid / EPS (Notstrom)', 'vars' => [
+                ['offgrid_total', 'Off-Grid Gesamtleistung', 'F', 'SLX.Watt', true, 'backup', 'RO 0x0036-0x0037'],
+            ]],
+            'GroupDevice' => ['caption' => 'Geräteinformation', 'vars' => [
+                ['dev_type', 'Wechselrichter-Typ', 'I', '', false, 'device', 'RO 0x0015'],
+                ['dev_sn',   'Modul-Seriennummer', 'S', '', false, 'device', 'RO 0x00AA-0x00AE'],
+            ]],
+        ];
+    }
+
+    public function getExtraBooleanProperties()
+    {
+        return [];
+    }
+
+    public function getProfiles()
+    {
+        return [
+            'SLX.Watt'   => [VARIABLETYPE_FLOAT, ' W',  -40000.0, 40000.0, 1.0,  0],
+            'SLX.Volt'   => [VARIABLETYPE_FLOAT, ' V',       0.0,  1000.0, 0.1,  1],
+            'SLX.Ampere' => [VARIABLETYPE_FLOAT, ' A',    -200.0,   200.0, 0.1,  1],
+            'SLX.Hertz'  => [VARIABLETYPE_FLOAT, ' Hz',     45.0,    65.0, 0.01, 2],
+        ];
+    }
+
+    public function getEnumProfiles()
+    {
+        return [
+            'SLX.GridStatus' => [
+                0 => ['On-Grid', 0x27D07F],
+                1 => ['Off-Grid', 0xE74C3C],
+            ],
+        ];
+    }
+
+    public function readFast($mb, $hub)
+    {
+        $pv1  = $mb->readInput(0x0000, 12);      // 0x0000-0x000B (Grid X1 + PV1/2 V/I/P)
+        $sys  = $mb->readInput(0x001A, 36);       // 0x001A-0x003D (Status, PV total, Bat total)
+        $ext3 = $mb->readInput(0x0028, 9);        // 0x0028-0x0030 (PV4-6)
+        $pv3  = $mb->readInput(0x0122, 3);        // 0x0122-0x0124 (PV3)
+
+        $ok = ($sys !== null);
+        $hub->SetVarBool('connected', $ok);
+        if (!$ok) {
+            return false;
+        }
+
+        $hub->SetVarInt('grid_status', $mb->u16($sys, 0));                  // 0x001A
+        $hub->SetVarFloat('pv_total',     (float)$mb->u32($sys, 24));       // 0x0032-33
+        $hub->SetVarFloat('ongrid_total', (float)$mb->s32($sys, 26));       // 0x0034-35
+        $hub->SetVarFloat('bat_power',    (float)$mb->s32($sys, 30));       // 0x0038-39
+        $hub->SetVarInt('bat_soc', $mb->u16($sys, 34));                     // 0x003C
+
+        if ($hub->GetPropBool('GroupPV') && $pv1 !== null) {
+            $hub->SetVarFloat('pv1_volt',  $mb->u16($pv1, 3)  / 10.0);
+            $hub->SetVarFloat('pv1_curr',  $mb->u16($pv1, 5)  / 10.0);
+            $hub->SetVarFloat('pv1_power', (float)$mb->u16($pv1, 10));
+            $hub->SetVarFloat('pv2_volt',  $mb->u16($pv1, 4)  / 10.0);
+            $hub->SetVarFloat('pv2_curr',  $mb->u16($pv1, 6)  / 10.0);
+            $hub->SetVarFloat('pv2_power', (float)$mb->u16($pv1, 11));
+            if ($pv3 !== null) {
+                $hub->SetVarFloat('pv3_volt',  $mb->u16($pv3, 0) / 10.0);
+                $hub->SetVarFloat('pv3_curr',  $mb->u16($pv3, 1) / 10.0);
+                $hub->SetVarFloat('pv3_power', (float)$mb->u16($pv3, 2));
+            }
+            if ($ext3 !== null) {
+                $hub->SetVarFloat('pv4_volt',  $mb->u16($ext3, 0) / 10.0);
+                $hub->SetVarFloat('pv5_volt',  $mb->u16($ext3, 1) / 10.0);
+                $hub->SetVarFloat('pv6_volt',  $mb->u16($ext3, 2) / 10.0);
+                $hub->SetVarFloat('pv4_curr',  $mb->u16($ext3, 3) / 10.0);
+                $hub->SetVarFloat('pv5_curr',  $mb->u16($ext3, 4) / 10.0);
+                $hub->SetVarFloat('pv6_curr',  $mb->u16($ext3, 5) / 10.0);
+                $hub->SetVarFloat('pv4_power', (float)$mb->u16($ext3, 6));
+                $hub->SetVarFloat('pv5_power', (float)$mb->u16($ext3, 7));
+                $hub->SetVarFloat('pv6_power', (float)$mb->u16($ext3, 8));
+            }
+        }
+
+        if ($hub->GetPropBool('GroupGridX1') && $pv1 !== null) {
+            $hub->SetVarFloat('grid_volt', $mb->u16($pv1, 0) / 10.0);
+            $hub->SetVarFloat('grid_curr', $mb->s16($pv1, 1) / 10.0);
+            $hub->SetVarFloat('grid_pwr',  (float)$mb->s16($pv1, 2));
+            $hub->SetVarFloat('grid_freq', $mb->u16($pv1, 7) / 100.0);
+        }
+
+        if ($hub->GetPropBool('GroupGridX3')) {
+            $g3 = $mb->readInput(0x006A, 12); // 0x006A-0x0075
+            if ($g3 !== null) {
+                $hub->SetVarFloat('grid_r_volt', $mb->u16($g3, 0) / 10.0);
+                $hub->SetVarFloat('grid_r_curr', $mb->s16($g3, 1) / 10.0);
+                $hub->SetVarFloat('grid_r_pwr',  (float)$mb->s16($g3, 2));
+                $hub->SetVarFloat('grid_s_volt', $mb->u16($g3, 4) / 10.0);
+                $hub->SetVarFloat('grid_s_curr', $mb->s16($g3, 5) / 10.0);
+                $hub->SetVarFloat('grid_s_pwr',  (float)$mb->s16($g3, 6));
+                $hub->SetVarFloat('grid_t_volt', $mb->u16($g3, 8) / 10.0);
+                $hub->SetVarFloat('grid_t_curr', $mb->s16($g3, 9) / 10.0);
+                $hub->SetVarFloat('grid_t_pwr',  (float)$mb->s16($g3, 10));
+            }
+        }
+
+        if ($hub->GetPropBool('GroupBat')) {
+            $hub->SetVarFloat('bat_capacity', $mb->u32($sys, 32) / 1000.0); // 0x003A-3B, Wh -> kWh
+            $hub->SetVarInt('bat_soh', $mb->u16($sys, 35));                 // 0x003D
+        }
+
+        if ($hub->GetPropBool('GroupOffgrid')) {
+            $hub->SetVarFloat('offgrid_total', (float)$mb->s32($sys, 28));  // 0x0036-37
+        }
+
+        if ($hub->GetPropBool('GroupMeter')) {
+            $meter = $mb->readInput(0x0046, 64); // 0x0046-0x0085
+            if ($meter !== null) {
+                $hub->SetVarFloat('feedin_total', (float)$mb->s32($meter, 0));
+                $hub->SetVarFloat('feedin_r', (float)$mb->s32($meter, 0x3C)); // 0x0082-83
+                $hub->SetVarFloat('feedin_s', (float)$mb->s32($meter, 0x3E)); // 0x0084-85
+            }
+        }
+
+        return true;
+    }
+
+    public function readSlow($mb, $hub)
+    {
+        // Keine zusätzlichen langsamen Werte in der ersten Ausbaustufe.
+    }
+
+    public function readDeviceInfo($mb, $hub)
+    {
+        $type = $mb->readHolding(0x0015, 1);
+        if ($type !== null) {
+            $hub->SetVarInt('dev_type', $mb->u16($type, 0));
+        }
+        $sn = $mb->readHolding(0x00AA, 5);
+        if ($sn !== null) {
+            $hub->SetVarStr('dev_sn', $mb->readStr($sn, 0, 5));
+        }
+    }
+
+    public function writeControl($mb, $hub, $ident, $value)
+    {
+        // Kein Steuerregister in der ersten Ausbaustufe implementiert.
+    }
+}
+
+// ---------------------------------------------------------------------------
+// SmaDriver — SMA STP/STPS/SI-Serie (SMA-eigene Modbus-Register).
+// Registeradressen sind bei SMA um 1 höher als die zu sendende Adresse
+// (Register 30201 -> PDU-Adresse 30200), siehe SMA-Dokumentation.
+// WICHTIG: Diese erste Ausbaustufe deckt nur PV/DC, Temperatur, Energie und
+// Health-Status ab. Die AC-/Netzmessregister lagen beim Erstellen dieses
+// Treibers nicht vollständig dokumentiert vor und wurden bewusst NICHT
+// geraten — Ergänzung folgt, sobald die Registeradressen bestätigt sind.
+// ---------------------------------------------------------------------------
+
+class SmaDriver implements InverterDriverInterface
+{
+    const HEALTH = [35 => 'Fehler', 303 => 'Aus', 307 => 'Ok', 455 => 'Warnung'];
+
+    public function getBaseVars()
+    {
+        return [
+            ['connected', 'Verbindung', 'B', '~Alert.Reversed', false, 'errors', ''],
+            ['health',    'Health-Status', 'I', 'SMA.Health',    true,  'device', 'RO 30201 (-1)'],
+            ['pv_total',  'PV Gesamtleistung', 'F', 'SMA.Watt',  true,  'pv',    'Σ DcMs.Watt'],
+        ];
+    }
+
+    public function getOptionalGroups()
+    {
+        return [
+            'GroupPV' => ['caption' => 'PV-Details (2 DC-Eingänge)', 'vars' => [
+                ['mppt1_volt', 'MPPT1 Spannung', 'F', 'SMA.Volt',   false, 'pv', 'RO 30771 (-1)'],
+                ['mppt1_curr', 'MPPT1 Strom',    'F', 'SMA.Ampere', false, 'pv', 'RO 30769 (-1)'],
+                ['mppt1_power','MPPT1 Leistung', 'F', 'SMA.Watt',   true,  'pv', 'RO 30773 (-1)'],
+                ['mppt2_volt', 'MPPT2 Spannung', 'F', 'SMA.Volt',   false, 'pv', 'RO 30959 (-1)'],
+                ['mppt2_curr', 'MPPT2 Strom',    'F', 'SMA.Ampere', false, 'pv', 'RO 30957 (-1)'],
+                ['mppt2_power','MPPT2 Leistung', 'F', 'SMA.Watt',   true,  'pv', 'RO 30961 (-1)'],
+            ]],
+            'GroupEnergy' => ['caption' => 'Energiezähler (Tag/Gesamt)', 'vars' => [
+                ['e_day',   'Ertrag Heute',           'F', '~Electricity', true, 'energy', 'RO 30535 (-1)'],
+                ['e_total', 'Einspeisung Gesamt (Zähler)', 'F', '~Electricity', true, 'energy', 'RO 30583 (-1)'],
+            ]],
+            'GroupTemp' => ['caption' => 'Temperatur', 'vars' => [
+                ['temp_internal', 'Innentemperatur', 'F', '~Temperature', false, 'device', 'RO 30953 (-1)'],
+            ]],
+        ];
+    }
+
+    public function getExtraBooleanProperties()
+    {
+        return [];
+    }
+
+    public function getProfiles()
+    {
+        return [
+            'SMA.Watt'   => [VARIABLETYPE_FLOAT, ' W',  -40000.0, 40000.0, 1.0, 0],
+            'SMA.Volt'   => [VARIABLETYPE_FLOAT, ' V',       0.0,  1000.0, 0.1, 1],
+            'SMA.Ampere' => [VARIABLETYPE_FLOAT, ' A',       0.0,   200.0, 0.1, 1],
+        ];
+    }
+
+    public function getEnumProfiles()
+    {
+        $health = [];
+        foreach (self::HEALTH as $k => $label) {
+            $color = ($k === 307) ? 0x27D07F : (($k === 455) ? 0xF39C12 : (($k === 35) ? 0xE74C3C : 0x7A8A99));
+            $health[$k] = [$label, $color];
+        }
+        return ['SMA.Health' => $health];
+    }
+
+    public function readFast($mb, $hub)
+    {
+        $health = $mb->readHolding(30200, 2);
+        $dc1    = $mb->readHolding(30768, 6); // 30769-30774: Amp,Vol,Watt (je S32)
+        $dc2    = $mb->readHolding(30956, 6); // 30957-30962
+
+        $ok = ($health !== null);
+        $hub->SetVarBool('connected', $ok);
+        if (!$ok) {
+            return false;
+        }
+
+        $hub->SetVarInt('health', $mb->u32($health, 0));
+
+        $pv1w = ($dc1 !== null) ? $mb->s32($dc1, 4) : 0;
+        $pv2w = ($dc2 !== null) ? $mb->s32($dc2, 4) : 0;
+        $hub->SetVarFloat('pv_total', (float)($pv1w + $pv2w));
+
+        if ($hub->GetPropBool('GroupPV')) {
+            if ($dc1 !== null) {
+                $hub->SetVarFloat('mppt1_curr',  $mb->s32($dc1, 0) / 1000.0);
+                $hub->SetVarFloat('mppt1_volt',  $mb->s32($dc1, 2) / 100.0);
+                $hub->SetVarFloat('mppt1_power', (float)$pv1w);
+            }
+            if ($dc2 !== null) {
+                $hub->SetVarFloat('mppt2_curr',  $mb->s32($dc2, 0) / 1000.0);
+                $hub->SetVarFloat('mppt2_volt',  $mb->s32($dc2, 2) / 100.0);
+                $hub->SetVarFloat('mppt2_power', (float)$pv2w);
+            }
+        }
+
+        if ($hub->GetPropBool('GroupTemp')) {
+            $temp = $mb->readHolding(30952, 2);
+            if ($temp !== null) {
+                $hub->SetVarFloat('temp_internal', $mb->s32($temp, 0) / 10.0);
+            }
+        }
+
+        return true;
+    }
+
+    public function readSlow($mb, $hub)
+    {
+        if ($hub->GetPropBool('GroupEnergy')) {
+            $day = $mb->readHolding(30534, 2);
+            if ($day !== null) {
+                $hub->SetVarFloat('e_day', $mb->u32($day, 0) / 1000.0); // Wh -> kWh
+            }
+            $total = $mb->readHolding(30582, 2);
+            if ($total !== null) {
+                $hub->SetVarFloat('e_total', $mb->u32($total, 0) / 1000.0);
+            }
+        }
+    }
+
+    public function readDeviceInfo($mb, $hub)
+    {
+        // Kein separates Geräteinfo-Register in der ersten Ausbaustufe gelesen.
+    }
+
+    public function writeControl($mb, $hub, $ident, $value)
+    {
+        // Kein Steuerregister in der ersten Ausbaustufe implementiert.
+    }
+}
+
+// ---------------------------------------------------------------------------
+// FroniusDriver — Fronius SunSpec-Modbus (Datamanager). Reine SunSpec-
+// Implementierung mit DYNAMISCHEN Registeradressen: Modelle werden zur
+// Laufzeit ab Basisregister 40000 durchlaufen (Model-ID + Länge), keine
+// festen Adressen. Adressen werden pro Zyklus neu ermittelt und im Attribut
+// gecacht, da sie laut Fronius-Doku über Firmware-Versionen hinweg nicht
+// garantiert stabil sind.
+// ---------------------------------------------------------------------------
+
+class FroniusDriver implements InverterDriverInterface
+{
+    const STATUS = [
+        1 => 'Aus', 2 => 'Auto-Shutdown', 3 => 'Startet', 4 => 'Normal (MPPT)',
+        5 => 'Leistungsreduktion', 6 => 'Schaltet ab', 7 => 'Fehler', 8 => 'Standby',
+    ];
+
+    // Sucht ab Basisregister 40000 (SunSpec "SunS"-Marker + Common Block) nach
+    // dem gewünschten Model und gibt [Startadresse Nutzdaten, Länge] zurück.
+    private function findModel($mb, $wantedModelId)
+    {
+        $addr = 40002; // hinter dem 2-Register-Common-Marker "SunS"
+        for ($i = 0; $i < 20; $i++) {
+            $hdr = $mb->readHolding($addr, 2);
+            if ($hdr === null) {
+                return null;
+            }
+            $modelId = $mb->u16($hdr, 0);
+            $len     = $mb->u16($hdr, 1);
+            if ($modelId === 0xFFFF) {
+                return null; // End Block erreicht
+            }
+            if ($modelId === $wantedModelId) {
+                return [$addr + 2, $len];
+            }
+            $addr += 2 + $len;
+        }
+        return null;
+    }
+
+    public function getBaseVars()
+    {
+        return [
+            ['connected', 'Verbindung',        'B', '~Alert.Reversed', false, 'errors', ''],
+            ['status',    'Betriebsstatus',    'I', 'FRO.Status',      true,  'device', 'SunSpec St'],
+            ['pv_total',  'PV Gesamtleistung', 'F', 'FRO.Watt',        true,  'pv',     'SunSpec DCW (Model 160)'],
+            ['ac_power',  'AC Wirkleistung',   'F', 'FRO.Watt',        true,  'device', 'SunSpec W (Model 101/103)'],
+        ];
+    }
+
+    public function getOptionalGroups()
+    {
+        return [
+            'GroupPV' => ['caption' => 'PV-Details (MPPT laut Multiple MPPT Extension Model 160)', 'vars' => [
+                ['mppt1_volt',  'MPPT1 Spannung', 'F', 'FRO.Volt',   false, 'pv', 'SunSpec Model 160'],
+                ['mppt1_power','MPPT1 Leistung',  'F', 'FRO.Watt',   true,  'pv', 'SunSpec Model 160'],
+                ['mppt2_volt',  'MPPT2 Spannung', 'F', 'FRO.Volt',   false, 'pv', 'SunSpec Model 160'],
+                ['mppt2_power','MPPT2 Leistung',  'F', 'FRO.Watt',   true,  'pv', 'SunSpec Model 160'],
+            ]],
+            'GroupGrid' => ['caption' => 'Netz (Spannung, Strom, Frequenz)', 'vars' => [
+                ['grid_volt', 'Netz Spannung',  'F', 'FRO.Volt',   false, 'grid', 'SunSpec PhVphA (Model 101/103)'],
+                ['grid_curr', 'Netz Strom',     'F', 'FRO.Ampere', false, 'grid', 'SunSpec A (Model 101/103)'],
+                ['grid_freq', 'Netzfrequenz',   'F', 'FRO.Hertz',  false, 'grid', 'SunSpec Hz (Model 101/103)'],
+            ]],
+            'GroupEnergy' => ['caption' => 'Energiezähler (Gesamtertrag)', 'vars' => [
+                ['e_total', 'Ertrag Gesamt', 'F', '~Electricity', true, 'energy', 'SunSpec WH (Model 101/103)'],
+            ]],
+            'GroupMeter' => ['caption' => 'Smart Meter (Leistung)', 'vars' => [
+                ['meter_total', 'Netz Leistung (Meter)', 'F', 'FRO.Watt', true, 'meter', 'SunSpec Meter Model 201/203'],
+            ]],
+            'GroupDevice' => ['caption' => 'Geräteinformation', 'vars' => [
+                ['dev_model', 'Modell', 'S', '', false, 'device', 'SunSpec Common Block'],
+                ['dev_sn',    'Seriennummer', 'S', '', false, 'device', 'SunSpec Common Block'],
+            ]],
+        ];
+    }
+
+    public function getExtraBooleanProperties()
+    {
+        return [];
+    }
+
+    public function getProfiles()
+    {
+        return [
+            'FRO.Watt'   => [VARIABLETYPE_FLOAT, ' W',  -40000.0, 40000.0, 1.0,  0],
+            'FRO.Volt'   => [VARIABLETYPE_FLOAT, ' V',       0.0,  1000.0, 0.1,  1],
+            'FRO.Ampere' => [VARIABLETYPE_FLOAT, ' A',       0.0,   200.0, 0.1,  1],
+            'FRO.Hertz'  => [VARIABLETYPE_FLOAT, ' Hz',     45.0,    65.0, 0.01, 2],
+        ];
+    }
+
+    public function getEnumProfiles()
+    {
+        $status = [];
+        foreach (self::STATUS as $k => $label) {
+            $status[$k] = [$label, 0x7A8A99];
+        }
+        return ['FRO.Status' => $status];
+    }
+
+    public function readFast($mb, $hub)
+    {
+        // Float-Inverter-Model bevorzugt (111/112/113), sonst Int+SF (101/102/103)
+        $inv = $this->findModel($mb, 111) ?: $this->findModel($mb, 112) ?: $this->findModel($mb, 113);
+        $isFloat = ($inv !== null);
+        if ($inv === null) {
+            $inv = $this->findModel($mb, 101) ?: $this->findModel($mb, 102) ?: $this->findModel($mb, 103);
+        }
+
+        $ok = ($inv !== null);
+        $hub->SetVarBool('connected', $ok);
+        if (!$ok) {
+            return false;
+        }
+
+        [$base, $len] = $inv;
+        $blk = $mb->readHolding($base, min($len, 60));
+        if ($blk === null) {
+            $hub->SetVarBool('connected', false);
+            return false;
+        }
+
+        // Inverter Model (Float-Variante, Offsets ab Modellstart):
+        // 0 A, 4 PhVphA(Netzspannung), 6 Hz(Frequenz), 12 W(Wirkleistung),
+        // 20 WH(Gesamtertrag), 22 St(Status)
+        if ($isFloat) {
+            $hub->SetVarFloat('ac_power', $mb->readFloat32($blk, 12));
+            $hub->SetVarInt('status', $mb->u16($blk, 22));
+            if ($hub->GetPropBool('GroupGrid')) {
+                $hub->SetVarFloat('grid_curr', $mb->readFloat32($blk, 0));
+                $hub->SetVarFloat('grid_volt', $mb->readFloat32($blk, 4));
+                $hub->SetVarFloat('grid_freq', $mb->readFloat32($blk, 6));
+            }
+            if ($hub->GetPropBool('GroupEnergy')) {
+                $hub->SetVarFloat('e_total', $mb->readFloat32($blk, 20) / 1000.0);
+            }
+        } else {
+            // Int+SF-Variante: Werte ganzzahlig mit separatem Skalierungsfaktor-
+            // Register (SF), hier vereinfacht ohne SF-Auswertung (Rohwert).
+            $hub->SetVarFloat('ac_power', (float)$mb->s16($blk, 13));
+            $hub->SetVarInt('status', $mb->u16($blk, 19));
+            if ($hub->GetPropBool('GroupGrid')) {
+                $hub->SetVarFloat('grid_curr', (float)$mb->u16($blk, 0));
+                $hub->SetVarFloat('grid_volt', (float)$mb->u16($blk, 4));
+                $hub->SetVarFloat('grid_freq', $mb->u16($blk, 6) / 100.0);
+            }
+        }
+
+        $mppt1Power = 0.0;
+        $mppt2Power = 0.0;
+        if ($hub->GetPropBool('GroupPV')) {
+            $mppt = $this->findModel($mb, 160);
+            if ($mppt !== null) {
+                [$mbase, $mlen] = $mppt;
+                $mblk = $mb->readHolding($mbase, min($mlen, 40));
+                if ($mblk !== null) {
+                    // Multiple MPPT Extension: je Modul ab Offset 8+n*20:
+                    // ID(1),IDStr(8, string),DCA(1),DCV(1),DCW(1),...
+                    $mppt1Power = (float)$mb->u16($mblk, 12);
+                    $mppt2Power = (float)$mb->u16($mblk, 32);
+                    $hub->SetVarFloat('mppt1_volt',  $mb->u16($mblk, 10) / 10.0);
+                    $hub->SetVarFloat('mppt1_power', $mppt1Power);
+                    $hub->SetVarFloat('mppt2_volt',  $mb->u16($mblk, 30) / 10.0);
+                    $hub->SetVarFloat('mppt2_power', $mppt2Power);
+                    $hub->SetVarFloat('pv_total', $mppt1Power + $mppt2Power);
+                }
+            }
+        }
+
+        if ($hub->GetPropBool('GroupMeter')) {
+            $meter = $this->findModel($mb, 201) ?: $this->findModel($mb, 203) ?: $this->findModel($mb, 211) ?: $this->findModel($mb, 213);
+            if ($meter !== null) {
+                [$mtbase, $mtlen] = $meter;
+                $mtblk = $mb->readHolding($mtbase, min($mtlen, 20));
+                if ($mtblk !== null) {
+                    $hub->SetVarFloat('meter_total', (float)$mb->s16($mtblk, 4));
+                }
+            }
+        }
+
+        return true;
+    }
+
+    public function readSlow($mb, $hub)
+    {
+        // Energie wird bereits im Inverter-Model in readFast() mitgelesen.
+    }
+
+    public function readDeviceInfo($mb, $hub)
+    {
+        $common = $this->findModel($mb, 1);
+        if ($common === null) {
+            return;
+        }
+        [$base, $len] = $common;
+        $blk = $mb->readHolding($base, min($len, 66));
+        if ($blk === null) {
+            return;
+        }
+        // Common Block: Mn(16 Zeichen ab Offset 0), Md(16 ab Offset 16),
+        // Vr(8 ab Offset 32... Herstellerabhängig), SN(16 ab Offset 40)
+        $hub->SetVarStr('dev_model', $mb->readStr($blk, 16, 16));
+        $hub->SetVarStr('dev_sn',    $mb->readStr($blk, 40, 16));
+    }
+
+    public function writeControl($mb, $hub, $ident, $value)
+    {
+        // Kein Steuerregister in der ersten Ausbaustufe implementiert.
+    }
+}
+
+// ---------------------------------------------------------------------------
 // InverterHub — Hauptmodul, lädt den Treiber laut Manufacturer-Property
 // ---------------------------------------------------------------------------
 
 class InverterHub extends IPSModule
 {
     private const DRIVERS = [
-        'goodwe' => 'GoodweDriver',
+        'goodwe'  => 'GoodweDriver',
+        'sungrow' => 'SungrowDriver',
+        'solis'   => 'SolisDriver',
+        'growatt' => 'GrowattDriver',
+        'solax'   => 'SolaxDriver',
+        'sma'     => 'SmaDriver',
+        'fronius' => 'FroniusDriver',
     ];
 
     private $driver = null;
@@ -853,7 +2076,8 @@ class InverterHub extends IPSModule
                     'expanded' => false,
                     'items' => [
                         ['type' => 'Label', 'caption' => 'InverterHub liest Wechselrichter verschiedener Hersteller direkt per Modbus TCP aus. Hersteller wählen, IP-Adresse eintragen, Datenpunkt-Gruppen je nach Anlage aktivieren.'],
-                        ['type' => 'Label', 'caption' => 'Aktuell unterstützt: GoodWe GW-ET/EH/BT/BH-Hybridwechselrichter. Weitere Hersteller (SMA, Fronius, Sungrow, Solis, Growatt, Solax) folgen als zusätzliche Treiber.'],
+                        ['type' => 'Label', 'caption' => 'Unterstützt: GoodWe (GW-ET/EH/BT/BH), Sungrow (SH-Hybrid), Solis (Hybrid-Serie, 33000er-Register), Growatt (TL-X/TL3-X/MOD/MIX/SPH/WIT), SMA (STP/STPS/SI, PV/Energie/Temperatur – Netzmessung folgt), Fronius (SunSpec über Datamanager, dynamische Registeradressen).'],
+                        ['type' => 'Label', 'caption' => 'SolaX: Der Wechselrichter selbst spricht nur Modbus RTU. Modbus TCP läuft nur über ein zusätzliches SolaX-Monitoring-Modul (Pocket WiFi/LAN) als Gateway – dessen IP-Adresse hier eintragen, nicht die des Wechselrichters direkt.'],
                         ['type' => 'Label', 'caption' => 'Registeradressen stehen im Beschreibungsfeld jeder Variable (Objekt-Manager, Spalte „Beschreibung").'],
                     ],
                 ],
@@ -862,7 +2086,13 @@ class InverterHub extends IPSModule
                     'name'    => 'Manufacturer',
                     'caption' => 'Hersteller',
                     'options' => [
-                        ['label' => 'GoodWe', 'value' => 'goodwe'],
+                        ['label' => 'GoodWe',  'value' => 'goodwe'],
+                        ['label' => 'Sungrow', 'value' => 'sungrow'],
+                        ['label' => 'Solis',   'value' => 'solis'],
+                        ['label' => 'Growatt', 'value' => 'growatt'],
+                        ['label' => 'SolaX (nur über SolaX-Monitoring-Dongle)', 'value' => 'solax'],
+                        ['label' => 'SMA',     'value' => 'sma'],
+                        ['label' => 'Fronius', 'value' => 'fronius'],
                     ],
                 ],
                 [
