@@ -462,24 +462,24 @@ class GoodweDriver implements InverterDriverInterface
             $hub->SetVarInt('work_mode', $mb->u16($wm, 0));
         }
 
-        $bat2Active = $hub->ReadPropertyBoolean('GroupBat2') && ($bat2blk !== null);
+        $bat2Active = $hub->GetPropBool('GroupBat2') && ($bat2blk !== null);
         $soc1 = ($bms !== null) ? (float)$mb->u16($bms, 8)  : 0.0;
         $soc2 = ($bms !== null) ? (float)$mb->u16($bms, 26) : 0.0;
         $hub->SetVarInt('soc', (int)round($bat2Active ? (($soc1 + $soc2) / 2.0) : $soc1));
 
-        if ($hub->ReadPropertyBoolean('EnableTracker1')) {
+        if ($hub->GetPropBool('EnableTracker1')) {
             $hub->SetVarFloat('pv1_voltage', $mb->u16($inv, 0) / 10.0);
             $hub->SetVarFloat('pv1_current', $mb->u16($inv, 1) / 10.0);
             $hub->SetVarFloat('pv2_voltage', $mb->u16($inv, 4) / 10.0);
             $hub->SetVarFloat('pv2_current', $mb->u16($inv, 5) / 10.0);
         }
-        if ($hub->ReadPropertyBoolean('EnableTracker2')) {
+        if ($hub->GetPropBool('EnableTracker2')) {
             $hub->SetVarFloat('pv3_voltage', $mb->u16($inv, 8)  / 10.0);
             $hub->SetVarFloat('pv3_current', $mb->u16($inv, 9)  / 10.0);
             $hub->SetVarFloat('pv4_voltage', $mb->u16($inv, 12) / 10.0);
             $hub->SetVarFloat('pv4_current', $mb->u16($inv, 13) / 10.0);
         }
-        if ($hub->ReadPropertyBoolean('EnableTracker3') && $pvext !== null) {
+        if ($hub->GetPropBool('EnableTracker3') && $pvext !== null) {
             $hub->SetVarFloat('pv5_voltage', $mb->u16($pvext, 3) / 10.0);
             $hub->SetVarFloat('pv5_current', $mb->u16($pvext, 4) / 10.0);
             $hub->SetVarFloat('pv6_voltage', $mb->u16($pvext, 6) / 10.0);
@@ -490,22 +490,22 @@ class GoodweDriver implements InverterDriverInterface
         // liefern für 35338/35339 nur 0xFFFF. Ab 35332 oder früher stabil.
         $mpptBlk = $mb->readHolding(35332, 16);
         if ($mpptBlk !== null) {
-            if ($hub->ReadPropertyBoolean('EnableTracker1')) {
+            if ($hub->GetPropBool('EnableTracker1')) {
                 $hub->SetVarFloat('mppt1_power',   (float)$mb->u16($mpptBlk, 5));
                 $hub->SetVarFloat('mppt1_current', (float)$mb->u16($mpptBlk, 13));
             }
-            if ($hub->ReadPropertyBoolean('EnableTracker2')) {
+            if ($hub->GetPropBool('EnableTracker2')) {
                 $hub->SetVarFloat('mppt2_power',   (float)$mb->u16($mpptBlk, 6));
                 $hub->SetVarFloat('mppt2_current', (float)$mb->u16($mpptBlk, 14));
             }
-            if ($hub->ReadPropertyBoolean('EnableTracker3')) {
+            if ($hub->GetPropBool('EnableTracker3')) {
                 $hub->SetVarFloat('mppt3_power',   (float)$mb->u16($mpptBlk, 7));
                 $hub->SetVarFloat('mppt3_current', (float)$mb->u16($mpptBlk, 15));
             }
         }
 
         $gridMode = $mb->u16($inv, 33);
-        if ($hub->ReadPropertyBoolean('GroupGrid')) {
+        if ($hub->GetPropBool('GroupGrid')) {
             $hub->SetVarFloat('grid_l1_volt', $mb->u16($inv, 18) / 10.0);
             $hub->SetVarFloat('grid_l1_curr', $mb->u16($inv, 19) / 10.0);
             $hub->SetVarFloat('grid_l1_freq', $mb->u16($inv, 20) / 100.0);
@@ -528,7 +528,7 @@ class GoodweDriver implements InverterDriverInterface
             $hub->SetVarFloat('meter_total', (float)$mb->s32($meter, 6));
         }
 
-        if ($hub->ReadPropertyBoolean('GroupBat1')) {
+        if ($hub->GetPropBool('GroupBat1')) {
             $hub->SetVarFloat('bat1_volt', $mb->u16($bat1blk, 6)  / 10.0);
             $hub->SetVarFloat('bat1_curr', $mb->s16($bat1blk, 7)  / 10.0);
             $hub->SetVarFloat('bat1_pwr',  (float)$mb->s32($bat1blk, 8));
@@ -546,7 +546,7 @@ class GoodweDriver implements InverterDriverInterface
             }
         }
 
-        if ($hub->ReadPropertyBoolean('GroupTemp')) {
+        if ($hub->GetPropBool('GroupTemp')) {
             $hub->SetVarFloat('temp_air',      $mb->s16($bat1blk, 0) / 10.0);
             $hub->SetVarFloat('temp_module',   $mb->s16($bat1blk, 1) / 10.0);
             $hub->SetVarFloat('temp_heatsink', $mb->s16($bat1blk, 2) / 10.0);
@@ -583,7 +583,7 @@ class GoodweDriver implements InverterDriverInterface
             $hub->SetVarFloat('bat_discharge_max_w', $disMaxW);
         }
 
-        if ($hub->ReadPropertyBoolean('GroupMeter') && $meter !== null) {
+        if ($hub->GetPropBool('GroupMeter') && $meter !== null) {
             $hub->SetVarFloat('mt_l1_pwr',  (float)$mb->s32($meter, 0));
             $hub->SetVarFloat('mt_l2_pwr',  (float)$mb->s32($meter, 2));
             $hub->SetVarFloat('mt_l3_pwr',  (float)$mb->s32($meter, 4));
@@ -599,7 +599,7 @@ class GoodweDriver implements InverterDriverInterface
             }
         }
 
-        if ($hub->ReadPropertyBoolean('GroupBackup')) {
+        if ($hub->GetPropBool('GroupBackup')) {
             $bkPhase = $mb->readHolding(35145, 26);
             if ($bkPhase !== null) {
                 $hub->SetVarFloat('backup_l1_volt', $mb->u16($bkPhase, 0)  / 10.0);
@@ -626,7 +626,7 @@ class GoodweDriver implements InverterDriverInterface
     }
 
     public function readSlow($mb, $hub){
-        if ($hub->ReadPropertyBoolean('GroupEnergy')) {
+        if ($hub->GetPropBool('GroupEnergy')) {
             $e = $mb->readHolding(35191, 22);
             if ($e !== null) {
                 $hub->SetVarFloat('e_pv_total',     $mb->u32($e, 0)  / 10.0);
@@ -643,7 +643,7 @@ class GoodweDriver implements InverterDriverInterface
             }
         }
 
-        if ($hub->ReadPropertyBoolean('GroupErrors')) {
+        if ($hub->GetPropBool('GroupErrors')) {
             $err = $mb->readHolding(32000, 17);
             if ($err !== null) {
                 $hub->SetVarInt('warn_code', $mb->u16($err, 0));
@@ -1097,6 +1097,14 @@ class InverterHub extends IPSModule
         if ($vid) {
             SetValueString($vid, $value);
         }
+    }
+
+    // Öffentlicher Wrapper: ReadPropertyBoolean() ist bei IPSModule protected
+    // und daher von externen Treiber-Klassen (GoodweDriver etc.) nicht direkt
+    // aufrufbar.
+    public function GetPropBool(string $name)
+    {
+        return $this->ReadPropertyBoolean($name);
     }
 
     // -----------------------------------------------------------------------
