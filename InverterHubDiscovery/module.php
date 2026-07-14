@@ -109,7 +109,7 @@ class InverterHubDiscovery extends IPSModule
                     'expanded' => false,
                     'items' => [
                         ['type' => 'Label', 'caption' => 'Durchsucht einen IP-Bereich im lokalen Netz nach Wechselrichtern auf Modbus-TCP-Port 502 und erkennt den Hersteller anhand weniger typischer Register/Unit-IDs pro Hersteller.'],
-                        ['type' => 'Label', 'caption' => 'Start- und End-IP eintragen (Vorschlag anhand des eigenen Netzwerks ist schon ausgefüllt), dann „Netzwerk durchsuchen" klicken. Gefundene Geräte erscheinen rechts in der Liste — Klick auf das „+" bzw. „Erstellen" legt eine InverterHub-Instanz mit vorausgefüllter IP-Adresse, Unit-ID und Hersteller an.'],
+                        ['type' => 'Label', 'caption' => 'Start- und End-IP eintragen (Vorschlag anhand des eigenen Netzwerks ist schon ausgefüllt), dann „Netzwerk durchsuchen" klicken. Gefundene Geräte erscheinen unten in der Liste — Klick auf „Erstellen" legt eine InverterHub-Instanz mit vorausgefüllter IP-Adresse, Unit-ID und Hersteller an.'],
                         ['type' => 'Label', 'caption' => 'Der Scan prüft nur wenige dokumentierte Standard-Unit-IDs je Hersteller, keinen vollen 1-247-Bereich — bei exotisch konfigurierter Unit-ID bitte die InverterHub-Instanz manuell anlegen.'],
                         ['type' => 'Label', 'caption' => 'Hinweis: „Filter"/„Aktualisieren" oberhalb und „Erstellen"/„Alle erstellen" unterhalb der Tabelle sind fester Bestandteil der IP-Symcon-Konfigurator-Ansicht selbst — ihre Position lässt sich modulseitig nicht verändern.'],
                     ],
@@ -119,38 +119,30 @@ class InverterHubDiscovery extends IPSModule
                     'caption' => '🔎  Suchbereich',
                     'expanded' => true,
                     'items' => [
+                        ['type' => 'ValidationTextBox', 'name' => 'RangeStart', 'caption' => 'Start-IP', 'validate' => '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
+                        ['type' => 'ValidationTextBox', 'name' => 'RangeEnd',   'caption' => 'End-IP',   'validate' => '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
+                        ['type' => 'NumberSpinner', 'name' => 'Port', 'caption' => 'Modbus-TCP-Port', 'minimum' => 1, 'maximum' => 65535],
+                        ['type' => 'Button', 'caption' => '🔎  Netzwerk durchsuchen', 'onClick' => 'IHUBD_Discover($id);'],
+                    ],
+                ],
+                [
+                    'type'    => 'ExpansionPanel',
+                    'caption' => '🛠️  Erstellen',
+                    'expanded' => true,
+                    'items' => [
                         [
-                            'type' => 'RowLayout',
-                            'items' => [
-                                [
-                                    'type' => 'ColumnLayout',
-                                    'items' => [
-                                        ['type' => 'ValidationTextBox', 'name' => 'RangeStart', 'caption' => 'Start-IP', 'validate' => '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
-                                        ['type' => 'ValidationTextBox', 'name' => 'RangeEnd',   'caption' => 'End-IP',   'validate' => '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
-                                        ['type' => 'NumberSpinner', 'name' => 'Port', 'caption' => 'Modbus-TCP-Port', 'minimum' => 1, 'maximum' => 65535],
-                                        ['type' => 'Button', 'caption' => '🔎  Netzwerk durchsuchen', 'onClick' => 'IHUBD_Discover($id);'],
-                                    ],
-                                ],
-                                [
-                                    'type' => 'ColumnLayout',
-                                    'items' => [
-                                        [
-                                            'type'     => 'Configurator',
-                                            'name'     => 'DiscoveryList',
-                                            'caption'  => 'Gefundene Wechselrichter',
-                                            'rowCount' => 20,
-                                            'delete'   => false,
-                                            'sort'     => ['column' => 'ip', 'direction' => 'ascending'],
-                                            'columns'  => [
-                                                ['caption' => 'Hersteller', 'name' => 'manufacturer', 'width' => '200px'],
-                                                ['caption' => 'IP-Adresse', 'name' => 'ip',           'width' => '150px'],
-                                                ['caption' => 'Unit ID',    'name' => 'unitId',       'width' => '100px'],
-                                            ],
-                                            'values' => $values,
-                                        ],
-                                    ],
-                                ],
+                            'type'     => 'Configurator',
+                            'name'     => 'DiscoveryList',
+                            'caption'  => 'Gefundene Wechselrichter',
+                            'rowCount' => 6,
+                            'delete'   => false,
+                            'sort'     => ['column' => 'ip', 'direction' => 'ascending'],
+                            'columns'  => [
+                                ['caption' => 'Hersteller', 'name' => 'manufacturer', 'width' => '200px'],
+                                ['caption' => 'IP-Adresse', 'name' => 'ip',           'width' => '150px'],
+                                ['caption' => 'Unit ID',    'name' => 'unitId',       'width' => '100px'],
                             ],
+                            'values' => $values,
                         ],
                     ],
                 ],
