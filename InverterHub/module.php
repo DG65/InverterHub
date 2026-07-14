@@ -1996,15 +1996,31 @@ class InverterHub extends IPSModule
         $this->RegisterPropertyInteger('IntervalSlow', 300);
         $this->RegisterAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, false);
 
-        // Treiber-spezifische Properties werden ab hier dynamisch registriert.
-        $driver = $this->GetDriver();
-        foreach ($driver->getExtraBooleanProperties() as $name => $default) {
-            $this->RegisterPropertyBoolean($name, $default);
-        }
-        foreach ($driver->getOptionalGroups() as $propName => $group) {
-            if (!isset($driver->getExtraBooleanProperties()[$propName])) {
-                $this->RegisterPropertyBoolean($propName, true);
+        // Treiber-spezifische Properties werden hier für ALLE Treiber (nicht nur
+        // den aktuell gewählten) registriert. Grund: Create() legt die Properties
+        // einmalig zum Erstellungszeitpunkt an, aber der tatsächlich gewünschte
+        // Manufacturer-Wert (z.B. vom Discovery-Modul mitgegeben) wird oft erst
+        // NACH Create() über die Konfiguration gesetzt. Würden nur die Properties
+        // des zu diesem Zeitpunkt aktiven (Default-)Treibers registriert, fehlten
+        // bei jedem anderen Hersteller sämtliche Datenpunkt-Gruppen-Checkboxen
+        // ("Eigenschaft GroupPV nicht gefunden" etc.) — ungenutzte Properties
+        // anderer Treiber bleiben einfach unbenutzt, das ist unschädlich.
+        $allProps = [];
+        foreach (self::DRIVERS as $driverClass) {
+            $drv = new $driverClass();
+            foreach ($drv->getExtraBooleanProperties() as $name => $default) {
+                if (!array_key_exists($name, $allProps)) {
+                    $allProps[$name] = $default;
+                }
             }
+            foreach ($drv->getOptionalGroups() as $propName => $group) {
+                if (!array_key_exists($propName, $allProps)) {
+                    $allProps[$propName] = true;
+                }
+            }
+        }
+        foreach ($allProps as $name => $default) {
+            $this->RegisterPropertyBoolean($name, $default);
         }
 
         $this->RegisterTimer('FastTimer', 0, 'IHUB_ReadFast($_IPS[\'TARGET\']);');
