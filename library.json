@@ -1,0 +1,12 @@
+{
+  "id": "{7EFE4BD7-DC14-460E-B0ED-88071197D35B}",
+  "author": "DG65",
+  "name": "InverterHub for IP-Symcon",
+  "url": "https://github.com/DG65/InverterHub",
+  "compatibility": {
+    "version": "9.0"
+  },
+  "version": "0.1.0",
+  "build": 1,
+  "date": 1782518400
+}
