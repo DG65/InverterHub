@@ -233,7 +233,7 @@ class GoodweDriver implements InverterDriverInterface
 
     public function getBaseVars(){
         return [
-            ['soc',           'SOC',                'F', '~Battery.100',      true,  'batcommon', 'BMS Ø'],
+            ['soc',           'SOC',                'I', '~Battery.100',      true,  'batcommon', 'BMS Ø'],
             ['work_mode',     'Betriebsmodus',       'I', 'GWH.WorkMode',      true,  'device',    'RW 47000'],
             ['grid_mode',     'Netzmodus',           'I', 'GWH.GridMode',      false, 'grid',      'DSP 35136'],
             ['island',        'Netzgetrennt (Insel)', 'B', '~Alert',           true,  'grid',      'calc'],
@@ -295,8 +295,8 @@ class GoodweDriver implements InverterDriverInterface
                 ['bat1_curr', 'Bat.1 Strom',    'F', 'GWH.Ampere', true,  'bat1', 'DSP 35181'],
                 ['bat1_pwr',  'Bat.1 Leistung', 'F', 'GWH.Watt',   true,  'bat1', 'DSP 35182'],
                 ['bat1_mode', 'Bat.1 Modus',    'I', 'GWH.BatMode', true,  'bat1', 'DSP 35184'],
-                ['bat1_soc',  'Bat.1 SOC',      'F', '~Battery.100', true, 'bat1', 'BMS 47908'],
-                ['bat1_soh',  'Bat.1 SOH',      'F', '~Intensity.100', true, 'bat1', 'BMS 47909'],
+                ['bat1_soc',  'Bat.1 SOC',      'I', '~Battery.100', true, 'bat1', 'BMS 47908'],
+                ['bat1_soh',  'Bat.1 SOH',      'I', '~Intensity.100', true, 'bat1', 'BMS 47909'],
                 ['bat1_temp', 'Bat.1 Temperatur', 'F', '~Temperature', true, 'bat1', 'BMS 47910'],
                 ['bat1_bms_volt', 'Bat.1 Spannung (BMS)', 'F', 'GWH.Volt',   false, 'bat1', 'BMS 47906'],
                 ['bat1_bms_curr', 'Bat.1 Strom (BMS)',    'F', 'GWH.Ampere', true,  'bat1', 'BMS 47907'],
@@ -310,8 +310,8 @@ class GoodweDriver implements InverterDriverInterface
                 ['bat2_curr', 'Bat.2 Strom',    'F', 'GWH.Ampere', true,  'bat2', 'DSP 35263'],
                 ['bat2_pwr',  'Bat.2 Leistung', 'F', 'GWH.Watt',   true,  'bat2', 'DSP 35264'],
                 ['bat2_mode', 'Bat.2 Modus',    'I', 'GWH.BatMode', true,  'bat2', 'DSP 35266'],
-                ['bat2_soc',  'Bat.2 SOC',      'F', '~Battery.100', true, 'bat2', 'BMS 47926'],
-                ['bat2_soh',  'Bat.2 SOH',      'F', '~Intensity.100', true, 'bat2', 'BMS 47927'],
+                ['bat2_soc',  'Bat.2 SOC',      'I', '~Battery.100', true, 'bat2', 'BMS 47926'],
+                ['bat2_soh',  'Bat.2 SOH',      'I', '~Intensity.100', true, 'bat2', 'BMS 47927'],
                 ['bat2_temp', 'Bat.2 Temperatur', 'F', '~Temperature', true, 'bat2', 'BMS 47928'],
                 ['bat2_bms_volt', 'Bat.2 Spannung (BMS)', 'F', 'GWH.Volt',   false, 'bat2', 'BMS 47924'],
                 ['bat2_bms_curr', 'Bat.2 Strom (BMS)',    'F', 'GWH.Ampere', true,  'bat2', 'BMS 47925'],
@@ -465,7 +465,7 @@ class GoodweDriver implements InverterDriverInterface
         $bat2Active = $hub->ReadPropertyBoolean('GroupBat2') && ($bat2blk !== null);
         $soc1 = ($bms !== null) ? (float)$mb->u16($bms, 8)  : 0.0;
         $soc2 = ($bms !== null) ? (float)$mb->u16($bms, 26) : 0.0;
-        $hub->SetVarFloat('soc', $bat2Active ? (($soc1 + $soc2) / 2.0) : $soc1);
+        $hub->SetVarInt('soc', (int)round($bat2Active ? (($soc1 + $soc2) / 2.0) : $soc1));
 
         if ($hub->ReadPropertyBoolean('EnableTracker1')) {
             $hub->SetVarFloat('pv1_voltage', $mb->u16($inv, 0) / 10.0);
@@ -533,9 +533,9 @@ class GoodweDriver implements InverterDriverInterface
             $hub->SetVarFloat('bat1_curr', $mb->s16($bat1blk, 7)  / 10.0);
             $hub->SetVarFloat('bat1_pwr',  (float)$mb->s32($bat1blk, 8));
             $hub->SetVarInt('bat1_mode',   $mb->u16($bat1blk, 10));
-            $hub->SetVarFloat('bat1_soc',  $soc1);
+            $hub->SetVarInt('bat1_soc',  (int)round($soc1));
             if ($bms !== null) {
-                $hub->SetVarFloat('bat1_soh',  (float)$mb->u16($bms, 9));
+                $hub->SetVarInt('bat1_soh',  $mb->u16($bms, 9));
                 $hub->SetVarFloat('bat1_temp', $mb->s16($bms, 10) / 10.0);
                 $hub->SetVarFloat('bat1_bms_volt', $mb->u16($bms, 6) / 10.0);
                 $hub->SetVarFloat('bat1_bms_curr', $mb->s16($bms, 7) / 10.0);
@@ -557,9 +557,9 @@ class GoodweDriver implements InverterDriverInterface
             $hub->SetVarFloat('bat2_curr', $mb->s16($bat2blk, 1)  / 10.0);
             $hub->SetVarFloat('bat2_pwr',  (float)$mb->s32($bat2blk, 2));
             $hub->SetVarInt('bat2_mode',   $mb->u16($bat2blk, 4));
-            $hub->SetVarFloat('bat2_soc',  $soc2);
+            $hub->SetVarInt('bat2_soc',  (int)round($soc2));
             if ($bms !== null) {
-                $hub->SetVarFloat('bat2_soh',  (float)$mb->u16($bms, 27));
+                $hub->SetVarInt('bat2_soh',  $mb->u16($bms, 27));
                 $hub->SetVarFloat('bat2_temp', $mb->s16($bms, 28) / 10.0);
                 $hub->SetVarFloat('bat2_bms_volt', $mb->u16($bms, 24) / 10.0);
                 $hub->SetVarFloat('bat2_bms_curr', $mb->s16($bms, 25) / 10.0);
