@@ -17,14 +17,14 @@ class ModbusTcpClient
     public $port;
     public $unitId;
 
-    public function __construct(string $host, int $port, int $unitId)
+    public function __construct($host, $port, $unitId)
     {
         $this->host   = $host;
         $this->port   = $port;
         $this->unitId = $unitId;
     }
 
-    public function readHolding(int $startReg, int $count)
+    public function readHolding($startReg, $count)
     {
         $sock = @fsockopen($this->host, $this->port, $errno, $errstr, 3.0);
         if ($sock === false) {
@@ -74,7 +74,7 @@ class ModbusTcpClient
         return $regs;
     }
 
-    public function writeSingle(int $reg, int $value)
+    public function writeSingle($reg, $value)
     {
         $sock = @fsockopen($this->host, $this->port, $errno, $errstr, 3.0);
         if ($sock === false) {
@@ -93,7 +93,7 @@ class ModbusTcpClient
         return ($resp !== false && strlen($resp) >= 8 && ord($resp[7]) === 0x06);
     }
 
-    public function writeMultiple(int $startReg, array $values)
+    public function writeMultiple($startReg, $values)
     {
         $sock = @fsockopen($this->host, $this->port, $errno, $errstr, 3.0);
         if ($sock === false) {
@@ -118,29 +118,29 @@ class ModbusTcpClient
         return ($resp !== false && strlen($resp) >= 8 && ord($resp[7]) === 0x10);
     }
 
-    public function u16(array $regs, int $offset)
+    public function u16($regs, $offset)
     {
         return isset($regs[$offset]) ? ($regs[$offset] & 0xFFFF) : 0;
     }
 
-    public function s16(array $regs, int $offset)
+    public function s16($regs, $offset)
     {
         $v = $this->u16($regs, $offset);
         return $v > 32767 ? $v - 65536 : $v;
     }
 
-    public function u32(array $regs, int $offset)
+    public function u32($regs, $offset)
     {
         return (($this->u16($regs, $offset) << 16) | $this->u16($regs, $offset + 1));
     }
 
-    public function s32(array $regs, int $offset)
+    public function s32($regs, $offset)
     {
         $v = $this->u32($regs, $offset);
         return $v > 2147483647 ? $v - 4294967296 : $v;
     }
 
-    public function readStr(array $regs, int $offset, int $regCount)
+    public function readStr($regs, $offset, int $regCount)
     {
         $s = '';
         for ($i = 0; $i < $regCount; $i++) {
@@ -161,34 +161,34 @@ interface InverterDriverInterface
      * Immer aktive Basisvariablen.
      * [ident, caption, type(F/I/B/S), profile, archive, group, reg]
      */
-    public function getBaseVars(): array;
+    public function getBaseVars();
 
     /**
      * Optionale Variablengruppen, je Property-Name (Checkbox in der Instanz).
      * ['GroupXYZ' => ['caption' => '...', 'vars' => [...]]]
      */
-    public function getOptionalGroups(): array;
+    public function getOptionalGroups();
 
     /** Zusätzliche boolesche Properties, die dieser Treiber braucht (Default-Werte). */
-    public function getExtraBooleanProperties(): array;
+    public function getExtraBooleanProperties();
 
     /** Custom-Profile, die dieser Treiber anlegt: [name => [type, suffix, min, max, step, digits]] */
-    public function getProfiles(): array;
+    public function getProfiles();
 
     /** Enum-Profile (Assoziationen): [name => [wert => [label, farbe]]] */
-    public function getEnumProfiles(): array;
+    public function getEnumProfiles();
 
     /** Liest die schnellen (Leistungs-)Werte. Rückgabe: Verbindung erfolgreich? */
-    public function readFast(ModbusTcpClient $mb, InverterHub $hub): bool;
+    public function readFast($mb, $hub);
 
     /** Liest die langsamen Werte (Zählerstände, Fehler). */
-    public function readSlow(ModbusTcpClient $mb, InverterHub $hub): void;
+    public function readSlow($mb, $hub);
 
     /** Liest einmalig Geräteinformationen (Seriennummer, Modell, Firmware). */
-    public function readDeviceInfo(ModbusTcpClient $mb, InverterHub $hub): void;
+    public function readDeviceInfo($mb, $hub);
 
     /** Verarbeitet einen Schreibzugriff (RequestAction) auf ein Steuer-Ident. */
-    public function writeControl(ModbusTcpClient $mb, InverterHub $hub, string $ident, $value): void;
+    public function writeControl($mb, $hub, string $ident, $value);
 }
 
 // ---------------------------------------------------------------------------
@@ -231,8 +231,7 @@ class GoodweDriver implements InverterDriverInterface
         10 => 'Fehler: HW-Schutz', 11 => 'Fehler', 17 => 'Bypass', 18 => 'Inselbetrieb',
     ];
 
-    public function getBaseVars(): array
-    {
+    public function getBaseVars(){
         return [
             ['soc',           'SOC',                'F', '~Battery.100',      true,  'batcommon', 'BMS Ø'],
             ['work_mode',     'Betriebsmodus',       'I', 'GWH.WorkMode',      true,  'device',    'RW 47000'],
@@ -249,8 +248,7 @@ class GoodweDriver implements InverterDriverInterface
         ];
     }
 
-    public function getOptionalGroups(): array
-    {
+    public function getOptionalGroups(){
         return [
             'EnableTracker1' => ['caption' => 'MPPT-Tracker 1 (PV1+PV2)', 'vars' => [
                 ['pv1_voltage', 'PV1 Spannung (Tracker1 A)', 'F', 'GWH.Volt',   false, 'pv', 'DSP 35103'],
@@ -389,8 +387,7 @@ class GoodweDriver implements InverterDriverInterface
         ];
     }
 
-    public function getExtraBooleanProperties(): array
-    {
+    public function getExtraBooleanProperties(){
         return [
             'EnableTracker1' => true,
             'EnableTracker2' => true,
@@ -398,8 +395,7 @@ class GoodweDriver implements InverterDriverInterface
         ];
     }
 
-    public function getProfiles(): array
-    {
+    public function getProfiles(){
         return [
             'GWH.Watt'      => [VARIABLETYPE_FLOAT,   ' W',  -40000.0, 40000.0, 1.0,  0],
             'GWH.Volt'      => [VARIABLETYPE_FLOAT,   ' V',       0.0,  1000.0, 0.1,  1],
@@ -411,8 +407,7 @@ class GoodweDriver implements InverterDriverInterface
         ];
     }
 
-    public function getEnumProfiles(): array
-    {
+    public function getEnumProfiles(){
         $wmColors = [0xF5A623, 0x7A8A99, 0x2BB3C0, 0x27D07F, 0xE74C3C, 0xF39C12];
         $workMode = [];
         foreach (self::WORK_MODES as $k => $label) {
@@ -438,8 +433,7 @@ class GoodweDriver implements InverterDriverInterface
         ];
     }
 
-    public function readFast(ModbusTcpClient $mb, InverterHub $hub): bool
-    {
+    public function readFast($mb, $hub){
         $inv     = $mb->readHolding(35103, 42);
         $bat1blk = $mb->readHolding(35174, 18);
         $bat2blk = $mb->readHolding(35262, 7);
@@ -631,8 +625,7 @@ class GoodweDriver implements InverterDriverInterface
         return true;
     }
 
-    public function readSlow(ModbusTcpClient $mb, InverterHub $hub): void
-    {
+    public function readSlow($mb, $hub){
         if ($hub->ReadPropertyBoolean('GroupEnergy')) {
             $e = $mb->readHolding(35191, 22);
             if ($e !== null) {
@@ -669,8 +662,7 @@ class GoodweDriver implements InverterDriverInterface
         }
     }
 
-    public function readDeviceInfo(ModbusTcpClient $mb, InverterHub $hub): void
-    {
+    public function readDeviceInfo($mb, $hub){
         $dev = $mb->readHolding(35001, 27);
         if ($dev === null) {
             return;
@@ -682,8 +674,7 @@ class GoodweDriver implements InverterDriverInterface
         $hub->SetVarInt('dev_fw_arm',  $mb->u16($dev, 18));
     }
 
-    public function writeControl(ModbusTcpClient $mb, InverterHub $hub, string $ident, $value): void
-    {
+    public function writeControl($mb, $hub, string $ident, $value){
         switch ($ident) {
             case 'ctl_work_mode':
                 $val = (int)$value;
@@ -912,8 +903,7 @@ class InverterHub extends IPSModule
     // Treiber-Auswahl
     // -----------------------------------------------------------------------
 
-    private function GetDriver(): InverterDriverInterface
-    {
+    private function GetDriver(){
         if ($this->driver !== null) {
             return $this->driver;
         }
@@ -993,7 +983,7 @@ class InverterHub extends IPSModule
         }
     }
 
-    private function UnregVarIfExists(string $ident)
+    private function UnregVarIfExists($ident)
     {
         $vid = $this->FindVarByIdent($ident);
         if ($vid) {
@@ -1015,8 +1005,7 @@ class InverterHub extends IPSModule
         'errors'    => 'Fehler / Verbindung',
     ];
 
-    private function EnsureCategory(string $key): int
-    {
+    private function EnsureCategory($key){
         $catIdent = 'cat_' . $key;
         $catID = $this->FindIdentRecursive($this->InstanceID, $catIdent);
         if (!$catID) {
@@ -1030,13 +1019,11 @@ class InverterHub extends IPSModule
         return $catID;
     }
 
-    private function FindVarByIdent(string $ident): int
-    {
+    private function FindVarByIdent($ident){
         return $this->FindIdentRecursive($this->InstanceID, $ident);
     }
 
-    private function FindIdentRecursive(int $parentID, string $ident): int
-    {
+    private function FindIdentRecursive(int $parentID, $ident){
         foreach (IPS_GetChildrenIDs($parentID) as $childID) {
             $obj = IPS_GetObject($childID);
             if ($obj['ObjectIdent'] === $ident) {
@@ -1052,7 +1039,7 @@ class InverterHub extends IPSModule
         return 0;
     }
 
-    private function SetArchive(int $vid)
+    private function SetArchive($vid)
     {
         $archiveIDs = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
         if (count($archiveIDs) > 0) {
@@ -1065,7 +1052,7 @@ class InverterHub extends IPSModule
     // Variable setzen (public, damit Treiber sie via $hub->... aufrufen können)
     // -----------------------------------------------------------------------
 
-    public function SetVarFloat(string $ident, float $value)
+    public function SetVarFloat($ident, $value)
     {
         $vid = $this->FindVarByIdent($ident);
         if ($vid) {
@@ -1073,7 +1060,7 @@ class InverterHub extends IPSModule
         }
     }
 
-    public function SetVarInt(string $ident, int $value)
+    public function SetVarInt($ident, $value)
     {
         $vid = $this->FindVarByIdent($ident);
         if ($vid) {
@@ -1081,7 +1068,7 @@ class InverterHub extends IPSModule
         }
     }
 
-    public function SetVarBool(string $ident, bool $value)
+    public function SetVarBool($ident, $value)
     {
         $vid = $this->FindVarByIdent($ident);
         if ($vid) {
@@ -1089,7 +1076,7 @@ class InverterHub extends IPSModule
         }
     }
 
-    public function SetVarStr(string $ident, string $value)
+    public function SetVarStr($ident, $value)
     {
         $vid = $this->FindVarByIdent($ident);
         if ($vid) {
