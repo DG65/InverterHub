@@ -1052,7 +1052,7 @@ class InverterHub extends IPSModule
     // Variable setzen (public, damit Treiber sie via $hub->... aufrufen können)
     // -----------------------------------------------------------------------
 
-    public function SetVarFloat($ident, $value)
+    public function SetVarFloat(string $ident, float $value)
     {
         $vid = $this->FindVarByIdent($ident);
         if ($vid) {
@@ -1060,7 +1060,7 @@ class InverterHub extends IPSModule
         }
     }
 
-    public function SetVarInt($ident, $value)
+    public function SetVarInt(string $ident, int $value)
     {
         $vid = $this->FindVarByIdent($ident);
         if ($vid) {
@@ -1068,7 +1068,7 @@ class InverterHub extends IPSModule
         }
     }
 
-    public function SetVarBool($ident, $value)
+    public function SetVarBool(string $ident, bool $value)
     {
         $vid = $this->FindVarByIdent($ident);
         if ($vid) {
@@ -1076,7 +1076,7 @@ class InverterHub extends IPSModule
         }
     }
 
-    public function SetVarStr($ident, $value)
+    public function SetVarStr(string $ident, string $value)
     {
         $vid = $this->FindVarByIdent($ident);
         if ($vid) {
