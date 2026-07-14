@@ -80,14 +80,17 @@ class InverterHubDiscovery extends IPSModule
             $results = [];
         }
 
+        $existing = $this->findExistingInstances();
+
         $values = [];
         foreach ($results as $r) {
+            $key = $r['ip'] . '|' . $r['unitId'];
             $values[] = [
                 'name'         => $r['label'] . ' @ ' . $r['ip'] . ' (Unit ' . $r['unitId'] . ')',
                 'manufacturer' => $r['label'],
                 'ip'           => $r['ip'],
                 'unitId'       => $r['unitId'],
-                'instanceID'   => 0,
+                'instanceID'   => $existing[$key] ?? 0,
                 'create'       => [
                     'moduleID'      => self::INVERTERHUB_GUID,
                     'name'          => $r['label'] . ' ' . $r['ip'],
@@ -190,6 +193,22 @@ class InverterHubDiscovery extends IPSModule
         $this->WriteAttributeString('ResultsJSON', json_encode($results));
         $this->SetStatus(102);
         $this->ReloadForm();
+    }
+
+    // Gleicht Suchergebnisse gegen bereits existierende InverterHub-Instanzen
+    // ab (Host+UnitId), damit bereits angelegte Wechselrichter in der
+    // Ergebnisliste als solche erkannt werden (InstanzID statt "Kein(e)").
+    private function findExistingInstances()
+    {
+        $map = [];
+        foreach (IPS_GetInstanceListByModuleID(self::INVERTERHUB_GUID) as $iid) {
+            $host   = @IPS_GetProperty($iid, 'Host');
+            $unitId = @IPS_GetProperty($iid, 'UnitId');
+            if ($host !== false && $host !== null && $host !== '') {
+                $map[$host . '|' . $unitId] = $iid;
+            }
+        }
+        return $map;
     }
 
     private function expandRange($startIp, $endIp)
