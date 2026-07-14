@@ -2005,13 +2005,16 @@ class InverterHub extends IPSModule
 
         $this->RegisterTimer('FastTimer', 0, 'IHUB_ReadFast($_IPS[\'TARGET\']);');
         $this->RegisterTimer('SlowTimer', 0, 'IHUB_ReadSlow($_IPS[\'TARGET\']);');
+        // IPS_SetVariableCustomAction() schlägt fehl, wenn die Instanz noch
+        // innerhalb derselben Erstellungs-/Konfigurations-Transaktion nicht
+        // als gültiges Ziel sichtbar ist (z.B. wenn ein Configurator-Modul
+        // Instanz+Konfiguration in einem einzigen synchronen Ablauf anlegt —
+        // da hilft auch "erst beim zweiten ApplyChanges" nichts, weil beide
+        // Aufrufe noch zur selben Transaktion gehören). Custom Actions
+        // werden deshalb einmalig per Kurz-Timer NACH der Transaktion gesetzt.
+        $this->RegisterTimer('EnableActionsTimer', 0, 'IHUB_EnableActions($_IPS[\'TARGET\']);');
 
         $this->RegisterAttributeBoolean('DeviceInfoRead', false);
-        // Bei der allerersten Instanzerstellung ist die Instanz für
-        // IPS_SetVariableCustomAction() noch nicht als gültiges Ziel
-        // sichtbar (Timing der IPS-Erstellungstransaktion). Deshalb wird
-        // die Custom Action erst ab dem zweiten ApplyChanges gesetzt.
-        $this->RegisterAttributeBoolean('VarsFirstApplyDone', false);
     }
 
     public function ApplyChanges()
@@ -2026,13 +2029,34 @@ class InverterHub extends IPSModule
             $this->SetStatus(104);
             $this->SetTimerInterval('FastTimer', 0);
             $this->SetTimerInterval('SlowTimer', 0);
+            $this->SetTimerInterval('EnableActionsTimer', 0);
             return;
         }
 
         $this->SetTimerInterval('FastTimer', $this->ReadPropertyInteger('IntervalFast') * 1000);
         $this->SetTimerInterval('SlowTimer', $this->ReadPropertyInteger('IntervalSlow') * 1000);
+        $this->SetTimerInterval('EnableActionsTimer', 200);
         $this->WriteAttributeBoolean('DeviceInfoRead', false);
         $this->SetStatus(102);
+    }
+
+    // Wird kurz nach ApplyChanges einmalig vom EnableActionsTimer aufgerufen,
+    // sobald die Instanz die Erstellungstransaktion sicher verlassen hat.
+    public function EnableActions()
+    {
+        $this->SetTimerInterval('EnableActionsTimer', 0);
+
+        $driver = $this->GetDriver();
+        foreach ($driver->getOptionalGroups() as $group) {
+            foreach ($group['vars'] as $v) {
+                if ($v[5] === 'control') {
+                    $vid = $this->FindVarByIdent($v[0]);
+                    if ($vid) {
+                        IPS_SetVariableCustomAction($vid, $this->InstanceID);
+                    }
+                }
+            }
+        }
     }
 
     public function ReadFast()
@@ -2166,34 +2190,26 @@ class InverterHub extends IPSModule
         $driver = $this->GetDriver();
         $pos = 0;
 
-        // Bei der allerersten Erstellung ist die Instanz für
-        // IPS_SetVariableCustomAction() noch kein gültiges Ziel (Timing der
-        // IPS-Erstellungstransaktion) — Custom Action erst ab dem zweiten
-        // ApplyChanges setzen (z.B. wenn danach die IP-Adresse gespeichert wird).
-        $firstApply = !$this->ReadAttributeBoolean('VarsFirstApplyDone');
-
         foreach ($driver->getBaseVars() as $v) {
-            $this->RegisterVar($v, $pos++, false, $firstApply);
+            $this->RegisterVar($v, $pos++);
         }
 
         foreach ($driver->getOptionalGroups() as $propName => $group) {
             $enabled = $this->ReadPropertyBoolean($propName);
             foreach ($group['vars'] as $v) {
                 if ($enabled) {
-                    $isCtrl = ($v[5] === 'control');
-                    $this->RegisterVar($v, $pos++, $isCtrl, $firstApply);
+                    $this->RegisterVar($v, $pos++);
                 } else {
                     $this->UnregVarIfExists($v[0]);
                 }
             }
         }
-
-        if ($firstApply) {
-            $this->WriteAttributeBoolean('VarsFirstApplyDone', true);
-        }
     }
 
-    private function RegisterVar(array $def, int $pos, bool $withAction, bool $firstApply = false)
+    // Custom Actions werden hier bewusst NICHT gesetzt — das übernimmt
+    // EnableActions() per Kurz-Timer nach Abschluss der Transaktion
+    // (siehe Kommentar in Create()).
+    private function RegisterVar(array $def, int $pos)
     {
         [$ident, $caption, $type, $profile, $archive, $group] = $def;
         $reg = isset($def[6]) ? $def[6] : '';
@@ -2219,9 +2235,6 @@ class InverterHub extends IPSModule
         }
         if ($reg !== '') {
             IPS_SetInfo($vid, $reg);
-        }
-        if ($withAction && !$firstApply) {
-            IPS_SetVariableCustomAction($vid, $this->InstanceID);
         }
         if ($archive) {
             $this->SetArchive($vid);
