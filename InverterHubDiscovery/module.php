@@ -38,10 +38,34 @@ class InverterHubDiscovery extends IPSModule
     public function Create()
     {
         parent::Create();
-        $this->RegisterPropertyString('RangeStart', '');
-        $this->RegisterPropertyString('RangeEnd', '');
+
+        $prefix = $this->guessLocalSubnetPrefix();
+        $this->RegisterPropertyString('RangeStart', $prefix !== '' ? $prefix . '.1'   : '');
+        $this->RegisterPropertyString('RangeEnd',   $prefix !== '' ? $prefix . '.254' : '');
         $this->RegisterPropertyInteger('Port', 502);
         $this->RegisterAttributeString('ResultsJSON', '[]');
+    }
+
+    // Ermittelt heuristisch die ersten drei Oktette des lokalen Subnetzes
+    // (z.B. "192.168.1"), um Start-/End-IP sinnvoll vorzubelegen. Nur ein
+    // Vorschlag — der Nutzer kann ihn jederzeit überschreiben.
+    private function guessLocalSubnetPrefix()
+    {
+        $ip = @gethostbyname(gethostname());
+        if ($ip === false || $ip === gethostname()) {
+            return '';
+        }
+        $parts = explode('.', $ip);
+        if (count($parts) !== 4) {
+            return '';
+        }
+        $isPrivate = ($parts[0] === '10')
+            || ($parts[0] === '192' && $parts[1] === '168')
+            || ($parts[0] === '172' && (int)$parts[1] >= 16 && (int)$parts[1] <= 31);
+        if (!$isPrivate) {
+            return '';
+        }
+        return $parts[0] . '.' . $parts[1] . '.' . $parts[2];
     }
 
     public function ApplyChanges()
@@ -59,17 +83,20 @@ class InverterHubDiscovery extends IPSModule
         $values = [];
         foreach ($results as $r) {
             $values[] = [
+                'name'         => $r['label'] . ' @ ' . $r['ip'] . ' (Unit ' . $r['unitId'] . ')',
+                'manufacturer' => $r['label'],
                 'ip'           => $r['ip'],
                 'unitId'       => $r['unitId'],
-                'manufacturer' => $r['label'],
                 'instanceID'   => 0,
-                'name'         => $r['label'] . ' @ ' . $r['ip'] . ' (Unit ' . $r['unitId'] . ')',
-                'moduleID'     => self::INVERTERHUB_GUID,
-                'configuration' => [
-                    'Host'         => $r['ip'],
-                    'Port'         => $this->ReadPropertyInteger('Port'),
-                    'UnitId'       => $r['unitId'],
-                    'Manufacturer' => $r['vendor'],
+                'create'       => [
+                    'moduleID'      => self::INVERTERHUB_GUID,
+                    'name'          => $r['label'] . ' ' . $r['ip'],
+                    'configuration' => [
+                        'Host'         => $r['ip'],
+                        'Port'         => $this->ReadPropertyInteger('Port'),
+                        'UnitId'       => $r['unitId'],
+                        'Manufacturer' => $r['vendor'],
+                    ],
                 ],
             ];
         }
@@ -82,8 +109,9 @@ class InverterHubDiscovery extends IPSModule
                     'expanded' => false,
                     'items' => [
                         ['type' => 'Label', 'caption' => 'Durchsucht einen IP-Bereich im lokalen Netz nach Wechselrichtern auf Modbus-TCP-Port 502 und erkennt den Hersteller anhand weniger typischer Register/Unit-IDs pro Hersteller.'],
-                        ['type' => 'Label', 'caption' => 'Start- und End-IP eintragen (z. B. 192.168.1.1 bis 192.168.1.254), dann „Netzwerk durchsuchen" klicken. Gefundene Geräte erscheinen unten in der Liste — Klick auf das „+" legt eine InverterHub-Instanz mit vorausgefüllter IP-Adresse, Unit-ID und Hersteller an.'],
+                        ['type' => 'Label', 'caption' => 'Start- und End-IP eintragen (Vorschlag anhand des eigenen Netzwerks ist schon ausgefüllt), dann „Netzwerk durchsuchen" klicken. Gefundene Geräte erscheinen rechts in der Liste — Klick auf das „+" bzw. „Erstellen" legt eine InverterHub-Instanz mit vorausgefüllter IP-Adresse, Unit-ID und Hersteller an.'],
                         ['type' => 'Label', 'caption' => 'Der Scan prüft nur wenige dokumentierte Standard-Unit-IDs je Hersteller, keinen vollen 1-247-Bereich — bei exotisch konfigurierter Unit-ID bitte die InverterHub-Instanz manuell anlegen.'],
+                        ['type' => 'Label', 'caption' => 'Hinweis: „Filter"/„Aktualisieren" oberhalb und „Erstellen"/„Alle erstellen" unterhalb der Tabelle sind fester Bestandteil der IP-Symcon-Konfigurator-Ansicht selbst — ihre Position lässt sich modulseitig nicht verändern.'],
                     ],
                 ],
                 [
@@ -91,29 +119,41 @@ class InverterHubDiscovery extends IPSModule
                     'caption' => '🔎  Suchbereich',
                     'expanded' => true,
                     'items' => [
-                        ['type' => 'ValidationTextBox', 'name' => 'RangeStart', 'caption' => 'Start-IP', 'validate' => '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
-                        ['type' => 'ValidationTextBox', 'name' => 'RangeEnd',   'caption' => 'End-IP',   'validate' => '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
-                        ['type' => 'NumberSpinner', 'name' => 'Port', 'caption' => 'Modbus-TCP-Port', 'minimum' => 1, 'maximum' => 65535],
+                        [
+                            'type' => 'RowLayout',
+                            'items' => [
+                                [
+                                    'type' => 'ColumnLayout',
+                                    'items' => [
+                                        ['type' => 'ValidationTextBox', 'name' => 'RangeStart', 'caption' => 'Start-IP', 'validate' => '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
+                                        ['type' => 'ValidationTextBox', 'name' => 'RangeEnd',   'caption' => 'End-IP',   'validate' => '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
+                                        ['type' => 'NumberSpinner', 'name' => 'Port', 'caption' => 'Modbus-TCP-Port', 'minimum' => 1, 'maximum' => 65535],
+                                        ['type' => 'Button', 'caption' => '🔎  Netzwerk durchsuchen', 'onClick' => 'IHUBD_Discover($id);'],
+                                    ],
+                                ],
+                                [
+                                    'type' => 'ColumnLayout',
+                                    'items' => [
+                                        [
+                                            'type'     => 'Configurator',
+                                            'name'     => 'DiscoveryList',
+                                            'caption'  => 'Gefundene Wechselrichter',
+                                            'rowCount' => 20,
+                                            'delete'   => false,
+                                            'sort'     => ['column' => 'ip', 'direction' => 'ascending'],
+                                            'columns'  => [
+                                                ['caption' => 'Hersteller', 'name' => 'manufacturer', 'width' => '200px'],
+                                                ['caption' => 'IP-Adresse', 'name' => 'ip',           'width' => '150px'],
+                                                ['caption' => 'Unit ID',    'name' => 'unitId',       'width' => '100px'],
+                                            ],
+                                            'values' => $values,
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
                     ],
                 ],
-                [
-                    'type'     => 'Configurator',
-                    'name'     => 'DiscoveryList',
-                    'caption'  => 'Gefundene Wechselrichter',
-                    'rowCount' => 20,
-                    'add'      => true,
-                    'delete'   => false,
-                    'sort'     => ['column' => 'ip', 'direction' => 'ascending'],
-                    'columns'  => [
-                        ['caption' => 'Hersteller', 'name' => 'manufacturer', 'width' => '200px'],
-                        ['caption' => 'IP-Adresse', 'name' => 'ip',           'width' => '150px'],
-                        ['caption' => 'Unit ID',    'name' => 'unitId',       'width' => '100px'],
-                    ],
-                    'values' => $values,
-                ],
-            ],
-            'actions' => [
-                ['type' => 'Button', 'caption' => '🔎  Netzwerk durchsuchen', 'onClick' => 'IHUBD_Discover($id);'],
             ],
             'status' => [
                 ['code' => 102, 'icon' => 'active',   'caption' => 'Bereit.'],
