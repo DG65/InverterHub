@@ -784,6 +784,11 @@ class InverterHub extends IPSModule
         $this->RegisterTimer('SlowTimer', 0, 'IHUB_ReadSlow($_IPS[\'TARGET\']);');
 
         $this->RegisterAttributeBoolean('DeviceInfoRead', false);
+        // Bei der allerersten Instanzerstellung ist die Instanz für
+        // IPS_SetVariableCustomAction() noch nicht als gültiges Ziel
+        // sichtbar (Timing der IPS-Erstellungstransaktion). Deshalb wird
+        // die Custom Action erst ab dem zweiten ApplyChanges gesetzt.
+        $this->RegisterAttributeBoolean('VarsFirstApplyDone', false);
     }
 
     public function ApplyChanges()
@@ -931,8 +936,14 @@ class InverterHub extends IPSModule
         $driver = $this->GetDriver();
         $pos = 0;
 
+        // Bei der allerersten Erstellung ist die Instanz für
+        // IPS_SetVariableCustomAction() noch kein gültiges Ziel (Timing der
+        // IPS-Erstellungstransaktion) — Custom Action erst ab dem zweiten
+        // ApplyChanges setzen (z.B. wenn danach die IP-Adresse gespeichert wird).
+        $firstApply = !$this->ReadAttributeBoolean('VarsFirstApplyDone');
+
         foreach ($driver->getBaseVars() as $v) {
-            $this->RegisterVar($v, $pos++, false);
+            $this->RegisterVar($v, $pos++, false, $firstApply);
         }
 
         foreach ($driver->getOptionalGroups() as $propName => $group) {
@@ -940,15 +951,19 @@ class InverterHub extends IPSModule
             foreach ($group['vars'] as $v) {
                 if ($enabled) {
                     $isCtrl = ($v[5] === 'control');
-                    $this->RegisterVar($v, $pos++, $isCtrl);
+                    $this->RegisterVar($v, $pos++, $isCtrl, $firstApply);
                 } else {
                     $this->UnregVarIfExists($v[0]);
                 }
             }
         }
+
+        if ($firstApply) {
+            $this->WriteAttributeBoolean('VarsFirstApplyDone', true);
+        }
     }
 
-    private function RegisterVar(array $def, int $pos, bool $withAction)
+    private function RegisterVar(array $def, int $pos, bool $withAction, bool $firstApply = false)
     {
         [$ident, $caption, $type, $profile, $archive, $group] = $def;
         $reg = isset($def[6]) ? $def[6] : '';
@@ -975,7 +990,7 @@ class InverterHub extends IPSModule
         if ($reg !== '') {
             IPS_SetInfo($vid, $reg);
         }
-        if ($withAction) {
+        if ($withAction && !$firstApply) {
             IPS_SetVariableCustomAction($vid, $this->InstanceID);
         }
         if ($archive) {
