@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.13.2-beta.1 (2026-07-16)
+
+- **Statuspunkt exakt ausgerichtet**: der pulsierende Punkt ("Verbunden") ist jetzt exakt
+  linksbündig mit der linken Kante des Verluste-Kreises und exakt obenbündig mit der Oberkante
+  des Solar-Kreises, berechnet aus denselben Geometrie-Konstanten wie der Rest des Diagramms —
+  vorher stand er nur ungefähr in der Nähe der oberen linken Ecke.
+
 ## 0.13.1-beta.1 (2026-07-16)
 
 - **Kritischer Bugfix Kostal** (gemeldet von einem Beta-Tester: "einige Werte sind mehr als

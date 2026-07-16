@@ -76,8 +76,12 @@
   <!-- Statuszeile: Position ist an die Diagramm-Geometrie gekoppelt (knapp
        oberhalb/links von Solar- und Verluste-Kreis), nicht an einen
        willkürlichen Fixpunkt in der viewBox. -->
-  <circle id="dot" class="status-dot" cx="40" cy="47" r="6.5"/>
-  <text id="stateLabel" x="54" y="52" class="state-label">–</text>
+  <!-- Punkt exakt linksbündig mit dem Verluste-Kreis (CX-R_OUTER-R_NODE) und
+       obenbündig mit dem Solar-Kreis (CY-R_OUTER-R_NODE), nicht nur "in der
+       Nähe" - beides ergibt sich aus denselben Geometrie-Konstanten wie der
+       Rest des Diagramms (280-178-50=52 bzw. 301-178-50=73, +Punktradius). -->
+  <circle id="dot" class="status-dot" cx="58.5" cy="79.5" r="6.5"/>
+  <text id="stateLabel" x="72" y="84.5" class="state-label">–</text>
 
   <!-- Dynamischer Inhalt: Speichen zuerst (unten), dann Knoten (oben) -->
   <g id="wires-layer"></g>
