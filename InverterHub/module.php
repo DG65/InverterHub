@@ -828,9 +828,10 @@ class SungrowDriver implements InverterDriverInterface
         return [
             ['connected',   'Verbindung',        'B', '~Alert.Reversed', false, 'errors', ''],
             ['running_state','Betriebsstatus',   'I', 'SGW.RunState',     true,  'device', 'RO 13000'],
+            ['power_flow_status', 'Leistungsfluss-Status', 'I', '',       true,  'device', 'RO 13001'],
             ['pv_total',    'PV Gesamtleistung', 'F', 'SGW.Watt',         true,  'pv',     'RO 5017-5018'],
             ['ac_power',    'AC Wirkleistung',   'F', 'SGW.Watt',         true,  'device', 'RO 13034-13035'],
-            ['meter_total', 'Netz Leistung',     'F', 'SGW.Watt',         true,  'grid',   'Σ Meter A/B/C'],
+            ['meter_total', 'Netz Leistung',     'F', 'SGW.Watt',         true,  'grid',   'RO 5601-5602'],
             ['bat_power',   'Bat. Leistung',     'F', 'SGW.Watt',         true,  'bat',    'RO 5214-5215'],
         ];
     }
@@ -921,7 +922,8 @@ class SungrowDriver implements InverterDriverInterface
         $mppt4   = $mb->readInput(5115, 2);    // 5115-5116
         $reactive= $mb->readInput(5033, 4);    // 5033-5036 (reactive/PF/freq)
         $battery = $mb->readInput(5214, 2);    // 5214-5215 Bat power wide range
-        $meter   = $mb->readInput(5603, 6);    // 5603,5605,5607 (+ Reserve dazwischen)
+        $meterTotal = $mb->readInput(5601, 2); // 5601-5602 Meter Active Power (Gesamt, real bestätigt)
+        $meter   = $mb->readInput(5603, 6);    // 5603,5605,5607 (+ Reserve dazwischen) — unbestätigt
         $running = $mb->readInput(13000, 2);   // 13000 running state + 13001 power flow
         $freqhi  = $mb->readInput(5242, 1);    // 5242 high precision freq
         $sum     = $mb->readInput(13034, 2);   // 13034-13035 total active power
@@ -934,6 +936,7 @@ class SungrowDriver implements InverterDriverInterface
 
         if ($running !== null) {
             $hub->SetVarInt('running_state', $mb->u16($running, 0));
+            $hub->SetVarInt('power_flow_status', $mb->u16($running, 1));
         }
         $hub->SetVarFloat('pv_total', (float)$mb->u32($dc, 6));
         if ($sum !== null) {
@@ -941,6 +944,9 @@ class SungrowDriver implements InverterDriverInterface
         }
         if ($battery !== null) {
             $hub->SetVarFloat('bat_power', (float)$mb->s32($battery, 0));
+        }
+        if ($meterTotal !== null) {
+            $hub->SetVarFloat('meter_total', (float)$mb->s32($meterTotal, 0));
         }
 
         if ($hub->GetPropBool('GroupPV')) {
