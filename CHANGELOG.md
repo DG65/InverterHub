@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.11.0-beta.1 (2026-07-16)
+
+- **Komplettes Redesign `InverterHubTile`** nach Nutzer-Feedback (Layout wirkte nicht streng
+  genug geometrisch, Beschriftung mal über/mal unter dem Wert, Verluste sollten grau statt
+  farbig sein):
+  - **Radiale Anordnung statt Diamant**: die Hauslast sitzt jetzt fest im Zentrum, alle
+    anderen Größen (Solar, Netz, Batterie, Verluste) werden als gleichmäßig im Kreis verteilte
+    äußere Knoten dargestellt — Winkel = 360° / Anzahl aktiver Knoten, exakt berechnet statt
+    handgesetzter Positionen. Ein gepunkteter Kollektor-Ring um die Hauslast als Sammelpunkt,
+    wie in Referenz-Apps üblich.
+  - **Variable Knotenanzahl**: die Knoten werden zur Laufzeit aus den vorhandenen Datenpunkten
+    erzeugt (nicht mehr vier feste Kreise). Vorbereitet für künftige Verbraucher wie Wallbox
+    oder Wärmepumpe als weitere Knoten, ohne das Layout manuell anzupassen.
+  - **Striktes, einheitliches Template**: jeder Knoten zeigt in exakt derselben Reihenfolge
+    Icon → Wert → Beschriftung, ausnahmslos. Der SOC-Wert der Batterie wandert dafür als
+    kleine Zusatzangabe über das Icon, statt als zweite, uneinheitliche Wertzeile.
+  - **Verluste nur noch grau** (keine Akzentfarbe mehr), fließen immer vom Zentrum weg.
+  - **Bugfix Pfeilrichtung**: bei der Umstellung wurde die Zuordnung von Fließrichtung zu
+    Pfeil-Pfad zunächst vertauscht (Solar zeigte wieder Richtung Sonne) - vor Veröffentlichung
+    bemerkt und korrigiert.
+
 ## 0.10.0-beta.1 (2026-07-16)
 
 - **Neu**: optionaler Hauslastzähler. `InverterHub` bekommt ein neues Konfigurationsfeld
