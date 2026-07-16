@@ -9,8 +9,9 @@ geprüft (aktuell GoodWe live verifiziert) sowie gegen unabhängige Quellen gege
 Referenzimplementierung [OpenEMS](https://github.com/OpenEMS/openems) für Register-/
 Feldoffsets (GoodWe, Fronius, SMA) und von echten Nutzern im
 [IP-Symcon-Forum](https://community.symcon.de/c/symcon/vorlagen-modbus/86) geteilte
-Modbus-Vorlagen (GoodWe, SolaX). Rückmeldungen zu falschen/fehlenden Werten sind
-willkommen — bitte mit Hersteller, Modell und betroffenem Register melden.
+Modbus-Vorlagen (GoodWe, SolaX, SolarEdge, Deye, Solplanet, Kostal). Rückmeldungen zu
+falschen/fehlenden Werten sind willkommen — bitte mit Hersteller, Modell und betroffenem
+Register melden.
 
 ## Unterstützte Hersteller
 
@@ -21,6 +22,10 @@ willkommen — bitte mit Hersteller, Modell und betroffenem Register melden.
 | **Solis** | PV (4 Strings), Netz, Batterie, Meter, Energie | Nur Hybrid-Serie (33000er-Register); reine String-Wechselrichter (3000er) noch nicht unterstützt |
 | **Growatt** | PV (3 Strings), Netz, Energie, Temperatur, Fehlercodes | Deckt den über TL-X/TL3-X/MOD/MIX/SPH/WIT gemeinsamen Basisregisterbereich ab |
 | **SolaX** | PV (6 Strings), Netz ein-/dreiphasig, Batterie-Systemwerte, Meter/CT | **Wichtig:** Der Wechselrichter spricht nur Modbus RTU. Modbus TCP läuft ausschließlich über ein zusätzliches SolaX-Monitoring-Modul (Pocket WiFi/LAN) als Gateway — dessen IP-Adresse eintragen, nicht die des Wechselrichters |
+| **SolarEdge** | PV Gesamtleistung, Netz, Meter, Energie, Temperatur, Status, Gerätename/Seriennummer | Reines SunSpec, dieselbe Laufzeit-Discovery wie Fronius/SMA |
+| **Deye** | PV (2 Strings), Netz, Batterie, Hausverbrauch, Energie, Start/Stop-Steuerung | SG04LP3-Serie, Vorlage von einem 8K-SG04LP3 getestet |
+| **Solplanet / AISWEI** | PV (3 Strings), Batterie, Temperatur, Energie | ASW-Gen-Serie |
+| **Kostal** | PV (3 DC-Eingänge), Netz, Batterie, Meter, Hausverbrauch nach Quelle, Energie | Nur PLENTICORE plus Generation 1 getestet — andere Generationen/Leistungsklassen ungeprüft |
 | **SMA** | PV Gesamtleistung, Netz, Meter, Energie, Temperatur, Status, Gerätename/Seriennummer | Reine SunSpec-Implementierung mit Laufzeit-Discovery, wie von OpenEMS für SMA Sunny Tripower verwendet |
 | **Fronius** | PV Gesamtleistung, Netz, Meter, Energie, Temperatur, Status, Gerätename/Seriennummer | Reine SunSpec-Implementierung mit Laufzeit-Discovery (keine festen Registeradressen, siehe unten) |
 

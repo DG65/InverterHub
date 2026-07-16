@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.6.0-beta.1 (2026-07-16)
+
+Vier weitere Hersteller-Treiber, Register aus community-getesteten Modbus-Vorlagen des
+[IP-Symcon-Forums](https://community.symcon.de/c/symcon/vorlagen-modbus/86) übernommen:
+
+- **SolarEdge**: reines SunSpec, nutzt dieselbe Laufzeit-Discovery und dieselben (gegen OpenEMS
+  verifizierten) Feldoffsets wie Fronius/SMA — die Vorlage bestätigt diese Offsets zusätzlich
+  unabhängig
+- **Deye** (SG04LP3-Serie): direkte Adressierung, Einzelregister. PV (2 Strings), Netz,
+  Batterie, Hausverbrauch, Energie, Start/Stop
+- **Solplanet / AISWEI** (ASW-Gen-Serie): direkte Adressierung, Read Input Register.
+  PV (3 Strings), Batterie, Temperatur, Energie
+- **Kostal** (PLENTICORE plus Gen. 1): direkte Adressierung, native Float32-Register.
+  PV (3 DC-Eingänge), Netz, Batterie, Meter, Hausverbrauch nach Quelle, Energie, Gerätename
+
+Im Zuge dessen Bugfix vor dem ersten Test gefunden: Kostal `bat_soc` nutzte Float-Typ mit dem
+Integer-Profil `~Battery.100` (derselbe Fehlertyp wie zuvor bei GoodWe/Sungrow).
+
 ## 0.5.0-beta.1 (2026-07-16)
 
 Gegenprüfung gegen unabhängige Quellen: die [OpenEMS](https://github.com/OpenEMS/openems)-
