@@ -131,8 +131,15 @@ function el(tag, attrs) {
 // globalen Pfeils (der zuvor von allen Knoten geteilt wurde und dadurch nur
 // in einer Farbe bzw. Schwarz erschien).
 function makeMarker(id, color) {
-  const m = el('marker', { id, markerWidth: 9, markerHeight: 9, refX: 4.5, refY: 4.5, orient: 'auto' });
-  const p = el('path', { d: 'M0,0 L9,4.5 L0,9 Z' });
+  // markerUnits fehlte -> Default "strokeWidth" skaliert die Pfeilspitze mit
+  // der Linienstärke (3), aus 9px wurden faktisch 27px, die über den Ring
+  // hinausragten. refX lag zudem in der Dreiecksmitte statt an der Spitze,
+  // wodurch der Pfeil über den eigentlichen Linienendpunkt hinausschoss.
+  const m = el('marker', {
+    id, markerWidth: 10, markerHeight: 10, refX: 10, refY: 5,
+    orient: 'auto', markerUnits: 'userSpaceOnUse',
+  });
+  const p = el('path', { d: 'M0,0 L10,5 L0,10 Z' });
   p.style.fill = rgb(color);
   m.appendChild(p);
   return m;
@@ -157,11 +164,14 @@ const ICONS = {
     g.appendChild(el('polygon', { points: '0,-15 17,-1 17,15 -17,15 -17,-1', 'data-hollow': '1' }));
   },
   battery(g, socPct) {
-    g.appendChild(el('rect', { x: -11, y: -8, width: 19, height: 16, rx: 2.3, 'data-hollow': '1' }));
-    g.appendChild(el('rect', { x: 8, y: -4, width: 3.5, height: 8, rx: 1, stroke: 'none' }));
+    // Breiter, liegender Body - der Füllstand (SOC) wird als horizontaler
+    // Balken direkt im Icon dargestellt, von links nach rechts.
+    g.appendChild(el('rect', { x: -16, y: -8, width: 29, height: 16, rx: 2.5, 'data-hollow': '1' }));
+    g.appendChild(el('rect', { x: 13, y: -4, width: 4, height: 8, rx: 1, stroke: 'none' }));
     if (socPct != null) {
-      const fillH = 12 * Math.max(0, Math.min(100, socPct)) / 100;
-      g.appendChild(el('rect', { x: -9, y: 6 - fillH, width: 15, height: fillH, rx: 1.3, opacity: 0.4, stroke: 'none' }));
+      const pct = Math.max(0, Math.min(100, socPct)) / 100;
+      const fillW = 23 * pct;
+      g.appendChild(el('rect', { x: -14, y: -6, width: fillW, height: 12, rx: 1.3, opacity: 0.45, stroke: 'none' }));
     }
   },
   flame(g) {
@@ -173,17 +183,20 @@ const ICONS = {
 };
 
 // -- Node-Definitionen: legen fest, welche äußeren Knoten grundsätzlich
-//    existieren können. "have"/"w" verweisen auf Felder im Payload. Neue
-//    Verbraucher (Wallbox, Wärmepumpe, ...) werden künftig hier ergänzt -
-//    Anzahl und Winkelaufteilung passen sich automatisch an.
+//    existieren können. "have"/"w" verweisen auf Felder im Payload. Jeder
+//    Knotentyp hat eine FESTE Winkelposition (nicht mehr gleichmäßig über
+//    360°/Anzahl verteilt) - Solar so weit oben wie möglich, Netz so weit
+//    unten wie möglich, Batterie rechts, Verluste links. Künftige Verbraucher
+//    (Wallbox, Wärmepumpe, ...) bekommen hier einfach eigene freie Winkel
+//    zugewiesen (z. B. -45/-135 zwischen Solar und Batterie/Verluste).
 const NODE_DEFS = [
-  { key: 'pv',   label: 'Solar',    icon: 'sun',     have: 'pvHave',   w: 'pvW',
+  { key: 'pv',   label: 'Solar',    icon: 'sun',     have: 'pvHave',   w: 'pvW',   angle: -90,
     color: () => C_SOLAR, dir: () => 'in' },
-  { key: 'grid', label: 'Netz',     icon: 'bolt',    have: 'gridHave', w: 'gridW',
-    color: (w) => w >= 0 ? C_GREEN : C_RED, dir: (w) => w >= 0 ? 'out' : 'in' },
-  { key: 'bat',  label: 'Batterie', icon: 'battery', have: 'batHave',  w: 'batW',
+  { key: 'bat',  label: 'Batterie', icon: 'battery', have: 'batHave',  w: 'batW',  angle: 0,
     color: () => C_BAT, dir: (w) => w > 0 ? 'in' : 'out', battery: true },
-  { key: 'loss', label: 'Verluste', icon: 'flame',   have: 'lossHave', w: 'lossW',
+  { key: 'grid', label: 'Netz',     icon: 'bolt',    have: 'gridHave', w: 'gridW', angle: 90,
+    color: (w) => w >= 0 ? C_GREEN : C_RED, dir: (w) => w >= 0 ? 'out' : 'in' },
+  { key: 'loss', label: 'Verluste', icon: 'flame',   have: 'lossHave', w: 'lossW', angle: 180,
     color: () => C_GREY, dir: () => 'out', grey: true, minMagnitude: 15 },
 ];
 
@@ -199,7 +212,9 @@ function buildOuterNode(def, angleDeg, d, markerDefs) {
   const magnitude = Math.abs(w);
   const have = !!d[def.have];
   const active = have && magnitude > (def.minMagnitude ?? 20);
-  const color = def.grey ? C_GREY : (have ? def.color(w) : C_GREY);
+  // Ohne nennenswerten Fluss wird der komplette Knoten (Ring, Icon, Wert,
+  // Pfeile) grau dargestellt statt in seiner Akzentfarbe zu verharren.
+  const color = def.grey ? C_GREY : (have && active ? def.color(w) : C_GREY);
 
   const g = el('g', { transform: `translate(${cx},${cy})` });
   g.style.setProperty('--nc', rgb(color));
@@ -209,7 +224,7 @@ function buildOuterNode(def, angleDeg, d, markerDefs) {
   g.appendChild(glow);
   g.appendChild(el('circle', { class: 'node-ring', r: R_NODE }));
 
-  const iconG = el('g', { class: 'node-icon', transform: 'translate(0,-15)', 'stroke-width': 2, fill: 'none' });
+  const iconG = el('g', { class: 'node-icon', transform: 'translate(0,-22)', 'stroke-width': 2, fill: 'none' });
   ICONS[def.icon](iconG, def.battery ? d.soc : null);
   g.appendChild(iconG);
 
@@ -226,7 +241,7 @@ function buildOuterNode(def, angleDeg, d, markerDefs) {
   g.appendChild(labelText);
 
   if (def.battery && d.socHave) {
-    const socText = el('text', { x: 0, y: -28, 'text-anchor': 'middle', class: 'node-sub' });
+    const socText = el('text', { x: 0, y: -36, 'text-anchor': 'middle', class: 'node-sub' });
     socText.style.fill = rgb(color);
     socText.textContent = Math.round(d.soc) + '%';
     g.appendChild(socText);
@@ -298,10 +313,8 @@ function handleMessage(raw) {
   setValueText(document.getElementById('lbl-center-val'), houseW);
 
   const activeDefs = NODE_DEFS.filter(def => d[def.have]);
-  const n = activeDefs.length;
-  activeDefs.forEach((def, i) => {
-    const angleDeg = -90 + (360 / n) * i;
-    const { g, wires } = buildOuterNode(def, angleDeg, d, markerDefs);
+  activeDefs.forEach((def) => {
+    const { g, wires } = buildOuterNode(def, def.angle, d, markerDefs);
     wires.forEach(w => wiresLayer.appendChild(w));
     nodesLayer.appendChild(g);
   });

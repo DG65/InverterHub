@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.12.0-beta.1 (2026-07-16)
+
+- **Feste Positionen statt Rotationsverteilung**: Solar liegt jetzt immer oben, Netz immer
+  unten, Batterie immer rechts, Verluste immer links — unabhängig davon, wie viele der Knoten
+  gerade aktiv sind. Künftige Verbraucher (Wallbox, Wärmepumpe) bekommen eigene freie
+  Winkelpositionen, statt alle Knoten bei jeder Änderung neu zu verteilen.
+- **Bugfix Pfeilspitzen-Position**: `markerUnits` fehlte, wodurch der Standardwert
+  `strokeWidth` die Pfeilspitze mit der Linienstärke (3) multiplizierte — aus einer 9px-Spitze
+  wurde faktisch eine 27px-Spitze, die über den Kollektor-Ring hinausragte. Zusätzlich lag der
+  Referenzpunkt in der Dreiecksmitte statt an der Spitze. Beides korrigiert, Pfeile enden jetzt
+  exakt an Ring-/Kreiskante.
+- Icons sitzen weiter oben im Kreis, mehr Abstand zu Wert und Beschriftung.
+- Batterie-Icon breiter und liegend, stellt den SOC jetzt direkt als Füllstand im Icon dar.
+- Knoten ohne nennenswerten Leistungsfluss werden jetzt komplett ausgegraut (Ring, Icon, Wert,
+  Pfeile) statt nur die Leucht-Corona abzuschalten und die Akzentfarbe zu behalten.
+
 ## 0.11.2-beta.1 (2026-07-16)
 
 - **Bugfix Randbeschneidung**: die `viewBox` war für die tatsächliche Ausdehnung der äußeren
