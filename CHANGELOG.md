@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.15.2-beta.1 (2026-07-16)
+
+- **Echte Prägung**: Icons und Leistungswerte wirken jetzt in die Münzfläche gestanzt statt nur
+  leicht schattiert. Über die Alphamaske des Glyphen als Höhenkarte erzeugt eine
+  Reliefbeleuchtung (`feSpecularLighting`, Licht von oben-links) metallisch glänzende Grate auf
+  den erhabenen Kanten, dazu ein weicher Tiefenschatten unten-rechts.
+- Beschriftung (Solar/Netz/… und Hauslast) etwas nach unten gerückt.
+
 ## 0.15.1-beta.1 (2026-07-16)
 
 - **Münz-/Schlaglicht-Look für aktive Kreise verstärkt**: gewölbte Fläche mit gerichtetem

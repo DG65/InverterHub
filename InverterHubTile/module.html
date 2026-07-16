@@ -106,20 +106,26 @@
       <stop offset="70%"  stop-color="#000000" stop-opacity="0"/>
       <stop offset="100%" stop-color="#000000" stop-opacity="0.65"/>
     </linearGradient>
-    <!-- Prägung (Relief) für Icons und Leistungswerte: heller Grat oben-links,
-       dunkler Schatten unten-rechts, Original obenauf - wie in eine Münze
-       geprägt. -->
-    <filter id="relief" x="-45%" y="-45%" width="190%" height="190%">
-      <feOffset in="SourceAlpha" dx="-0.6" dy="-0.7" result="ha"/>
-      <feFlood flood-color="#ffffff" flood-opacity="0.5"/>
-      <feComposite in2="ha" operator="in" result="hl"/>
-      <feOffset in="SourceAlpha" dx="0.7" dy="0.9" result="sa"/>
-      <feFlood flood-color="#000000" flood-opacity="0.55"/>
-      <feComposite in2="sa" operator="in" result="sh"/>
+    <!-- Prägung (Relief) für Icons und Leistungswerte. Die Alphamaske des
+       Glyphen dient als Höhenkarte: feSpecularLighting mit Licht von
+       oben-links erzeugt echte, metallisch glänzende Grate auf den erhabenen
+       Kanten (wie in eine Münze gestanzt), dazu ein dunkler, weicher
+       Tiefenschatten unten-rechts. -->
+    <filter id="relief" x="-70%" y="-70%" width="240%" height="240%">
+      <feGaussianBlur in="SourceAlpha" stdDev="0.9" result="bump"/>
+      <feSpecularLighting in="bump" surfaceScale="3.2" specularConstant="1"
+          specularExponent="14" lighting-color="#ffffff" result="spec">
+        <fePointLight x="-60" y="-90" z="70"/>
+      </feSpecularLighting>
+      <feComposite in="spec" in2="SourceAlpha" operator="in" result="specClip"/>
+      <feOffset in="SourceAlpha" dx="1.1" dy="1.4" result="sa"/>
+      <feGaussianBlur in="sa" stdDev="0.7" result="sab"/>
+      <feFlood flood-color="#000000" flood-opacity="0.75"/>
+      <feComposite in2="sab" operator="in" result="sh"/>
       <feMerge>
         <feMergeNode in="sh"/>
-        <feMergeNode in="hl"/>
         <feMergeNode in="SourceGraphic"/>
+        <feMergeNode in="specClip"/>
       </feMerge>
     </filter>
   </defs>
@@ -152,7 +158,7 @@
       <polygon points="0,-12 13.6,-0.8 13.6,12 -13.6,12 -13.6,-0.8" data-hollow="1"/>
     </g>
     <text id="lbl-center-val" x="0" y="9" text-anchor="middle" class="node-value">0<tspan class="node-value-unit" dx="2">kW</tspan></text>
-    <text x="0" y="28" text-anchor="middle" class="node-label">Hauslast</text>
+    <text x="0" y="33" text-anchor="middle" class="node-label">Hauslast</text>
   </g>
 
   <g id="nodes-layer"></g>
@@ -391,7 +397,7 @@ function buildOuterNode(def, angleDeg, d, markerDefs) {
   setValueText(valText, magnitude);
   g.appendChild(valText);
 
-  const labelText = el('text', { x: 0, y: 28, 'text-anchor': 'middle', class: 'node-label' });
+  const labelText = el('text', { x: 0, y: 33, 'text-anchor': 'middle', class: 'node-label' });
   labelText.textContent = def.label;
   g.appendChild(labelText);
 
