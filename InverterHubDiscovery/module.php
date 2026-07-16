@@ -434,7 +434,17 @@ class InverterHubDiscovery extends IPSModule
                     return false;
                 }
                 $temp = $t[0] > 32767 ? $t[0] - 65536 : $t[0];
-                return ($temp > -400 && $temp < 900);
+                if ($temp <= -400 || $temp >= 900) {
+                    return false;
+                }
+                // Status 0/1/3 + Temperatur in Plausibelbereich reicht nicht als
+                // Alleinstellungsmerkmal — reale Fehlmeldung: go-e-Wallboxen (die
+                // ebenfalls auf Unit-ID 1 antworten) erfüllten beide Kriterien
+                // zufällig. Zusätzlich Holding 23-27: Seriennummer (5 Register,
+                // ASCII) verlangen — ein Wallbox-Register an dieser Adresse
+                // dekodiert nicht zu plausiblem Text.
+                $sn = $this->readHolding($ip, $port, $unitId, 23, 5, 1.0);
+                return $this->looksLikeAsciiText($sn, 4);
 
             case 'solax':
                 // Holding 0x0015: InverterType, sollte > 0 sein

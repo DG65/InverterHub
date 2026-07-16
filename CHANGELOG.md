@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.4-beta.1 (2026-07-16)
+
+- **Bugfix Discovery**: go-e-Wallboxen (Unit-ID 1) wurden fälschlich als Growatt erkannt — die
+  Growatt-Prüfung (Status 0/1/3 + plausible Temperatur) war nicht spezifisch genug und traf
+  zufällig auch auf go-e-Register zu. Als zusätzliches, hartes Kriterium wird jetzt zusätzlich
+  Holding 23-27 (Seriennummer, ASCII) verlangt, analog zur bereits bestehenden Absicherung bei
+  GoodWe/Sungrow/Solis/SolaX/Kostal.
+
 ## 0.6.3-beta.1 (2026-07-16)
 
 - `InverterHubDiscovery`: Fortschrittsanzeige während der Netzwerksuche. Ein Fortschrittsbalken
