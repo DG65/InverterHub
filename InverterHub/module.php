@@ -2640,16 +2640,16 @@ class KostalDriver implements InverterDriverInterface
                 ['meter_total',   'Meter Gesamtleistung', 'F', 'KST.Watt', true, 'meter', 'RO 252 (Float32)'],
             ]],
             'GroupHome' => ['caption' => 'Hausverbrauch (aufgeteilt nach Quelle)', 'vars' => [
-                ['home_total',    'Hausverbrauch Gesamt',       'F', 'KST.Watt', true, 'device', 'RO 118 (Float32)'],
+                ['home_total',    'Hausverbrauch Gesamt',       'F', '~Electricity', true, 'device', 'RO 118 (Float32, Wh)'],
                 ['home_from_pv',  'Hausverbrauch aus PV',       'F', 'KST.Watt', true, 'device', 'RO 116 (Float32)'],
                 ['home_from_bat', 'Hausverbrauch aus Batterie', 'F', 'KST.Watt', true, 'device', 'RO 106 (Float32)'],
                 ['home_from_grid','Hausverbrauch aus Netz',     'F', 'KST.Watt', true, 'device', 'RO 108 (Float32)'],
             ]],
             'GroupEnergy' => ['caption' => 'Energiezähler (Tag/Monat/Jahr/Gesamt)', 'vars' => [
-                ['e_total',   'Ertrag Gesamt', 'F', '~Electricity', true, 'energy', 'RO 320 (Float32)'],
-                ['e_day',     'Ertrag Heute',  'F', '~Electricity', true, 'energy', 'RO 322 (Float32)'],
-                ['e_year',    'Ertrag Jahr',   'F', '~Electricity', true, 'energy', 'RO 324 (Float32)'],
-                ['e_month',   'Ertrag Monat',  'F', '~Electricity', true, 'energy', 'RO 326 (Float32)'],
+                ['e_total',   'Ertrag Gesamt', 'F', '~Electricity', true, 'energy', 'RO 320 (Float32, Wh)'],
+                ['e_day',     'Ertrag Heute',  'F', '~Electricity', true, 'energy', 'RO 322 (Float32, Wh)'],
+                ['e_year',    'Ertrag Jahr',   'F', '~Electricity', true, 'energy', 'RO 324 (Float32, Wh)'],
+                ['e_month',   'Ertrag Monat',  'F', '~Electricity', true, 'energy', 'RO 326 (Float32, Wh)'],
             ]],
             'GroupDevice' => ['caption' => 'Geräteinformation', 'vars' => [
                 ['dev_name', 'Produktname', 'S', '', false, 'device', 'RO 768 (String)'],
@@ -2758,7 +2758,11 @@ class KostalDriver implements InverterDriverInterface
                 $hub->SetVarFloat('home_from_bat',  $mb->readFloat32($home, 0));
                 $hub->SetVarFloat('home_from_grid', $mb->readFloat32($home, 2));
                 $hub->SetVarFloat('home_from_pv',   $mb->readFloat32($home, 10));
-                $hub->SetVarFloat('home_total',     $mb->readFloat32($home, 12));
+                // Register 118 ist It. offizieller KOSTAL-Doku eine kumulierte
+                // Energie in Wh (nicht W wie ursprünglich fälschlich
+                // angenommen) - daher Umrechnung auf kWh wie bei allen
+                // anderen ~Electricity-Datenpunkten im Modul.
+                $hub->SetVarFloat('home_total',     $mb->readFloat32($home, 12) / 1000.0);
             }
         }
 
@@ -2770,12 +2774,16 @@ class KostalDriver implements InverterDriverInterface
         if (!$hub->GetPropBool('GroupEnergy')) {
             return;
         }
+        // Register 320-327 sind It. offizieller KOSTAL-Doku Wh, nicht kWh -
+        // Umrechnung fehlte bisher komplett (Bugfix: Werte erschienen um
+        // Faktor 1000 zu groß, z.B. "Milliarden Watt" bei älteren Anlagen
+        // mit hohem Gesamtertrag).
         $e = $mb->readHolding(320, 8); // 320-327
         if ($e !== null) {
-            $hub->SetVarFloat('e_total', $mb->readFloat32($e, 0));
-            $hub->SetVarFloat('e_day',   $mb->readFloat32($e, 2));
-            $hub->SetVarFloat('e_year',  $mb->readFloat32($e, 4));
-            $hub->SetVarFloat('e_month', $mb->readFloat32($e, 6));
+            $hub->SetVarFloat('e_total', $mb->readFloat32($e, 0) / 1000.0);
+            $hub->SetVarFloat('e_day',   $mb->readFloat32($e, 2) / 1000.0);
+            $hub->SetVarFloat('e_year',  $mb->readFloat32($e, 4) / 1000.0);
+            $hub->SetVarFloat('e_month', $mb->readFloat32($e, 6) / 1000.0);
         }
     }
 

@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.13.1-beta.1 (2026-07-16)
+
+- **Kritischer Bugfix Kostal** (gemeldet von einem Beta-Tester: "einige Werte sind mehr als
+  Billionen Watt"): gegen die offizielle KOSTAL-Modbus-Dokumentation geprüft und zwei
+  Einheiten-Bugs gefunden — Register 118 ("Total home consumption") und 320/322/324/326
+  (Ertrag Gesamt/Heute/Jahr/Monat) sind laut Hersteller-PDF in **Wh** dokumentiert, der Treiber
+  behandelte sie aber als **W** bzw. ließ bei den Ertragswerten die Umrechnung komplett weg —
+  bei älteren Anlagen mit hohem kumuliertem Ertrag entstehen daraus absurd große Zahlen.
+  `home_total` läuft jetzt korrekt über das Energie-Profil (`~Electricity`, kWh), alle vier
+  Ertragswerte werden korrekt durch 1000 geteilt.
+- Batterie-Register (200/210/214/216: Strom/SOC/Temperatur/Spannung) wurden gegen dieselbe
+  offizielle Dokumentation geprüft und sind korrekt adressiert — falls bei einer Anlage
+  trotzdem keine Batteriewerte ankommen, bitte prüfen, ob die Datenpunkt-Gruppe „Batterie"
+  in der Instanzkonfiguration aktiviert ist und ob überhaupt ein Batteriesystem am
+  Wechselrichter angeschlossen ist.
+- Kostal-Standardport zur Erinnerung: 1502, nicht 502 (laut Hersteller-Doku bestätigt) — daher
+  der abweichende Port, den ein Beta-Tester manuell eintragen musste.
+
 ## 0.13.0-beta.1 (2026-07-16)
 
 - **Bugfix Skalierung bei kleinen Kachelgrößen**: `width/height:100%` per CSS verlässt sich
