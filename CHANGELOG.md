@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.14.0-beta.1 (2026-07-16)
+
+- **Einheitliche Kreisgröße für aktive Knoten**: die Batterie hatte bisher einen eigenen,
+  größeren Radius als alle anderen — jetzt sind alle aktiven Knoten (inkl. Zentrum) gleich
+  groß. Inaktive Knoten (kein nennenswerter Fluss) werden stattdessen bewusst kleiner
+  gezeichnet — der Größenunterschied selbst ist jetzt das Signal für „inaktiv", zusätzlich zu
+  Farbe und Transparenz.
+- Inaktive Knoten sind zusätzlich noch durchsichtiger (Gruppen-Opazität von 0,5 auf 0,32).
+- Icons sitzen weiter oben im Kreis, Leistungswert näher an der Kreismitte.
+- Platzreserve für Leistungswerte auf „33,333 kW" (breitester realistischer Wert) ausgelegt.
+- Die Einheit „kW" hat jetzt dieselbe Farbe wie der Leistungswert und skaliert relativ zu
+  dessen Schriftgröße (em-basiert), statt fest in einer eigenen, gedämpften Farbe/Größe zu
+  stehen.
+
 ## 0.13.2-beta.1 (2026-07-16)
 
 - **Statuspunkt exakt ausgerichtet**: der pulsierende Punkt ("Verbunden") ist jetzt exakt

@@ -47,7 +47,9 @@
   /* Striktes, überall identisches Template: Icon -> Wert -> Label, in genau
      dieser Reihenfolge und mit denselben Abständen für JEDEN Knoten. */
   .node-value { font-size: 22px; font-weight: 800; fill: var(--nc, var(--grey)); }
-  .node-value-unit { font-size: 11px; font-weight: 600; fill: var(--textmuted); }
+  /* em statt fixer px-Größe: skaliert automatisch mit der Wertschrift und
+     nutzt dieselbe Farbe (--nc) statt einer eigenen, gedämpften Farbe. */
+  .node-value-unit { font-size: 0.52em; font-weight: 600; fill: var(--nc, var(--grey)); }
   .node-label { font-size: 12.5px; fill: var(--textmuted); }
   .node-sub { font-size: 10px; font-weight: 700; }
 
@@ -76,12 +78,12 @@
   <!-- Statuszeile: Position ist an die Diagramm-Geometrie gekoppelt (knapp
        oberhalb/links von Solar- und Verluste-Kreis), nicht an einen
        willkürlichen Fixpunkt in der viewBox. -->
-  <!-- Punkt exakt linksbündig mit dem Verluste-Kreis (CX-R_OUTER-R_NODE) und
-       obenbündig mit dem Solar-Kreis (CY-R_OUTER-R_NODE), nicht nur "in der
-       Nähe" - beides ergibt sich aus denselben Geometrie-Konstanten wie der
-       Rest des Diagramms (280-178-50=52 bzw. 301-178-50=73, +Punktradius). -->
-  <circle id="dot" class="status-dot" cx="58.5" cy="79.5" r="6.5"/>
-  <text id="stateLabel" x="72" y="84.5" class="state-label">–</text>
+  <!-- Punkt exakt linksbündig mit dem Verluste-Kreis (CX-R_OUTER-ACTIVE_R) und
+       obenbündig mit dem Solar-Kreis (CY-R_OUTER-ACTIVE_R), bezogen auf deren
+       MAXIMALE (aktive) Größe, damit der Punkt nicht mitwandert, wenn ein
+       Knoten inaktiv/kleiner wird. -->
+  <circle id="dot" class="status-dot" cx="52.5" cy="73.5" r="6.5"/>
+  <text id="stateLabel" x="66" y="78.5" class="state-label">–</text>
 
   <!-- Dynamischer Inhalt: Speichen zuerst (unten), dann Knoten (oben) -->
   <g id="wires-layer"></g>
@@ -90,13 +92,13 @@
        zwischen Zentrums- und äußeren Kreisen (siehe R_RING/R_CENTER/R_OUTER). -->
   <circle class="ring-decor" id="ring-decor" cx="280" cy="301" r="96"/>
   <g id="node-center" transform="translate(280,301)">
-    <circle class="node-glow" r="60"/>
-    <circle class="node-ring" r="60"/>
-    <g class="node-icon" transform="translate(0,-16)" stroke-width="2" fill="none">
+    <circle class="node-glow" r="56"/>
+    <circle class="node-ring" r="56"/>
+    <g class="node-icon" transform="translate(0,-27)" stroke-width="2" fill="none">
       <polygon points="0,-15 17,-1 17,15 -17,15 -17,-1" data-hollow="1"/>
     </g>
-    <text id="lbl-center-val" x="0" y="12" text-anchor="middle" class="node-value">0<tspan class="node-value-unit" dx="2">kW</tspan></text>
-    <text x="0" y="29" text-anchor="middle" class="node-label">Hauslast</text>
+    <text id="lbl-center-val" x="0" y="9" text-anchor="middle" class="node-value">0<tspan class="node-value-unit" dx="2">kW</tspan></text>
+    <text x="0" y="28" text-anchor="middle" class="node-label">Hauslast</text>
   </g>
 
   <g id="nodes-layer"></g>
@@ -104,9 +106,13 @@
 
 <script>
 const CX = 280, CY = 301;          // Zentrum
-const R_CENTER = 60, R_RING = 96;  // Zentrums-/Kollektorring-Radius
+const R_RING = 96;                 // Kollektorring-Radius
+// Aktive Knoten sind alle gleich groß; inaktive (kein nennenswerter Fluss)
+// werden bewusst kleiner gezeichnet - der Größenunterschied selbst ist das
+// gewünschte Signal für "inaktiv", nicht nur Farbe/Transparenz.
+const ACTIVE_R   = 56;
+const INACTIVE_R = 44;
 const R_OUTER  = 178;              // Abstand der äußeren Knoten vom Zentrum
-const R_NODE   = 50;               // Radius der äußeren Knoten
 
 const C_SOLAR = [255, 179, 0];
 const C_BAT   = [33, 150, 243];
@@ -230,7 +236,7 @@ const NODE_DEFS = [
   { key: 'pv',   label: 'Solar',    icon: 'sun',     have: 'pvHave',   w: 'pvW',   angle: -90,
     color: () => C_SOLAR, dir: () => 'in' },
   { key: 'bat',  label: 'Batterie', icon: 'battery', have: 'batHave',  w: 'batW',  angle: 0,
-    color: () => C_BAT, dir: (w) => w > 0 ? 'in' : 'out', battery: true, radius: 62 },
+    color: () => C_BAT, dir: (w) => w > 0 ? 'in' : 'out', battery: true },
   { key: 'grid', label: 'Netz',     icon: 'bolt',    have: 'gridHave', w: 'gridW', angle: 90,
     color: (w) => w >= 0 ? C_GREEN : C_RED, dir: (w) => w >= 0 ? 'out' : 'in' },
   { key: 'loss', label: 'Verluste', icon: 'flame',   have: 'lossHave', w: 'lossW', angle: 180,
@@ -249,7 +255,10 @@ function buildOuterNode(def, angleDeg, d, markerDefs) {
   const magnitude = Math.abs(w);
   const have = !!d[def.have];
   const active = have && magnitude > (def.minMagnitude ?? 20);
-  const nodeR = def.radius || R_NODE;
+  // Aktive Knoten sind alle gleich groß (ACTIVE_R); inaktive werden bewusst
+  // kleiner gezeichnet (INACTIVE_R) - der Größenunterschied selbst ist Teil
+  // des "ausgegraut"-Effekts, zusätzlich zu Farbe/Transparenz.
+  const nodeR = active ? ACTIVE_R : INACTIVE_R;
   // Ohne nennenswerten Fluss wird der komplette Knoten (Ring, Icon, Wert,
   // Pfeile) grau dargestellt statt in seiner Akzentfarbe zu verharren, dazu
   // insgesamt abgedunkelt (Gruppen-Opazität) und der dunkle Kreis-Hintergrund
@@ -258,7 +267,7 @@ function buildOuterNode(def, angleDeg, d, markerDefs) {
 
   const g = el('g', { transform: `translate(${cx},${cy})` });
   g.style.setProperty('--nc', rgb(color));
-  g.style.opacity = active ? '1' : '0.5';
+  g.style.opacity = active ? '1' : '0.32';
 
   const glow = el('circle', { class: 'node-glow', r: nodeR });
   glow.style.stroke = active ? `rgba(${color[0]},${color[1]},${color[2]},${glowAlpha(magnitude, def.battery || def.grey ? 5000 : 6000).toFixed(2)})` : 'var(--grey-glow)';
@@ -267,11 +276,13 @@ function buildOuterNode(def, angleDeg, d, markerDefs) {
   ring.style.fill = active ? '#14171c' : 'none';
   g.appendChild(ring);
 
-  const iconG = el('g', { class: 'node-icon', transform: 'translate(0,-22)', 'stroke-width': 2, fill: 'none' });
+  const iconG = el('g', { class: 'node-icon', transform: 'translate(0,-27)', 'stroke-width': 2, fill: 'none' });
   ICONS[def.icon](iconG, def.battery ? (d.socHave ? d.soc : null) : null);
   g.appendChild(iconG);
 
-  const valText = el('text', { x: 0, y: 11, 'text-anchor': 'middle', class: 'node-value' });
+  // Platzreserve wie für "33,333 kW" (breitester realistischer Wert)
+  // eingeplant, Wert vertikal nahe der Kreismitte statt weiter oben.
+  const valText = el('text', { x: 0, y: 9, 'text-anchor': 'middle', class: 'node-value' });
   valText.appendChild(document.createTextNode('0'));
   const unit = el('tspan', { class: 'node-value-unit', dx: 2 });
   unit.textContent = 'kW';
@@ -279,7 +290,7 @@ function buildOuterNode(def, angleDeg, d, markerDefs) {
   setValueText(valText, magnitude);
   g.appendChild(valText);
 
-  const labelText = el('text', { x: 0, y: 27, 'text-anchor': 'middle', class: 'node-label' });
+  const labelText = el('text', { x: 0, y: 28, 'text-anchor': 'middle', class: 'node-label' });
   labelText.textContent = def.label;
   g.appendChild(labelText);
 
@@ -342,9 +353,12 @@ function handleMessage(raw) {
   const centerColor = lerp(C_GREEN, C_RED, gridShare);
   const centerActive = !!d.houseHave && houseW > 20;
 
+  const centerR = centerActive ? ACTIVE_R : INACTIVE_R;
   const centerG = document.getElementById('node-center');
   centerG.style.setProperty('--nc', rgb(d.houseHave && centerActive ? centerColor : C_GREY));
-  centerG.style.opacity = centerActive ? '1' : '0.5';
+  centerG.style.opacity = centerActive ? '1' : '0.32';
+  centerG.querySelector('.node-ring').setAttribute('r', centerR);
+  centerG.querySelector('.node-glow').setAttribute('r', centerR);
   centerG.querySelector('.node-ring').style.fill = centerActive ? '#14171c' : 'none';
   centerG.querySelector('.node-glow').style.stroke = centerActive
     ? `rgba(${centerColor[0]},${centerColor[1]},${centerColor[2]},${glowAlpha(houseW, 8000).toFixed(2)})`
