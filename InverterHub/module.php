@@ -2822,6 +2822,7 @@ class InverterHub extends IPSModule
     {
         parent::Create();
 
+        $this->RegisterPropertyBoolean('Active', true);
         $this->RegisterPropertyString('Manufacturer', 'goodwe');
         $this->RegisterPropertyString('Host', '');
         $this->RegisterPropertyInteger('Port', 502);
@@ -2878,6 +2879,14 @@ class InverterHub extends IPSModule
         $this->CreateProfiles();
         $this->RegisterVariables();
 
+        if (!$this->ReadPropertyBoolean('Active')) {
+            $this->SetStatus(104);
+            $this->SetTimerInterval('FastTimer', 0);
+            $this->SetTimerInterval('SlowTimer', 0);
+            $this->SetTimerInterval('EnableActionsTimer', 0);
+            return;
+        }
+
         $host = $this->ReadPropertyString('Host');
         if ($host === '') {
             $this->SetStatus(104);
@@ -2915,6 +2924,9 @@ class InverterHub extends IPSModule
 
     public function ReadFast()
     {
+        if (!$this->ReadPropertyBoolean('Active')) {
+            return;
+        }
         $driver = $this->GetDriver();
         if (!$this->ReadAttributeBoolean('DeviceInfoRead')) {
             $driver->readDeviceInfo($this->GetModbusClient(), $this);
@@ -2925,11 +2937,17 @@ class InverterHub extends IPSModule
 
     public function ReadSlow()
     {
+        if (!$this->ReadPropertyBoolean('Active')) {
+            return;
+        }
         $this->GetDriver()->readSlow($this->GetModbusClient(), $this);
     }
 
     public function RequestAction($Ident, $Value)
     {
+        if (!$this->ReadPropertyBoolean('Active')) {
+            return;
+        }
         $this->GetDriver()->writeControl($this->GetModbusClient(), $this, $Ident, $Value);
     }
 
@@ -2958,6 +2976,11 @@ class InverterHub extends IPSModule
                         ['type' => 'Label', 'caption' => 'SolaX: Der Wechselrichter selbst spricht nur Modbus RTU. Modbus TCP läuft nur über ein zusätzliches SolaX-Monitoring-Modul (Pocket WiFi/LAN) als Gateway – dessen IP-Adresse hier eintragen, nicht die des Wechselrichters direkt.'],
                         ['type' => 'Label', 'caption' => 'Registeradressen stehen im Beschreibungsfeld jeder Variable (Objekt-Manager, Spalte „Beschreibung").'],
                     ],
+                ],
+                [
+                    'type'    => 'CheckBox',
+                    'name'    => 'Active',
+                    'caption' => 'Kommunikation aktiv',
                 ],
                 [
                     'type'    => 'Select',

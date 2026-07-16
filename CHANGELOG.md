@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.0-beta.1 (2026-07-16)
+
+- **Neu**: Checkbox „Kommunikation aktiv" in `InverterHub`, direkt über der Hersteller-Auswahl.
+  Deaktivieren stoppt Polling (Schnell-/Langsam-Timer) und Steueraktionen sofort, ohne die
+  Instanz zu löschen oder die Konfiguration zu verlieren — praktisch z. B. bei Wartungsarbeiten
+  am Wechselrichter oder wenn das Gerät vorübergehend vom Netz genommen wird.
+
 ## 0.6.5-beta.1 (2026-07-16)
 
 - **Bugfix**: die in 0.6.3 eingeführte Fortschrittsanzeige erzeugte eine Warnung
