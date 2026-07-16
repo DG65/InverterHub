@@ -1619,45 +1619,71 @@ class SolaxDriver implements InverterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
-// SmaDriver — SMA STP/STPS/SI-Serie (SMA-eigene Modbus-Register).
-// Registeradressen sind bei SMA um 1 höher als die zu sendende Adresse
-// (Register 30201 -> PDU-Adresse 30200), siehe SMA-Dokumentation.
-// WICHTIG: Diese erste Ausbaustufe deckt nur PV/DC, Temperatur, Energie und
-// Health-Status ab. Die AC-/Netzmessregister lagen beim Erstellen dieses
-// Treibers nicht vollständig dokumentiert vor und wurden bewusst NICHT
-// geraten — Ergänzung folgt, sobald die Registeradressen bestätigt sind.
+// SmaDriver — SMA-Wechselrichter über SunSpec (wie von OpenEMS für SMA
+// Sunny Tripower verwendet — SMA-eigene native Register wurden zugunsten
+// von SunSpec verworfen, siehe Erkenntnis vom 2026-07-16). Laufzeit-
+// Discovery ab Basisregister 40000, keine festen Adressen — analog zu
+// FroniusDriver, Feldoffsets gegen OpenEMS-SunSpec-Referenz verifiziert.
 // ---------------------------------------------------------------------------
 
 class SmaDriver implements InverterDriverInterface
 {
-    const HEALTH = [35 => 'Fehler', 303 => 'Aus', 307 => 'Ok', 455 => 'Warnung'];
+    const STATUS = [
+        1 => 'Aus', 2 => 'Auto-Shutdown', 3 => 'Startet', 4 => 'Normal (MPPT)',
+        5 => 'Leistungsreduktion', 6 => 'Schaltet ab', 7 => 'Fehler', 8 => 'Standby',
+    ];
+
+    private function findModel($mb, $wantedModelId)
+    {
+        $addr = 40002;
+        for ($i = 0; $i < 20; $i++) {
+            $hdr = $mb->readHolding($addr, 2);
+            if ($hdr === null) {
+                return null;
+            }
+            $modelId = $mb->u16($hdr, 0);
+            $len     = $mb->u16($hdr, 1);
+            if ($modelId === 0xFFFF) {
+                return null;
+            }
+            if ($modelId === $wantedModelId) {
+                return [$addr + 2, $len];
+            }
+            $addr += 2 + $len;
+        }
+        return null;
+    }
 
     public function getBaseVars()
     {
         return [
-            ['connected', 'Verbindung', 'B', '~Alert.Reversed', false, 'errors', ''],
-            ['health',    'Health-Status', 'I', 'SMA.Health',    true,  'device', 'RO 30201 (-1)'],
-            ['pv_total',  'PV Gesamtleistung', 'F', 'SMA.Watt',  true,  'pv',    'Σ DcMs.Watt'],
+            ['connected', 'Verbindung',        'B', '~Alert.Reversed', false, 'errors', ''],
+            ['status',    'Betriebsstatus',    'I', 'SMA.Status',      true,  'device', 'SunSpec St'],
+            ['ac_power',  'AC Wirkleistung',   'F', 'SMA.Watt',        true,  'device', 'SunSpec W (Model 101/103)'],
+            ['pv_total',  'PV Gesamtleistung', 'F', 'SMA.Watt',        true,  'pv',     'SunSpec DCW (Model 101/103)'],
         ];
     }
 
     public function getOptionalGroups()
     {
         return [
-            'GroupPV' => ['caption' => 'PV-Details (2 DC-Eingänge)', 'vars' => [
-                ['mppt1_volt', 'MPPT1 Spannung', 'F', 'SMA.Volt',   false, 'pv', 'RO 30771 (-1)'],
-                ['mppt1_curr', 'MPPT1 Strom',    'F', 'SMA.Ampere', false, 'pv', 'RO 30769 (-1)'],
-                ['mppt1_power','MPPT1 Leistung', 'F', 'SMA.Watt',   true,  'pv', 'RO 30773 (-1)'],
-                ['mppt2_volt', 'MPPT2 Spannung', 'F', 'SMA.Volt',   false, 'pv', 'RO 30959 (-1)'],
-                ['mppt2_curr', 'MPPT2 Strom',    'F', 'SMA.Ampere', false, 'pv', 'RO 30957 (-1)'],
-                ['mppt2_power','MPPT2 Leistung', 'F', 'SMA.Watt',   true,  'pv', 'RO 30961 (-1)'],
+            'GroupGrid' => ['caption' => 'Netz (Spannung, Strom, Frequenz)', 'vars' => [
+                ['grid_volt', 'Netz Spannung',  'F', 'SMA.Volt',   false, 'grid', 'SunSpec PhVphA (Model 101/103)'],
+                ['grid_curr', 'Netz Strom',     'F', 'SMA.Ampere', false, 'grid', 'SunSpec A (Model 101/103)'],
+                ['grid_freq', 'Netzfrequenz',   'F', 'SMA.Hertz',  false, 'grid', 'SunSpec Hz (Model 101/103)'],
             ]],
-            'GroupEnergy' => ['caption' => 'Energiezähler (Tag/Gesamt)', 'vars' => [
-                ['e_day',   'Ertrag Heute',           'F', '~Electricity', true, 'energy', 'RO 30535 (-1)'],
-                ['e_total', 'Einspeisung Gesamt (Zähler)', 'F', '~Electricity', true, 'energy', 'RO 30583 (-1)'],
+            'GroupEnergy' => ['caption' => 'Energiezähler (Gesamtertrag)', 'vars' => [
+                ['e_total', 'Ertrag Gesamt', 'F', '~Electricity', true, 'energy', 'SunSpec WH (Model 101/103)'],
             ]],
             'GroupTemp' => ['caption' => 'Temperatur', 'vars' => [
-                ['temp_internal', 'Innentemperatur', 'F', '~Temperature', false, 'device', 'RO 30953 (-1)'],
+                ['temp_cab', 'Gehäusetemperatur', 'F', '~Temperature', false, 'device', 'SunSpec TmpCab (Model 101/103)'],
+            ]],
+            'GroupMeter' => ['caption' => 'Smart Meter (Leistung)', 'vars' => [
+                ['meter_total', 'Netz Leistung (Meter)', 'F', 'SMA.Watt', true, 'meter', 'SunSpec Meter Model 201/203'],
+            ]],
+            'GroupDevice' => ['caption' => 'Geräteinformation', 'vars' => [
+                ['dev_model', 'Modell', 'S', '', false, 'device', 'SunSpec Common Block'],
+                ['dev_sn',    'Seriennummer', 'S', '', false, 'device', 'SunSpec Common Block'],
             ]],
         ];
     }
@@ -1670,57 +1696,84 @@ class SmaDriver implements InverterDriverInterface
     public function getProfiles()
     {
         return [
-            'SMA.Watt'   => [VARIABLETYPE_FLOAT, ' W',  -40000.0, 40000.0, 1.0, 0],
-            'SMA.Volt'   => [VARIABLETYPE_FLOAT, ' V',       0.0,  1000.0, 0.1, 1],
-            'SMA.Ampere' => [VARIABLETYPE_FLOAT, ' A',       0.0,   200.0, 0.1, 1],
+            'SMA.Watt'   => [VARIABLETYPE_FLOAT, ' W',  -40000.0, 40000.0, 1.0,  0],
+            'SMA.Volt'   => [VARIABLETYPE_FLOAT, ' V',       0.0,  1000.0, 0.1,  1],
+            'SMA.Ampere' => [VARIABLETYPE_FLOAT, ' A',       0.0,   200.0, 0.1,  1],
+            'SMA.Hertz'  => [VARIABLETYPE_FLOAT, ' Hz',     45.0,    65.0, 0.01, 2],
         ];
     }
 
     public function getEnumProfiles()
     {
-        $health = [];
-        foreach (self::HEALTH as $k => $label) {
-            $color = ($k === 307) ? 0x27D07F : (($k === 455) ? 0xF39C12 : (($k === 35) ? 0xE74C3C : 0x7A8A99));
-            $health[$k] = [$label, $color];
+        $status = [];
+        foreach (self::STATUS as $k => $label) {
+            $status[$k] = [$label, 0x7A8A99];
         }
-        return ['SMA.Health' => $health];
+        return ['SMA.Status' => $status];
     }
 
     public function readFast($mb, $hub)
     {
-        $health = $mb->readHolding(30200, 2);
-        $dc1    = $mb->readHolding(30768, 6); // 30769-30774: Amp,Vol,Watt (je S32)
-        $dc2    = $mb->readHolding(30956, 6); // 30957-30962
+        // Float-Inverter-Model bevorzugt (111/112/113), sonst Int+SF (101/102/103)
+        $inv = $this->findModel($mb, 111) ?: $this->findModel($mb, 112) ?: $this->findModel($mb, 113);
+        $isFloat = ($inv !== null);
+        if ($inv === null) {
+            $inv = $this->findModel($mb, 101) ?: $this->findModel($mb, 102) ?: $this->findModel($mb, 103);
+        }
 
-        $ok = ($health !== null);
+        $ok = ($inv !== null);
         $hub->SetVarBool('connected', $ok);
         if (!$ok) {
             return false;
         }
 
-        $hub->SetVarInt('health', $mb->u32($health, 0));
+        [$base, $len] = $inv;
+        $blk = $mb->readHolding($base, min($len, 60));
+        if ($blk === null) {
+            $hub->SetVarBool('connected', false);
+            return false;
+        }
 
-        $pv1w = ($dc1 !== null) ? $mb->s32($dc1, 4) : 0;
-        $pv2w = ($dc2 !== null) ? $mb->s32($dc2, 4) : 0;
-        $hub->SetVarFloat('pv_total', (float)($pv1w + $pv2w));
-
-        if ($hub->GetPropBool('GroupPV')) {
-            if ($dc1 !== null) {
-                $hub->SetVarFloat('mppt1_curr',  $mb->s32($dc1, 0) / 1000.0);
-                $hub->SetVarFloat('mppt1_volt',  $mb->s32($dc1, 2) / 100.0);
-                $hub->SetVarFloat('mppt1_power', (float)$pv1w);
+        // Offsets siehe FroniusDriver (identische SunSpec-Modelle 101/103/111/113),
+        // gegen OpenEMS-SunSpec-Referenz verifiziert. Zusätzlich hier genutzt:
+        // DCW (aggregierte DC-Leistung) Float @36, Int+SF @29; TmpCab Float @38, Int+SF @31.
+        if ($isFloat) {
+            $hub->SetVarFloat('ac_power', $mb->readFloat32($blk, 20));
+            $hub->SetVarInt('status', $mb->u16($blk, 46));
+            $hub->SetVarFloat('pv_total', $mb->readFloat32($blk, 36));
+            if ($hub->GetPropBool('GroupGrid')) {
+                $hub->SetVarFloat('grid_curr', $mb->readFloat32($blk, 0));
+                $hub->SetVarFloat('grid_volt', $mb->readFloat32($blk, 14));
+                $hub->SetVarFloat('grid_freq', $mb->readFloat32($blk, 22));
             }
-            if ($dc2 !== null) {
-                $hub->SetVarFloat('mppt2_curr',  $mb->s32($dc2, 0) / 1000.0);
-                $hub->SetVarFloat('mppt2_volt',  $mb->s32($dc2, 2) / 100.0);
-                $hub->SetVarFloat('mppt2_power', (float)$pv2w);
+            if ($hub->GetPropBool('GroupEnergy')) {
+                $hub->SetVarFloat('e_total', $mb->readFloat32($blk, 30) / 1000.0);
+            }
+            if ($hub->GetPropBool('GroupTemp')) {
+                $hub->SetVarFloat('temp_cab', $mb->readFloat32($blk, 38));
+            }
+        } else {
+            $hub->SetVarFloat('ac_power', (float)$mb->s16($blk, 12));
+            $hub->SetVarInt('status', $mb->u16($blk, 36));
+            $hub->SetVarFloat('pv_total', (float)$mb->s16($blk, 29));
+            if ($hub->GetPropBool('GroupGrid')) {
+                $hub->SetVarFloat('grid_curr', (float)$mb->u16($blk, 0));
+                $hub->SetVarFloat('grid_volt', (float)$mb->u16($blk, 8));
+                $hub->SetVarFloat('grid_freq', $mb->u16($blk, 14) / 100.0);
+            }
+            if ($hub->GetPropBool('GroupTemp')) {
+                $hub->SetVarFloat('temp_cab', $mb->s16($blk, 31) / 10.0);
             }
         }
 
-        if ($hub->GetPropBool('GroupTemp')) {
-            $temp = $mb->readHolding(30952, 2);
-            if ($temp !== null) {
-                $hub->SetVarFloat('temp_internal', $mb->s32($temp, 0) / 10.0);
+        if ($hub->GetPropBool('GroupMeter')) {
+            $meter = $this->findModel($mb, 201) ?: $this->findModel($mb, 203) ?: $this->findModel($mb, 211) ?: $this->findModel($mb, 213);
+            if ($meter !== null) {
+                [$mtbase, $mtlen] = $meter;
+                $mtblk = $mb->readHolding($mtbase, min($mtlen, 20));
+                if ($mtblk !== null) {
+                    $hub->SetVarFloat('meter_total', (float)$mb->s16($mtblk, 16));
+                }
             }
         }
 
@@ -1729,21 +1782,22 @@ class SmaDriver implements InverterDriverInterface
 
     public function readSlow($mb, $hub)
     {
-        if ($hub->GetPropBool('GroupEnergy')) {
-            $day = $mb->readHolding(30534, 2);
-            if ($day !== null) {
-                $hub->SetVarFloat('e_day', $mb->u32($day, 0) / 1000.0); // Wh -> kWh
-            }
-            $total = $mb->readHolding(30582, 2);
-            if ($total !== null) {
-                $hub->SetVarFloat('e_total', $mb->u32($total, 0) / 1000.0);
-            }
-        }
+        // Energie wird bereits im Inverter-Model in readFast() mitgelesen.
     }
 
     public function readDeviceInfo($mb, $hub)
     {
-        // Kein separates Geräteinfo-Register in der ersten Ausbaustufe gelesen.
+        $common = $this->findModel($mb, 1);
+        if ($common === null) {
+            return;
+        }
+        [$base, $len] = $common;
+        $blk = $mb->readHolding($base, min($len, 66));
+        if ($blk === null) {
+            return;
+        }
+        $hub->SetVarStr('dev_model', $mb->readStr($blk, 16, 16));
+        $hub->SetVarStr('dev_sn',    $mb->readStr($blk, 48, 16));
     }
 
     public function writeControl($mb, $hub, $ident, $value)
@@ -1959,8 +2013,10 @@ class FroniusDriver implements InverterDriverInterface
         }
         // Common Block: Mn(16 Zeichen ab Offset 0), Md(16 ab Offset 16),
         // Vr(8 ab Offset 32... Herstellerabhängig), SN(16 ab Offset 40)
+        // SunSpec Common Block (Model 1): MN(0-15) MD(16-31) OPT(32-39)
+        // VR(40-47) SN(48-63) — verifiziert gegen OpenEMS-SunSpec-Definition.
         $hub->SetVarStr('dev_model', $mb->readStr($blk, 16, 16));
-        $hub->SetVarStr('dev_sn',    $mb->readStr($blk, 40, 16));
+        $hub->SetVarStr('dev_sn',    $mb->readStr($blk, 48, 16));
     }
 
     public function writeControl($mb, $hub, $ident, $value)
