@@ -62,7 +62,7 @@
           "caption": "Die Kreisfarben sind fest an die jeweilige Größe gebunden (Solar = Gelb, Netz = Grün/Rot je nach Richtung, Last = Grün-Rot-Verlauf je nach Quellenanteil, Batterie = Blau) und nicht anpassbar."
         },
         {
-          "type": "ColorPicker",
+          "type": "SelectColor",
           "name": "ColorBackground",
           "caption": "Hintergrundfarbe (-1 = Systemstandard)"
         },

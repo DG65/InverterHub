@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.11.1-beta.1 (2026-07-16)
+
+- **Bugfix (2. Anlauf) `InverterHubTile`**: Konfigurationsformular ließ sich weiterhin nicht
+  öffnen ("Nicht unterstützter Typ: ColorPicker"). Auch `ColorPicker` war falsch geraten — der
+  tatsächlich korrekte IP-Symcon-Formularelement-Typ heißt `SelectColor` (offiziell
+  dokumentiert). Diesmal gegen die offizielle Symcon-Dokumentation verifiziert statt geraten.
+
 ## 0.11.0-beta.1 (2026-07-16)
 
 - **Komplettes Redesign `InverterHubTile`** nach Nutzer-Feedback (Layout wirkte nicht streng
