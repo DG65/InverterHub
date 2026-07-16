@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.13.0-beta.1 (2026-07-16)
+
+- **Bugfix Skalierung bei kleinen Kachelgrößen**: `width/height:100%` per CSS verlässt sich
+  darauf, dass der Kachel-Host dem `<body>` zuverlässig seine tatsächliche Pixelgröße
+  durchreicht — das war in der echten IP-Symcon-Kachel-Ansicht nicht immer der Fall, wodurch
+  `preserveAspectRatio` gegen eine falsche (zu große) Fläche skalierte und bei kleinen
+  Widget-Größen Inhalt am Rand abgeschnitten wurde. Die tatsächliche Größe wird jetzt aktiv per
+  JavaScript gemessen (inkl. `ResizeObserver`) und explizit als Pixel-Attribute gesetzt.
+- **Statuszeile** ("Verbunden" mit Punkt) ist jetzt an der Diagramm-Geometrie verankert (knapp
+  oberhalb/links von Solar- und Verluste-Kreis) statt an einem willkürlichen Fixpunkt.
+- **Stärker ausgegraut**: inaktive Knoten (kein nennenswerter Fluss) sind jetzt zusätzlich
+  gedimmt (Gruppen-Transparenz) und ihr dunkler Kreishintergrund wird komplett entfernt
+  (transparent), statt weiterhin als dunkler Kreis mit grauem Rand hervorzustechen.
+- **Batterie größer** und der SOC-Wert steht jetzt direkt im (dafür verbreiterten) Batterie-Icon
+  geschrieben, statt als separate Textzeile daneben.
+
 ## 0.12.0-beta.1 (2026-07-16)
 
 - **Feste Positionen statt Rotationsverteilung**: Solar liegt jetzt immer oben, Netz immer

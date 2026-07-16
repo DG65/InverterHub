@@ -24,6 +24,11 @@
   html, body { width: 100%; height: 100%; background: transparent; user-select: none; overflow: hidden; }
   body { position: relative; }
 
+  /* width/height werden zusätzlich per JS als explizite Pixel-Attribute
+     gesetzt (siehe syncSvgSize) - in manchen Kachel-Hosts wird die 100%-Höhe
+     nicht zuverlässig bis zum <body> durchgereicht, wodurch preserveAspectRatio
+     gegen eine falsche (zu große) Fläche skalierte und Inhalt am Rand
+     abgeschnitten wurde, besonders bei kleinen Kachelgrößen. */
   .flow-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 
   text { font-family: var(--font); }
@@ -68,9 +73,11 @@
 <svg class="flow-svg" id="svg" viewBox="0 0 560 580" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
   <defs id="markerDefs"></defs>
 
-  <!-- Statuszeile -->
-  <circle id="dot" class="status-dot" cx="20" cy="22" r="6.5"/>
-  <text id="stateLabel" x="34" y="27" class="state-label">–</text>
+  <!-- Statuszeile: Position ist an die Diagramm-Geometrie gekoppelt (knapp
+       oberhalb/links von Solar- und Verluste-Kreis), nicht an einen
+       willkürlichen Fixpunkt in der viewBox. -->
+  <circle id="dot" class="status-dot" cx="40" cy="47" r="6.5"/>
+  <text id="stateLabel" x="54" y="52" class="state-label">–</text>
 
   <!-- Dynamischer Inhalt: Speichen zuerst (unten), dann Knoten (oben) -->
   <g id="wires-layer"></g>
@@ -125,6 +132,26 @@ function el(tag, attrs) {
   return e;
 }
 
+// CSS-Prozentangaben (width/height:100%) verlassen sich darauf, dass der
+// Kachel-Host dem <body> zuverlässig seine tatsächliche Pixelgröße
+// durchreicht - das ist in der IP-Symcon-Kachel-Ansicht nicht immer der
+// Fall, besonders bei kleinen Widget-Größen, wodurch preserveAspectRatio
+// gegen eine falsche (zu große) Fläche skalierte und Inhalt am Rand
+// abgeschnitten wurde. Die tatsächliche Größe wird daher aktiv gemessen und
+// als explizite Pixel-Attribute auf dem <svg> gesetzt.
+function syncSvgSize() {
+  const svg = document.getElementById('svg');
+  const w = window.innerWidth || document.documentElement.clientWidth || 1;
+  const h = window.innerHeight || document.documentElement.clientHeight || 1;
+  svg.setAttribute('width', w);
+  svg.setAttribute('height', h);
+}
+window.addEventListener('resize', syncSvgSize);
+if (window.ResizeObserver) {
+  new ResizeObserver(syncSvgSize).observe(document.documentElement);
+}
+syncSvgSize();
+
 // <marker>-Inhalte erben KEINE Farbe von der referenzierenden Linie (kein
 // CSS-Vererbungskontext für SVG-Marker) - pro Knoten wird daher ein eigenes,
 // bereits passend eingefärbtes Marker-Element angelegt statt eines einzigen
@@ -165,13 +192,19 @@ const ICONS = {
   },
   battery(g, socPct) {
     // Breiter, liegender Body - der Füllstand (SOC) wird als horizontaler
-    // Balken direkt im Icon dargestellt, von links nach rechts.
-    g.appendChild(el('rect', { x: -16, y: -8, width: 29, height: 16, rx: 2.5, 'data-hollow': '1' }));
-    g.appendChild(el('rect', { x: 13, y: -4, width: 4, height: 8, rx: 1, stroke: 'none' }));
+    // Balken direkt im Icon dargestellt, der Prozentwert steht mittig
+    // darüber geschrieben direkt IM Icon (nicht mehr separat daneben).
+    g.appendChild(el('rect', { x: -20, y: -11, width: 37, height: 22, rx: 3, 'data-hollow': '1' }));
+    g.appendChild(el('rect', { x: 17, y: -5.5, width: 5, height: 11, rx: 1.3, stroke: 'none' }));
     if (socPct != null) {
       const pct = Math.max(0, Math.min(100, socPct)) / 100;
-      const fillW = 23 * pct;
-      g.appendChild(el('rect', { x: -14, y: -6, width: fillW, height: 12, rx: 1.3, opacity: 0.45, stroke: 'none' }));
+      const fillW = 31 * pct;
+      g.appendChild(el('rect', { x: -18, y: -9, width: fillW, height: 18, rx: 1.8, opacity: 0.4, stroke: 'none' }));
+      const t = el('text', { x: -1.5, y: 4, 'text-anchor': 'middle', 'font-size': 12, 'font-weight': 800 });
+      t.style.fill = '#fff';
+      t.style.stroke = 'none';
+      t.textContent = Math.round(socPct) + '%';
+      g.appendChild(t);
     }
   },
   flame(g) {
@@ -193,7 +226,7 @@ const NODE_DEFS = [
   { key: 'pv',   label: 'Solar',    icon: 'sun',     have: 'pvHave',   w: 'pvW',   angle: -90,
     color: () => C_SOLAR, dir: () => 'in' },
   { key: 'bat',  label: 'Batterie', icon: 'battery', have: 'batHave',  w: 'batW',  angle: 0,
-    color: () => C_BAT, dir: (w) => w > 0 ? 'in' : 'out', battery: true },
+    color: () => C_BAT, dir: (w) => w > 0 ? 'in' : 'out', battery: true, radius: 62 },
   { key: 'grid', label: 'Netz',     icon: 'bolt',    have: 'gridHave', w: 'gridW', angle: 90,
     color: (w) => w >= 0 ? C_GREEN : C_RED, dir: (w) => w >= 0 ? 'out' : 'in' },
   { key: 'loss', label: 'Verluste', icon: 'flame',   have: 'lossHave', w: 'lossW', angle: 180,
@@ -212,20 +245,26 @@ function buildOuterNode(def, angleDeg, d, markerDefs) {
   const magnitude = Math.abs(w);
   const have = !!d[def.have];
   const active = have && magnitude > (def.minMagnitude ?? 20);
+  const nodeR = def.radius || R_NODE;
   // Ohne nennenswerten Fluss wird der komplette Knoten (Ring, Icon, Wert,
-  // Pfeile) grau dargestellt statt in seiner Akzentfarbe zu verharren.
+  // Pfeile) grau dargestellt statt in seiner Akzentfarbe zu verharren, dazu
+  // insgesamt abgedunkelt (Gruppen-Opazität) und der dunkle Kreis-Hintergrund
+  // entfernt, damit inaktive Knoten spürbar zurücktreten.
   const color = def.grey ? C_GREY : (have && active ? def.color(w) : C_GREY);
 
   const g = el('g', { transform: `translate(${cx},${cy})` });
   g.style.setProperty('--nc', rgb(color));
+  g.style.opacity = active ? '1' : '0.5';
 
-  const glow = el('circle', { class: 'node-glow', r: R_NODE });
+  const glow = el('circle', { class: 'node-glow', r: nodeR });
   glow.style.stroke = active ? `rgba(${color[0]},${color[1]},${color[2]},${glowAlpha(magnitude, def.battery || def.grey ? 5000 : 6000).toFixed(2)})` : 'var(--grey-glow)';
   g.appendChild(glow);
-  g.appendChild(el('circle', { class: 'node-ring', r: R_NODE }));
+  const ring = el('circle', { class: 'node-ring', r: nodeR });
+  ring.style.fill = active ? '#14171c' : 'none';
+  g.appendChild(ring);
 
   const iconG = el('g', { class: 'node-icon', transform: 'translate(0,-22)', 'stroke-width': 2, fill: 'none' });
-  ICONS[def.icon](iconG, def.battery ? d.soc : null);
+  ICONS[def.icon](iconG, def.battery ? (d.socHave ? d.soc : null) : null);
   g.appendChild(iconG);
 
   const valText = el('text', { x: 0, y: 11, 'text-anchor': 'middle', class: 'node-value' });
@@ -240,20 +279,13 @@ function buildOuterNode(def, angleDeg, d, markerDefs) {
   labelText.textContent = def.label;
   g.appendChild(labelText);
 
-  if (def.battery && d.socHave) {
-    const socText = el('text', { x: 0, y: -36, 'text-anchor': 'middle', class: 'node-sub' });
-    socText.style.fill = rgb(color);
-    socText.textContent = Math.round(d.soc) + '%';
-    g.appendChild(socText);
-  }
-
   // Speiche: von der Kante des äußeren Knotens bis zur Kante des
   // Kollektor-Rings, exakt entlang der Verbindungslinie berechnet - "streng
   // geometrisch", keine Freihand-Kurven.
   const dx = CX - cx, dy = CY - cy;
   const dist = Math.hypot(dx, dy);
   const ux = dx / dist, uy = dy / dist;
-  const startX = cx + ux * R_NODE, startY = cy + uy * R_NODE;
+  const startX = cx + ux * nodeR, startY = cy + uy * nodeR;
   const endX   = CX - ux * R_RING, endY   = CY - uy * R_RING;
 
   const markerId = 'arrow-' + def.key;
@@ -281,6 +313,7 @@ function buildOuterNode(def, angleDeg, d, markerDefs) {
 }
 
 function handleMessage(raw) {
+  syncSvgSize();
   const d = typeof raw === 'string' ? JSON.parse(raw) : raw;
 
   if (d.font) document.documentElement.style.setProperty('--font', d.font);
@@ -306,7 +339,9 @@ function handleMessage(raw) {
   const centerActive = !!d.houseHave && houseW > 20;
 
   const centerG = document.getElementById('node-center');
-  centerG.style.setProperty('--nc', rgb(d.houseHave ? centerColor : C_GREY));
+  centerG.style.setProperty('--nc', rgb(d.houseHave && centerActive ? centerColor : C_GREY));
+  centerG.style.opacity = centerActive ? '1' : '0.5';
+  centerG.querySelector('.node-ring').style.fill = centerActive ? '#14171c' : 'none';
   centerG.querySelector('.node-glow').style.stroke = centerActive
     ? `rgba(${centerColor[0]},${centerColor[1]},${centerColor[2]},${glowAlpha(houseW, 8000).toFixed(2)})`
     : 'var(--grey-glow)';
