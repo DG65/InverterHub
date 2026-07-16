@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.11.2-beta.1 (2026-07-16)
+
+- **Bugfix Randbeschneidung**: die `viewBox` war für die tatsächliche Ausdehnung der äußeren
+  Kreise (inkl. Leucht-Corona) zu knapp bemessen — bei bestimmten Winkeln/Kachelgrößen wurden
+  Kreise am Rand abgeschnitten. Geometrie neu durchgerechnet, jetzt mit durchgängigem
+  Sicherheitsabstand.
+- **Bugfix schwarze Pfeilspitzen**: beim Umbau auf variable Knotenanzahl war versehentlich nur
+  noch ein einziges, geteiltes `<marker>`-Element für alle Pfeile übrig geblieben (SVG-Marker
+  erben keine Farbe von der referenzierenden Linie) — dadurch erschienen alle Pfeilspitzen in
+  derselben bzw. der Standardfarbe Schwarz. Jeder Knoten bekommt jetzt sein eigenes, bereits
+  passend eingefärbtes Marker-Element.
+- Schriftgrößen in den Kreisen verkleinert und Kreisradius leicht angepasst, damit auch
+  sechsstellige Werte wie „4,654 kW" nicht mehr eng am Rand stehen.
+- Kollektor-Ring um die Hauslast kräftiger (dickerer, dichterer Strich) und mittig zwischen
+  Zentrums- und Außenkreisen positioniert statt zu nah am Zentrum.
+
 ## 0.11.1-beta.1 (2026-07-16)
 
 - **Bugfix (2. Anlauf) `InverterHubTile`**: Konfigurationsformular ließ sich weiterhin nicht

@@ -7,7 +7,8 @@
   :root {
     --grey: rgba(158,158,158,0.85);
     --grey-glow: rgba(158,158,158,0);
-    --wire: rgba(148,148,148,0.4);
+    --wire: rgba(150,150,150,0.42);
+    --ring-decor: rgba(190,190,190,0.55);
     --text: inherit;
     --textmuted: rgba(158,158,158,0.9);
     --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -16,11 +17,14 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   /* Alles liegt in EINEM SVG mit viewBox, damit die gesamte Kachel beim
-     Skalieren des Widgets als Einheit mitwächst. */
+     Skalieren des Widgets als Einheit mitwächst. Absolute Positionierung
+     statt Flexbox, da ein Flex-Kind mit width/height:100% in manchen
+     Kachel-Hosts nicht zuverlässig auf die tatsächliche Containergröße
+     schrumpft und dadurch Inhalt am Rand abgeschnitten wurde. */
   html, body { width: 100%; height: 100%; background: transparent; user-select: none; overflow: hidden; }
-  body { display: flex; }
+  body { position: relative; }
 
-  .flow-svg { width: 100%; height: 100%; display: block; }
+  .flow-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 
   text { font-family: var(--font); }
 
@@ -37,10 +41,10 @@
 
   /* Striktes, überall identisches Template: Icon -> Wert -> Label, in genau
      dieser Reihenfolge und mit denselben Abständen für JEDEN Knoten. */
-  .node-value { font-size: 28px; font-weight: 800; fill: var(--nc, var(--grey)); }
-  .node-value-unit { font-size: 14px; font-weight: 600; fill: var(--textmuted); }
-  .node-label { font-size: 14px; fill: var(--textmuted); }
-  .node-sub { font-size: 9px; font-weight: 700; }
+  .node-value { font-size: 22px; font-weight: 800; fill: var(--nc, var(--grey)); }
+  .node-value-unit { font-size: 11px; font-weight: 600; fill: var(--textmuted); }
+  .node-label { font-size: 12.5px; fill: var(--textmuted); }
+  .node-sub { font-size: 10px; font-weight: 700; }
 
   .wire { fill: none; stroke: var(--wire); stroke-width: 2.5; stroke-linecap: round; }
   .wire-flow {
@@ -51,7 +55,9 @@
   .wire-flow.reverse { animation-direction: reverse; }
   @keyframes dash { to { stroke-dashoffset: -22; } }
 
-  .ring-decor { fill: none; stroke: var(--wire); stroke-width: 2; stroke-dasharray: 1 7; }
+  /* Kollektor-Ring: bewusst kräftiger als die dünnen Speichen, damit er als
+     eigenständiges Gestaltungselement erkennbar bleibt. */
+  .ring-decor { fill: none; stroke: var(--ring-decor); stroke-width: 3.5; stroke-dasharray: 2 6; }
 
   .node-glow { fill: none; stroke-width: 13; filter: blur(8px); }
   .node-ring { fill: #14171c; stroke-width: 3; stroke: var(--nc, var(--grey)); }
@@ -59,12 +65,8 @@
 </head>
 <body>
 
-<svg class="flow-svg" id="svg" viewBox="0 0 520 520" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
-  <defs>
-    <marker id="arrowhead" markerWidth="9" markerHeight="9" refX="4.5" refY="4.5" orient="auto">
-      <path d="M0,0 L9,4.5 L0,9 Z"/>
-    </marker>
-  </defs>
+<svg class="flow-svg" id="svg" viewBox="0 0 560 580" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+  <defs id="markerDefs"></defs>
 
   <!-- Statuszeile -->
   <circle id="dot" class="status-dot" cx="20" cy="22" r="6.5"/>
@@ -73,26 +75,27 @@
   <!-- Dynamischer Inhalt: Speichen zuerst (unten), dann Knoten (oben) -->
   <g id="wires-layer"></g>
 
-  <!-- Zentrum: Hauslast, immer vorhanden, Kollektor-Ring als Stilelement -->
-  <circle class="ring-decor" cx="260" cy="270" r="76"/>
-  <g id="node-center" transform="translate(260,270)">
-    <circle class="node-glow" r="58"/>
-    <circle class="node-ring" r="58"/>
-    <g class="node-icon" transform="translate(0,-18)" stroke-width="2.2" fill="none">
+  <!-- Zentrum: Hauslast, immer vorhanden. Kollektor-Ring liegt etwa mittig
+       zwischen Zentrums- und äußeren Kreisen (siehe R_RING/R_CENTER/R_OUTER). -->
+  <circle class="ring-decor" id="ring-decor" cx="280" cy="301" r="96"/>
+  <g id="node-center" transform="translate(280,301)">
+    <circle class="node-glow" r="60"/>
+    <circle class="node-ring" r="60"/>
+    <g class="node-icon" transform="translate(0,-16)" stroke-width="2" fill="none">
       <polygon points="0,-15 17,-1 17,15 -17,15 -17,-1" data-hollow="1"/>
     </g>
-    <text id="lbl-center-val" x="0" y="15" text-anchor="middle" class="node-value">0<tspan class="node-value-unit" dx="2">kW</tspan></text>
-    <text x="0" y="35" text-anchor="middle" class="node-label">Hauslast</text>
+    <text id="lbl-center-val" x="0" y="12" text-anchor="middle" class="node-value">0<tspan class="node-value-unit" dx="2">kW</tspan></text>
+    <text x="0" y="29" text-anchor="middle" class="node-label">Hauslast</text>
   </g>
 
   <g id="nodes-layer"></g>
 </svg>
 
 <script>
-const CX = 260, CY = 270;          // Zentrum
-const R_CENTER = 58, R_RING = 76;  // Zentrums-/Kollektorring-Radius
-const R_OUTER  = 190;              // Abstand der äußeren Knoten vom Zentrum
-const R_NODE   = 52;               // Radius der äußeren Knoten
+const CX = 280, CY = 301;          // Zentrum
+const R_CENTER = 60, R_RING = 96;  // Zentrums-/Kollektorring-Radius
+const R_OUTER  = 178;              // Abstand der äußeren Knoten vom Zentrum
+const R_NODE   = 50;               // Radius der äußeren Knoten
 
 const C_SOLAR = [255, 179, 0];
 const C_BAT   = [33, 150, 243];
@@ -103,9 +106,9 @@ const C_GREY  = [158, 158, 158];
 function rgb(c) { return 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')'; }
 function lerp(a, b, t) {
   t = Math.max(0, Math.min(1, t));
-  return [a,b].reduce ? [
+  return [
     Math.round(a[0] + (b[0]-a[0])*t), Math.round(a[1] + (b[1]-a[1])*t), Math.round(a[2] + (b[2]-a[2])*t)
-  ] : a;
+  ];
 }
 function fmtKw(w) {
   const kw = (w || 0) / 1000;
@@ -122,18 +125,31 @@ function el(tag, attrs) {
   return e;
 }
 
+// <marker>-Inhalte erben KEINE Farbe von der referenzierenden Linie (kein
+// CSS-Vererbungskontext für SVG-Marker) - pro Knoten wird daher ein eigenes,
+// bereits passend eingefärbtes Marker-Element angelegt statt eines einzigen
+// globalen Pfeils (der zuvor von allen Knoten geteilt wurde und dadurch nur
+// in einer Farbe bzw. Schwarz erschien).
+function makeMarker(id, color) {
+  const m = el('marker', { id, markerWidth: 9, markerHeight: 9, refX: 4.5, refY: 4.5, orient: 'auto' });
+  const p = el('path', { d: 'M0,0 L9,4.5 L0,9 Z' });
+  p.style.fill = rgb(color);
+  m.appendChild(p);
+  return m;
+}
+
 // -- Icon-Zeichner: jeweils eine Gruppe von Kindelementen, im 32x32-Raster
-//    zentriert auf (0,0), wird an fester Position translate(0,-18) verankert.
+//    zentriert auf (0,0), wird an fester Position translate(0,-16) verankert.
 const ICONS = {
   sun(g) {
-    g.appendChild(el('circle', { r: 8, stroke: 'none' }));
-    const rays = [[0,-14,0,-11],[0,11,0,14],[-14,0,-11,0],[11,0,14,0],
-      [-9.9,-9.9,-7.6,-7.6],[7.6,7.6,9.9,9.9],[-9.9,9.9,-7.6,7.6],[7.6,-7.6,9.9,-9.9]];
+    g.appendChild(el('circle', { r: 7, stroke: 'none' }));
+    const rays = [[0,-13,0,-10],[0,10,0,13],[-13,0,-10,0],[10,0,13,0],
+      [-9.2,-9.2,-7,-7],[7,7,9.2,9.2],[-9.2,9.2,-7,7],[7,-7,9.2,-9.2]];
     rays.forEach(([x1,y1,x2,y2]) => g.appendChild(el('line', { x1,y1,x2,y2 })));
   },
   bolt(g) {
     g.appendChild(el('polygon', {
-      points: '2,-13 -7,2 -1,2 -3,13 8,-2 2,-2', 'data-hollow': '1',
+      points: '2,-12 -6.5,2 -1,2 -2.7,12 7.3,-2 2,-2', 'data-hollow': '1',
       'stroke-linejoin': 'round', 'stroke-linecap': 'round'
     }));
   },
@@ -141,16 +157,16 @@ const ICONS = {
     g.appendChild(el('polygon', { points: '0,-15 17,-1 17,15 -17,15 -17,-1', 'data-hollow': '1' }));
   },
   battery(g, socPct) {
-    g.appendChild(el('rect', { x: -12, y: -9, width: 21, height: 18, rx: 2.5, 'data-hollow': '1' }));
-    g.appendChild(el('rect', { x: 9, y: -4.5, width: 4, height: 9, rx: 1, stroke: 'none' }));
+    g.appendChild(el('rect', { x: -11, y: -8, width: 19, height: 16, rx: 2.3, 'data-hollow': '1' }));
+    g.appendChild(el('rect', { x: 8, y: -4, width: 3.5, height: 8, rx: 1, stroke: 'none' }));
     if (socPct != null) {
-      const fillH = 14 * Math.max(0, Math.min(100, socPct)) / 100;
-      g.appendChild(el('rect', { x: -10, y: 7 - fillH, width: 17, height: fillH, rx: 1.5, opacity: 0.4, stroke: 'none' }));
+      const fillH = 12 * Math.max(0, Math.min(100, socPct)) / 100;
+      g.appendChild(el('rect', { x: -9, y: 6 - fillH, width: 15, height: fillH, rx: 1.3, opacity: 0.4, stroke: 'none' }));
     }
   },
   flame(g) {
     g.appendChild(el('path', {
-      d: 'M0,-9 C4.2,-3.2 4.2,1 0,4.2 C1.2,1 -1,0 -1,2.1 C-2.1,-1 -3.2,-4.2 0,-9 Z',
+      d: 'M0,-8 C3.7,-2.8 3.7,0.9 0,3.7 C1.1,0.9 -0.9,0 -0.9,1.9 C-1.9,-0.9 -2.8,-3.7 0,-8 Z',
       'stroke-linejoin': 'round'
     }));
   },
@@ -175,7 +191,7 @@ function setValueText(textEl, watts) {
   textEl.firstChild.nodeValue = fmtKw(watts);
 }
 
-function buildOuterNode(def, angleDeg, d) {
+function buildOuterNode(def, angleDeg, d, markerDefs) {
   const rad = angleDeg * Math.PI / 180;
   const cx = CX + R_OUTER * Math.cos(rad);
   const cy = CY + R_OUTER * Math.sin(rad);
@@ -193,11 +209,11 @@ function buildOuterNode(def, angleDeg, d) {
   g.appendChild(glow);
   g.appendChild(el('circle', { class: 'node-ring', r: R_NODE }));
 
-  const iconG = el('g', { class: 'node-icon', transform: 'translate(0,-17)', 'stroke-width': 2.2, fill: 'none' });
+  const iconG = el('g', { class: 'node-icon', transform: 'translate(0,-15)', 'stroke-width': 2, fill: 'none' });
   ICONS[def.icon](iconG, def.battery ? d.soc : null);
   g.appendChild(iconG);
 
-  const valText = el('text', { x: 0, y: 13, 'text-anchor': 'middle', class: 'node-value' });
+  const valText = el('text', { x: 0, y: 11, 'text-anchor': 'middle', class: 'node-value' });
   valText.appendChild(document.createTextNode('0'));
   const unit = el('tspan', { class: 'node-value-unit', dx: 2 });
   unit.textContent = 'kW';
@@ -205,12 +221,12 @@ function buildOuterNode(def, angleDeg, d) {
   setValueText(valText, magnitude);
   g.appendChild(valText);
 
-  const labelText = el('text', { x: 0, y: 32, 'text-anchor': 'middle', class: 'node-label' });
+  const labelText = el('text', { x: 0, y: 27, 'text-anchor': 'middle', class: 'node-label' });
   labelText.textContent = def.label;
   g.appendChild(labelText);
 
   if (def.battery && d.socHave) {
-    const socText = el('text', { x: 0, y: -30, 'text-anchor': 'middle', class: 'node-sub' });
+    const socText = el('text', { x: 0, y: -28, 'text-anchor': 'middle', class: 'node-sub' });
     socText.style.fill = rgb(color);
     socText.textContent = Math.round(d.soc) + '%';
     g.appendChild(socText);
@@ -225,6 +241,9 @@ function buildOuterNode(def, angleDeg, d) {
   const startX = cx + ux * R_NODE, startY = cy + uy * R_NODE;
   const endX   = CX - ux * R_RING, endY   = CY - uy * R_RING;
 
+  const markerId = 'arrow-' + def.key;
+  markerDefs.appendChild(makeMarker(markerId, color));
+
   const wireStatic = el('line', { class: 'wire', x1: startX, y1: startY, x2: endX, y2: endY });
 
   const dir = def.dir(w);
@@ -234,12 +253,12 @@ function buildOuterNode(def, angleDeg, d) {
   const outPath = el('path', {
     class: 'wire-flow' + (flowActive && dir === 'in' ? ' active' : ''),
     d: `M${startX},${startY} L${endX},${endY}`,
-    'marker-end': 'url(#arrowhead)',
+    'marker-end': `url(#${markerId})`,
   });
   const inPath = el('path', {
     class: 'wire-flow reverse' + (flowActive && dir === 'out' ? ' active' : ''),
     d: `M${endX},${endY} L${startX},${startY}`,
-    'marker-end': 'url(#arrowhead)',
+    'marker-end': `url(#${markerId})`,
   });
   [outPath, inPath].forEach(p => { p.style.stroke = rgb(color); });
 
@@ -258,8 +277,10 @@ function handleMessage(raw) {
 
   const wiresLayer = document.getElementById('wires-layer');
   const nodesLayer = document.getElementById('nodes-layer');
+  const markerDefs = document.getElementById('markerDefs');
   wiresLayer.innerHTML = '';
   nodesLayer.innerHTML = '';
+  markerDefs.innerHTML = '';
 
   if (!d.ok) return;
 
@@ -280,7 +301,7 @@ function handleMessage(raw) {
   const n = activeDefs.length;
   activeDefs.forEach((def, i) => {
     const angleDeg = -90 + (360 / n) * i;
-    const { g, wires } = buildOuterNode(def, angleDeg, d);
+    const { g, wires } = buildOuterNode(def, angleDeg, d, markerDefs);
     wires.forEach(w => wiresLayer.appendChild(w));
     nodesLayer.appendChild(g);
   });
