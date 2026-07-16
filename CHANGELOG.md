@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.2-beta.1 (2026-07-16)
+
+- **Bugfix `InverterHubTile`**: Konfigurationsformular ließ sich nicht öffnen
+  ("Fehler beim Laden der Konfigurationsform — Nicht unterstützter Typ: ColorEditor"). Der
+  korrekte IP-Symcon-Formularelement-Typ heißt `ColorPicker`, nicht `ColorEditor`.
+
 ## 0.8.1-beta.1 (2026-07-16)
 
 - **Redesign `InverterHubTile`**: die erste Fassung wirkte optisch unfertig (grelle Volltonringe,

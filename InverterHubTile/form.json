@@ -58,27 +58,27 @@
           "caption": "Farben (-1 = Systemstandard)"
         },
         {
-          "type": "ColorEditor",
+          "type": "ColorPicker",
           "name": "ColorAccent",
           "caption": "Akzentfarbe (Standard: Solar-Grün #4CAF50)"
         },
         {
-          "type": "ColorEditor",
+          "type": "ColorPicker",
           "name": "ColorBackground",
           "caption": "Hintergrundfarbe"
         },
         {
-          "type": "ColorEditor",
+          "type": "ColorPicker",
           "name": "ColorBox",
           "caption": "Box-Farbe"
         },
         {
-          "type": "ColorEditor",
+          "type": "ColorPicker",
           "name": "ColorText",
           "caption": "Textfarbe"
         },
         {
-          "type": "ColorEditor",
+          "type": "ColorPicker",
           "name": "ColorTextMuted",
           "caption": "Gedämpfte Textfarbe"
         },
