@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.2-beta.1 (2026-07-16)
+
+- **Bugfix Sungrow**: Basisvariable `meter_total` wurde nie beschrieben (blieb dauerhaft auf 0).
+  Vom Beta-Tester an seiner eigenen, seit längerem laufenden Sungrow-SH-6.0RT-Konfiguration
+  bestätigtes Register (5601-5602, Meter Active Power Gesamt) als zuverlässige Quelle übernommen.
+- Zusätzlich per Gegenprobe bestätigt: die aktuelle Sungrow-Adressierung (direkt, ohne Offset)
+  ist korrekt — eine andere Community-Vorlage (SH10RT+SBR128) verwendet durchgehend um 1
+  niedrigere Adressen für dieselben Werte, was im Umkehrschluss die hier verwendete,
+  tester-bestätigte Nummerierung bekräftigt.
+- Neu: `power_flow_status` (Register 13001, vom Tester bestätigt, bisher gelesen aber verworfen).
+
 ## 0.6.1-beta.1 (2026-07-16)
 
 - `InverterHubDiscovery` erkennt jetzt auch SolarEdge, Deye, Solplanet und Kostal. Fronius und
