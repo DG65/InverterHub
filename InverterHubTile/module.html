@@ -197,9 +197,21 @@ function fmtKw(w) {
   const kw = (w || 0) / 1000;
   return kw.toLocaleString('de-DE', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 }
-function glowAlpha(magnitudeW, refW) {
-  const t = Math.max(0, Math.min(1, magnitudeW / refW));
-  return 0.14 + Math.sqrt(t) * 0.5;
+// Corona-Stärke: skaliert von 0 (bei 0 W) bis Maximum (bei GLOW_MAX_W = 40 kW).
+// Perzeptuelle sqrt-Kennlinie, damit auch mittlere Leistungen sichtbar sind.
+// Nicht nur die Deckkraft wächst, sondern auch Ringbreite und Weichzeichnung,
+// damit der Halo bei hoher Leistung spürbar "aufblüht".
+const GLOW_MAX_W = 40000;
+function applyGlow(glowEl, color, magnitudeW) {
+  const t = Math.max(0, Math.min(1, magnitudeW / GLOW_MAX_W));
+  if (t <= 0) {
+    glowEl.style.stroke = 'var(--grey-glow)';
+    return;
+  }
+  const k = Math.sqrt(t);
+  glowEl.style.stroke = `rgba(${color[0]},${color[1]},${color[2]},${(k * 0.95).toFixed(2)})`;
+  glowEl.style.strokeWidth = (12 + k * 22).toFixed(1);   // 12 .. 34
+  glowEl.style.filter = `blur(${(7 + k * 15).toFixed(1)}px)`; // 7 .. 22 px
 }
 const SVGNS = 'http://www.w3.org/2000/svg';
 function el(tag, attrs) {
@@ -368,7 +380,7 @@ function buildOuterNode(def, angleDeg, d, markerDefs) {
   if (active) { g.appendChild(makeCoinShadow(ACTIVE_R)); }
 
   const glow = el('circle', { class: 'node-glow', r: ACTIVE_R });
-  glow.style.stroke = active ? `rgba(${color[0]},${color[1]},${color[2]},${glowAlpha(magnitude, def.battery || def.grey ? 5000 : 6000).toFixed(2)})` : 'var(--grey-glow)';
+  if (active) { applyGlow(glow, color, magnitude); } else { glow.style.stroke = 'var(--grey-glow)'; }
   g.appendChild(glow);
   const ring = el('circle', { class: 'node-ring', r: ACTIVE_R });
   ring.style.fill = active ? 'url(#plasticFill)' : 'none';
@@ -475,9 +487,8 @@ function handleMessage(raw) {
   });
   document.getElementById('center-icon').setAttribute('filter', centerActive ? 'url(#relief)' : '');
   document.getElementById('lbl-center-val').setAttribute('filter', centerActive ? 'url(#relief)' : '');
-  centerG.querySelector('.node-glow').style.stroke = centerActive
-    ? `rgba(${centerColor[0]},${centerColor[1]},${centerColor[2]},${glowAlpha(houseW, 8000).toFixed(2)})`
-    : 'var(--grey-glow)';
+  const centerGlow = centerG.querySelector('.node-glow');
+  if (centerActive) { applyGlow(centerGlow, centerColor, houseW); } else { centerGlow.style.stroke = 'var(--grey-glow)'; }
   setValueText(document.getElementById('lbl-center-val'), houseW);
 
   const activeDefs = NODE_DEFS.filter(def => d[def.have]);

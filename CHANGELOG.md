@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.16.0-beta.1 (2026-07-16)
+
+- **Corona verstärkt und an die Leistung gekoppelt**: klare Kennlinie von 0 (bei 0 W) bis
+  Maximum (bei 40 kW), perzeptuell (Wurzel), sodass auch mittlere Leistungen sichtbar sind.
+  Am Maximum wächst nicht nur die Deckkraft (bis 0,95), sondern auch Ringbreite (bis 34 px)
+  und Weichzeichnung (bis 22 px) - der Halo blüht bei hoher Leistung spürbar auf.
+
 ## 0.15.2-beta.1 (2026-07-16)
 
 - **Echte Prägung**: Icons und Leistungswerte wirken jetzt in die Münzfläche gestanzt statt nur
