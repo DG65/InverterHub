@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.15.0-beta.1 (2026-07-16)
+
+- **Plastischer Look für aktive Kreise**: statt einer flachen Füllfarbe jetzt ein dezenter
+  Verlauf plus weiches Glanzlicht oben links (wirkt wie ein leicht gewölbter Knopf). Inaktive
+  Kreise bleiben bewusst flach wie bisher.
+- **Pfeile/Lauflinien und der große Kollektor-Ring um die Hauslast sind für den Moment
+  ausgeblendet** (Nutzerwunsch) — die komplette Geometrie dahinter bleibt erhalten und lässt
+  sich über eine einzelne Konstante (`SHOW_FLOW`) jederzeit wieder einschalten.
+
 ## 0.14.3-beta.1 (2026-07-16)
 
 - Icons in allen Kreisen einen Ticken höher positioniert.
