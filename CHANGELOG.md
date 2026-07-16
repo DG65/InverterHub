@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.15.1-beta.1 (2026-07-16)
+
+- **Münz-/Schlaglicht-Look für aktive Kreise verstärkt**: gewölbte Fläche mit gerichtetem
+  Licht von oben-links, metallischer Kantenanschliff (heller Lichtfang oben-links, dunkler
+  Schatten unten-rechts), ein knackiger Glint auf der Kante, eine Bodenschattierung (der Kreis
+  „schwebt" über der Fläche) sowie in die Fläche geprägte (Relief-)Icons und Leistungswerte.
+  Wirkt jetzt wie eine Münze unter Schlaglicht. Inaktive Kreise bleiben bewusst flach und
+  dezent wie bisher.
+
 ## 0.15.0-beta.1 (2026-07-16)
 
 - **Plastischer Look für aktive Kreise**: statt einer flachen Füllfarbe jetzt ein dezenter

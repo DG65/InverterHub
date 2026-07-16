@@ -68,7 +68,19 @@
 
   .node-glow { fill: none; stroke-width: 13; filter: blur(8px); }
   .node-ring { fill: #14171c; stroke-width: 3; stroke: var(--nc, var(--grey)); }
-  .node-highlight { fill: #fff; opacity: 0.09; filter: blur(5px); }
+
+  /* --- Münz-/Schlaglicht-Ebenen (nur für aktive Knoten) --- */
+  /* Dunkle Bodenschattierung leicht nach unten versetzt, damit der Kreis wie
+     eine erhabene Münze über der Fläche schwebt. */
+  .coin-shadow { fill: #000; opacity: 0.5; filter: blur(8px); }
+  /* Metallischer Kantenanschliff: heller Lichtfang oben-links, dunkler
+     Schatten unten-rechts (bevelGrad), überlagert den farbigen Ring, sodass
+     die Identitätsfarbe in den Mitteltönen erhalten bleibt. */
+  .node-bevel { fill: none; stroke: url(#bevelGrad); stroke-width: 5; }
+  /* Weiches, großes Glanzlicht oben links (diffuse Wölbung). */
+  .node-highlight { fill: #fff; opacity: 0.13; filter: blur(6px); }
+  /* Kleiner, knackiger Glint - wie Licht, das auf die Münzkante trifft. */
+  .node-spec { fill: #fff; opacity: 0.30; filter: blur(2px); }
 </style>
 </head>
 <body>
@@ -76,14 +88,40 @@
 <svg class="flow-svg" id="svg" viewBox="0 0 560 580" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
   <defs id="markerDefs"></defs>
   <defs>
-    <!-- Plastischer Look für AKTIVE Kreise: Verlauf statt Flächenfarbe,
-       dazu ein weiches Glanzlicht (siehe .node-highlight) - inaktive Kreise
-       bleiben bewusst flach (fill:none), wie bisher. -->
-    <radialGradient id="plasticFill" cx="35%" cy="28%" r="80%">
-      <stop offset="0%" stop-color="#2c3340"/>
-      <stop offset="55%" stop-color="#171b22"/>
-      <stop offset="100%" stop-color="#0a0c10"/>
+    <!-- Münz-Look für AKTIVE Kreise. Inaktive Kreise bleiben bewusst flach
+       (fill:none), wie bisher. -->
+    <!-- Gewölbte Fläche: Licht kommt von oben-links, dadurch heller Scheitel
+       oben-links und dunkler abfallender Rand unten-rechts. -->
+    <radialGradient id="plasticFill" cx="33%" cy="25%" r="88%">
+      <stop offset="0%"   stop-color="#3d4655"/>
+      <stop offset="42%"  stop-color="#1d222b"/>
+      <stop offset="100%" stop-color="#070a0e"/>
     </radialGradient>
+    <!-- Kanten-Anschliff der Münze: gerichtetes Licht von oben-links nach
+       unten-rechts (weiß -> transparent -> schwarz). objectBoundingBox, also
+       fest achsparallel = konstante Lichtrichtung. -->
+    <linearGradient id="bevelGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"   stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="28%"  stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="70%"  stop-color="#000000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.65"/>
+    </linearGradient>
+    <!-- Prägung (Relief) für Icons und Leistungswerte: heller Grat oben-links,
+       dunkler Schatten unten-rechts, Original obenauf - wie in eine Münze
+       geprägt. -->
+    <filter id="relief" x="-45%" y="-45%" width="190%" height="190%">
+      <feOffset in="SourceAlpha" dx="-0.6" dy="-0.7" result="ha"/>
+      <feFlood flood-color="#ffffff" flood-opacity="0.5"/>
+      <feComposite in2="ha" operator="in" result="hl"/>
+      <feOffset in="SourceAlpha" dx="0.7" dy="0.9" result="sa"/>
+      <feFlood flood-color="#000000" flood-opacity="0.55"/>
+      <feComposite in2="sa" operator="in" result="sh"/>
+      <feMerge>
+        <feMergeNode in="sh"/>
+        <feMergeNode in="hl"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
   </defs>
 
   <!-- Statuszeile: Position ist an die Diagramm-Geometrie gekoppelt (knapp
@@ -104,10 +142,13 @@
        Zentrums- und äußeren Kreisen (siehe R_RING/R_CENTER/R_OUTER). -->
   <circle class="ring-decor" id="ring-decor" cx="280" cy="301" r="96" style="display:none"/>
   <g id="node-center" transform="translate(280,301)">
+    <circle id="center-shadow" class="coin-shadow" cx="0" cy="8.96" r="54.88" style="display:none"/>
     <circle class="node-glow" r="56"/>
     <circle class="node-ring" r="56"/>
-    <ellipse id="center-highlight" class="node-highlight" cx="-17.9" cy="-28" rx="23.5" ry="13.4" style="display:none"/>
-    <g class="node-icon" transform="translate(0,-30)" stroke-width="2" fill="none">
+    <circle id="center-bevel" class="node-bevel" r="56" style="display:none"/>
+    <ellipse id="center-highlight" class="node-highlight" cx="-16.8" cy="-26.9" rx="25.8" ry="14.6" style="display:none"/>
+    <ellipse id="center-spec" class="node-spec" cx="-24.6" cy="-30.8" rx="11.2" ry="6.2" style="display:none"/>
+    <g id="center-icon" class="node-icon" transform="translate(0,-30)" stroke-width="2" fill="none">
       <polygon points="0,-12 13.6,-0.8 13.6,12 -13.6,12 -13.6,-0.8" data-hollow="1"/>
     </g>
     <text id="lbl-center-val" x="0" y="9" text-anchor="middle" class="node-value">0<tspan class="node-value-unit" dx="2">kW</tspan></text>
@@ -181,14 +222,28 @@ if (window.ResizeObserver) {
 }
 syncSvgSize();
 
-// Weiches Glanzlicht oben links im Kreis - Teil des "plastischen" Looks für
-// aktive Knoten, inaktive bleiben unangetastet (flach, kein Highlight).
+// --- Münz-/Schlaglicht-Ebenen (nur für aktive Knoten) ---
+// Dunkle Bodenschattierung leicht nach unten versetzt - die Münze schwebt.
+function makeCoinShadow(r) {
+  return el('circle', { class: 'coin-shadow', cx: 0, cy: r * 0.16, r: r * 0.98 });
+}
+// Metallischer Kantenanschliff (siehe #bevelGrad).
+function makeBevel(r) {
+  return el('circle', { class: 'node-bevel', r: r });
+}
+// Weiches, großes Glanzlicht oben links (diffuse Wölbung).
 function makeHighlight(r) {
-  const h = el('ellipse', {
+  return el('ellipse', {
     class: 'node-highlight',
-    cx: -r * 0.32, cy: -r * 0.5, rx: r * 0.42, ry: r * 0.24,
+    cx: -r * 0.30, cy: -r * 0.48, rx: r * 0.46, ry: r * 0.26,
   });
-  return h;
+}
+// Kleiner, knackiger Glint auf der Kante oben-links.
+function makeSpecular(r) {
+  return el('ellipse', {
+    class: 'node-spec',
+    cx: -r * 0.44, cy: -r * 0.55, rx: r * 0.2, ry: r * 0.11,
+  });
 }
 
 // <marker>-Inhalte erben KEINE Farbe von der referenzierenden Linie (kein
@@ -303,21 +358,32 @@ function buildOuterNode(def, angleDeg, d, markerDefs) {
   g.style.setProperty('--nc', rgb(color));
   g.style.opacity = active ? '1' : '0.32';
 
+  // Bodenschatten ganz unten (nur aktiv), damit die Münze über der Fläche liegt.
+  if (active) { g.appendChild(makeCoinShadow(ACTIVE_R)); }
+
   const glow = el('circle', { class: 'node-glow', r: ACTIVE_R });
   glow.style.stroke = active ? `rgba(${color[0]},${color[1]},${color[2]},${glowAlpha(magnitude, def.battery || def.grey ? 5000 : 6000).toFixed(2)})` : 'var(--grey-glow)';
   g.appendChild(glow);
   const ring = el('circle', { class: 'node-ring', r: ACTIVE_R });
   ring.style.fill = active ? 'url(#plasticFill)' : 'none';
   g.appendChild(ring);
-  if (active) { g.appendChild(makeHighlight(ACTIVE_R)); }
+  // Münz-Aufbau von unten nach oben: Kantenanschliff, diffuses Glanzlicht,
+  // knackiger Glint.
+  if (active) {
+    g.appendChild(makeBevel(ACTIVE_R));
+    g.appendChild(makeHighlight(ACTIVE_R));
+    g.appendChild(makeSpecular(ACTIVE_R));
+  }
 
   const iconG = el('g', { class: 'node-icon', transform: 'translate(0,-30)', 'stroke-width': 2, fill: 'none' });
   ICONS[def.icon](iconG, def.battery ? (d.socHave ? d.soc : null) : null);
+  if (active) { iconG.setAttribute('filter', 'url(#relief)'); }
   g.appendChild(iconG);
 
   // Platzreserve wie für "33,333 kW" (breitester realistischer Wert)
   // eingeplant, Wert vertikal nahe der Kreismitte statt weiter oben.
   const valText = el('text', { x: 0, y: 9, 'text-anchor': 'middle', class: 'node-value' });
+  if (active) { valText.setAttribute('filter', 'url(#relief)'); }
   valText.appendChild(document.createTextNode('0'));
   const unit = el('tspan', { class: 'node-value-unit', dx: 2 });
   unit.textContent = 'kW';
@@ -398,7 +464,11 @@ function handleMessage(raw) {
   centerG.style.setProperty('--nc', rgb(d.houseHave && centerActive ? centerColor : C_GREY));
   centerG.style.opacity = centerActive ? '1' : '0.32';
   centerG.querySelector('.node-ring').style.fill = centerActive ? 'url(#plasticFill)' : 'none';
-  document.getElementById('center-highlight').style.display = centerActive ? '' : 'none';
+  ['center-shadow', 'center-bevel', 'center-highlight', 'center-spec'].forEach(id => {
+    document.getElementById(id).style.display = centerActive ? '' : 'none';
+  });
+  document.getElementById('center-icon').setAttribute('filter', centerActive ? 'url(#relief)' : '');
+  document.getElementById('lbl-center-val').setAttribute('filter', centerActive ? 'url(#relief)' : '');
   centerG.querySelector('.node-glow').style.stroke = centerActive
     ? `rgba(${centerColor[0]},${centerColor[1]},${centerColor[2]},${glowAlpha(houseW, 8000).toFixed(2)})`
     : 'var(--grey-glow)';
