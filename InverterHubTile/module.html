@@ -328,20 +328,24 @@ const ICONS = {
 };
 
 // -- Node-Definitionen: legen fest, welche äußeren Knoten grundsätzlich
-//    existieren können. "have"/"w" verweisen auf Felder im Payload. Jeder
-//    Knotentyp hat eine FESTE Winkelposition (nicht mehr gleichmäßig über
-//    360°/Anzahl verteilt) - Solar so weit oben wie möglich, Netz so weit
-//    unten wie möglich, Batterie rechts, Verluste links. Künftige Verbraucher
-//    (Wallbox, Wärmepumpe, ...) bekommen hier einfach eigene freie Winkel
-//    zugewiesen (z. B. -45/-135 zwischen Solar und Batterie/Verluste).
+//    existieren können. "have"/"w" verweisen auf Felder im Payload.
+//    Die REIHENFOLGE hier ist die im Uhrzeigersinn ab oben: Solar (oben),
+//    Batterie (rechts), Netz (unten), Verluste (links). Die tatsächlichen
+//    Winkel werden aber NICHT fest vergeben, sondern die jeweils vorhandenen
+//    Knoten werden gleichmäßig (radial) um die Hauslast verteilt - so bleibt
+//    die Anordnung immer ausgewogen, auch wenn ein Knoten fehlt (kein
+//    "Loch" an einer festen Himmelsrichtung). Bei allen vier vorhandenen
+//    Knoten ergibt sich exakt oben/rechts/unten/links. Künftige Verbraucher
+//    (Wallbox, Wärmepumpe, ...) werden einfach an der gewünschten Stelle in
+//    dieser Liste eingefügt.
 const NODE_DEFS = [
-  { key: 'pv',   label: 'Solar',    icon: 'sun',     have: 'pvHave',   w: 'pvW',   angle: -90,
+  { key: 'pv',   label: 'Solar',    icon: 'sun',     have: 'pvHave',   w: 'pvW',
     color: () => C_SOLAR, dir: () => 'in' },
-  { key: 'bat',  label: 'Batterie', icon: 'battery', have: 'batHave',  w: 'batW',  angle: 0,
+  { key: 'bat',  label: 'Batterie', icon: 'battery', have: 'batHave',  w: 'batW',
     color: () => C_BAT, dir: (w) => w > 0 ? 'in' : 'out', battery: true },
-  { key: 'grid', label: 'Netz',     icon: 'bolt',    have: 'gridHave', w: 'gridW', angle: 90,
+  { key: 'grid', label: 'Netz',     icon: 'bolt',    have: 'gridHave', w: 'gridW',
     color: (w) => w >= 0 ? C_GREEN : C_RED, dir: (w) => w >= 0 ? 'out' : 'in' },
-  { key: 'loss', label: 'Verluste', icon: 'flame',   have: 'lossHave', w: 'lossW', angle: 180,
+  { key: 'loss', label: 'Verluste', icon: 'flame',   have: 'lossHave', w: 'lossW',
     color: () => C_GREY, dir: () => 'out', grey: true, minMagnitude: 15 },
 ];
 
@@ -491,9 +495,13 @@ function handleMessage(raw) {
   if (centerActive) { applyGlow(centerGlow, centerColor, houseW); } else { centerGlow.style.stroke = 'var(--grey-glow)'; }
   setValueText(document.getElementById('lbl-center-val'), houseW);
 
-  const activeDefs = NODE_DEFS.filter(def => d[def.have]);
-  activeDefs.forEach((def) => {
-    const { g, wires } = buildOuterNode(def, def.angle, d, markerDefs);
+  const presentDefs = NODE_DEFS.filter(def => d[def.have]);
+  const n = presentDefs.length;
+  presentDefs.forEach((def, i) => {
+    // Vorhandene Knoten gleichmäßig radial um die Hauslast verteilen, in der
+    // Reihenfolge aus NODE_DEFS, beginnend oben (-90°) im Uhrzeigersinn.
+    const angleDeg = -90 + (360 / n) * i;
+    const { g, wires } = buildOuterNode(def, angleDeg, d, markerDefs);
     // Pfeile/Lauflinien für den Moment ausgeblendet (SHOW_FLOW), Geometrie
     // bleibt vollständig berechnet, um sie jederzeit einfach wieder
     // einzuschalten.

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.16.1-beta.1 (2026-07-16)
+
+- **Anordnung korrigiert**: die äußeren Kreise sind nicht mehr auf feste
+  Himmelsrichtungen genagelt (was bei fehlendem Knoten eine unschöne Lücke an einer festen
+  Seite hinterließ), sondern werden wieder gleichmäßig radial um die Hauslast verteilt - die
+  bevorzugte Reihenfolge/Seite (Solar oben, Batterie rechts, Netz unten, Verluste links) gibt
+  dabei nur die Reihenfolge im Uhrzeigersinn vor. Bei allen vier vorhandenen Knoten ergibt sich
+  weiterhin exakt oben/rechts/unten/links; fehlt einer, bleibt die Anordnung ausgewogen
+  (z. B. gleichseitiges Dreieck bei drei Knoten) statt lückenhaft.
+
 ## 0.16.0-beta.1 (2026-07-16)
 
 - **Corona verstärkt und an die Leistung gekoppelt**: klare Kennlinie von 0 (bei 0 W) bis
