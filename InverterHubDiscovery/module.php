@@ -231,10 +231,16 @@ class InverterHubDiscovery extends IPSModule
     // WebSocket-Verbindung zur Konsole, unabhängig vom RPC-Rückgabewert).
     private function ShowProgress($caption, $current, $indeterminate = false)
     {
-        $this->UpdateFormField('ScanProgress', 'visible', true);
-        $this->UpdateFormField('ScanProgress', 'caption', $caption);
-        $this->UpdateFormField('ScanProgress', 'indeterminate', $indeterminate);
-        $this->UpdateFormField('ScanProgress', 'current', $current);
+        // UpdateFormField meldet ein PHP-Warning ("Instanz #<id> existiert
+        // nicht"), wenn das Konfigurationsformular zwischenzeitlich
+        // geschlossen wurde, während Discover() noch läuft — der Scan selbst
+        // läuft unabhängig vom offenen Formular weiter. Da IPS das als
+        // E_WARNING statt als Exception ausgibt, hilft try/catch nicht;
+        // stattdessen hier bewusst mit @ unterdrücken.
+        @$this->UpdateFormField('ScanProgress', 'visible', true);
+        @$this->UpdateFormField('ScanProgress', 'caption', $caption);
+        @$this->UpdateFormField('ScanProgress', 'indeterminate', $indeterminate);
+        @$this->UpdateFormField('ScanProgress', 'current', $current);
     }
 
     public function Discover()

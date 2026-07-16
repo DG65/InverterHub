@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.5-beta.1 (2026-07-16)
+
+- **Bugfix**: die in 0.6.3 eingeführte Fortschrittsanzeige erzeugte eine Warnung
+  ("Instanz #<id> existiert nicht") in der Konsole, wenn das Konfigurationsformular
+  während des laufenden Scans geschlossen wurde — der Scan selbst läuft unabhängig vom
+  offenen Formular korrekt weiter, `UpdateFormField()` schlägt in diesem Fall aber
+  erwartungsgemäß fehl. Diese (harmlose) Warnung wird jetzt unterdrückt.
+
 ## 0.6.4-beta.1 (2026-07-16)
 
 - **Bugfix Discovery**: go-e-Wallboxen (Unit-ID 1) wurden fälschlich als Growatt erkannt — die
