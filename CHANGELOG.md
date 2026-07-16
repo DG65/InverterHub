@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.1-beta.1 (2026-07-16)
+
+- **Redesign `InverterHubTile`**: die erste Fassung wirkte optisch unfertig (grelle Volltonringe,
+  gerade Linien, die mitten durch die Kreise liefen, tote SOC-Ringe). Komplett überarbeitet nach
+  Vorbild bekannter Wechselrichter-Apps: dünne Ringe mit weichem Leuchten nur bei aktivem Fluss
+  (neutral grau/weiß im Ruhezustand statt Farbe), sanft geschwungene Bus-Leitungen (Solar–Batterie
+  senkrecht, Abzweige zu Netz/Last) mit „marschierenden Ameisen“ und Pfeilspitze statt fester
+  Diagonalen, größere/klarere Typografie im deutschen Zahlenformat („5,649 kW“), Batterie-Kreis
+  mit Ladestatus-Badge und SOC als Hauptwert. Netz/Batterie wechseln je nach Richtung zwischen
+  Grün (Einspeisung/Entladung) und Orange (Bezug/Ladung).
+
 ## 0.8.0-beta.1 (2026-07-16)
 
 - **Neu**: `InverterHubTile` — animierte Energiefluss-Kachel für InverterHub (Solar, Netz, Last,
