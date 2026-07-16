@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.2-beta.1 (2026-07-16)
+
+- Haussymbol im Hauslast-Kreis um 20 % verkleinert.
+
 ## 0.14.1-beta.1 (2026-07-16)
 
 - **Bugfix**: bei inaktiven Knoten schrumpfte bisher nur der Ring (Radius-Attribut), Icon,
