@@ -35,7 +35,7 @@
         },
         {
           "type": "Label",
-          "caption": "Hintergrundfarbe, Schriftart und -größe lassen sich anpassen (-1 bzw. leer = Systemstandard). Button „Stil zurücksetzen“ stellt alle Werte auf die Vorgabe zurück."
+          "caption": "Hintergrundfarbe und Schriftart lassen sich anpassen (-1 bzw. leer = Systemstandard). Die gesamte Kachel skaliert automatisch mit der Widget-Größe. Button „Stil zurücksetzen“ stellt alle Werte auf die Vorgabe zurück."
         }
       ]
     },
@@ -70,15 +70,6 @@
           "type": "ValidationTextBox",
           "name": "FontFamily",
           "caption": "Schriftart (leer = Systemschrift)"
-        },
-        {
-          "type": "NumberSpinner",
-          "name": "FontScale",
-          "caption": "Schriftgröße (Faktor)",
-          "digits": 2,
-          "minimum": 0.5,
-          "maximum": 3.0,
-          "suffix": "×"
         }
       ]
     }

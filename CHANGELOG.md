@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.9.1-beta.1 (2026-07-16)
+
+- **Kritischer Bugfix Last-Berechnung**: Die Bilanzformel ging von der falschen
+  Vorzeichenkonvention für die Batterieleistung aus (Subtraktion statt Addition). Live an
+  einer echten GoodWe-Instanz verifiziert: `bat_total_pwr`/`bat_power` ist bei allen Treibern
+  positiv = Entladung, negativ = Ladung. Beispiel (reale Werte): PV 5657 W, Netzbezug 299 W,
+  Batterieladung 4132 W ergab bisher fälschlich 10088 W Last statt korrekt 1824 W.
+- **Bugfix Flussrichtung Solar**: Der Pfeil auf der Solar-Leitung zeigte immer von der Mitte
+  zur Sonne (als würde Strom AN die PV geliefert) statt umgekehrt. PV speist jetzt immer
+  Richtung Zentrum ein, wie es physikalisch korrekt ist.
+- **Neu**: Corona (Leucht-Halo) um jeden Kreis skaliert jetzt weich mit der aktuellen Leistung
+  (Wurzel-Skala) statt nur an/aus zu schalten.
+- **Neu**: Die gesamte Kachel (inkl. Statuszeile, vorher HTML außerhalb des SVG) liegt jetzt in
+  einem einzigen SVG mit `viewBox` und skaliert dadurch vollständig proportional mit der
+  Widget-Größe im Dashboard. Der bisherige manuelle „Schriftgröße"-Faktor ist dadurch
+  überflüssig geworden und wurde entfernt.
+- Netz-Icon von Steckdose auf Blitz-Symbol geändert, Icons und Ringe leicht vergrößert für
+  bessere Lesbarkeit bei kleinen Kachelgrößen.
+
 ## 0.9.0-beta.1 (2026-07-16)
 
 - **Überarbeitung `InverterHubTile`** nach Nutzer-Feedback (Layout und Farben wirkten

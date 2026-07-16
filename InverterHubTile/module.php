@@ -27,7 +27,6 @@ class InverterHubTile extends IPSModule
 
     private const DEF_BACKGROUND = -1;
     private const DEF_FONT       = 'system';
-    private const DEF_SCALE      = 1.0;
 
     public function Create()
     {
@@ -36,7 +35,6 @@ class InverterHubTile extends IPSModule
         $this->RegisterPropertyInteger('SourceInstance', 0);
         $this->RegisterPropertyInteger('ColorBackground', self::DEF_BACKGROUND);
         $this->RegisterPropertyString('FontFamily',       self::DEF_FONT);
-        $this->RegisterPropertyFloat('FontScale',         self::DEF_SCALE);
 
         $this->SetVisualizationType(1);
     }
@@ -116,7 +114,6 @@ class InverterHubTile extends IPSModule
         $id = $this->InstanceID;
         IPS_SetProperty($id, 'ColorBackground', self::DEF_BACKGROUND);
         IPS_SetProperty($id, 'FontFamily',      self::DEF_FONT);
-        IPS_SetProperty($id, 'FontScale',       self::DEF_SCALE);
         IPS_ApplyChanges($id);
         $this->ReloadForm();
     }
@@ -135,9 +132,8 @@ class InverterHubTile extends IPSModule
     private function BuildPayload()
     {
         $style = [
-            'bg'    => $this->ColorOrEmpty($this->ReadPropertyInteger('ColorBackground')),
-            'font'  => $this->FontStack($this->ReadPropertyString('FontFamily')),
-            'scale' => $this->FontScaleValue(),
+            'bg'   => $this->ColorOrEmpty($this->ReadPropertyInteger('ColorBackground')),
+            'font' => $this->FontStack($this->ReadPropertyString('FontFamily')),
         ];
 
         $src = $this->ResolveSource();
@@ -176,14 +172,17 @@ class InverterHubTile extends IPSModule
         $gridW = $gridHave ? (float)$grid : 0.0;
         $batW  = $batHave ? (float)$bat : 0.0;
 
-        // Last (Hausverbrauch) per Bilanz: PV - Netzeinspeisung - Batterieladung.
+        // Last (Hausverbrauch) per Bilanz: PV + Batterie-Entladung - Netzeinspeisung.
+        // Vorzeichenkonvention Batterie (bat_total_pwr/bat_power, alle Treiber):
+        // positiv = Entladung (Leistung wird ans System abgegeben), negativ =
+        // Ladung (Leistung wird aufgenommen) - daher ADDITION, nicht Subtraktion.
         // Nur berechenbar, wenn mindestens PV und Netz bekannt sind; sonst als
         // Notlösung AC-Wirkleistung zeigen (ungenau bei vorhandener Batterie),
         // andernfalls Kreis ausgrauen statt falsche Werte zu zeigen.
         $houseHave = $pvHave && $gridHave;
         $houseW    = 0.0;
         if ($houseHave) {
-            $houseW = max(0.0, $pvW - $gridW - $batW);
+            $houseW = max(0.0, $pvW - $gridW + $batW);
         } elseif ($pvHave && $ac !== null) {
             $houseHave = true;
             $houseW    = (float)$ac;
@@ -227,11 +226,5 @@ class InverterHubTile extends IPSModule
             return '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
         }
         return $family;
-    }
-
-    private function FontScaleValue()
-    {
-        $v = (float)$this->ReadPropertyFloat('FontScale');
-        return ($v > 0 && $v <= 3.0) ? $v : 1.0;
     }
 }
