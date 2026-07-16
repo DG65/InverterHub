@@ -1874,29 +1874,33 @@ class FroniusDriver implements InverterDriverInterface
             return false;
         }
 
-        // Inverter Model (Float-Variante, Offsets ab Modellstart):
-        // 0 A, 4 PhVphA(Netzspannung), 6 Hz(Frequenz), 12 W(Wirkleistung),
-        // 20 WH(Gesamtertrag), 22 St(Status)
+        // Offsets ab Modellstart gemäß offizieller SunSpec-Modelldefinition
+        // (Model 113/103 "Inverter Three Phase" — Feldreihenfolge, gegen die
+        // OpenEMS-SunSpec-Implementierung verifiziert 2026-07-16):
+        // Float (Model 113, je Feld 2 Register): 0 A, 14 PhVphA(Netzspannung),
+        // 22 Hz(Frequenz), 20 W(Wirkleistung), 30 WH(Gesamtertrag), 46 St(Status)
+        // Int+SF (Model 103, je Feld 1 Register + eigenes SF-Register):
+        // 0 A, 8 PhVphA, 14 Hz(+SF@15), 12 W(+SF@13), 36 St
         if ($isFloat) {
-            $hub->SetVarFloat('ac_power', $mb->readFloat32($blk, 12));
-            $hub->SetVarInt('status', $mb->u16($blk, 22));
+            $hub->SetVarFloat('ac_power', $mb->readFloat32($blk, 20));
+            $hub->SetVarInt('status', $mb->u16($blk, 46));
             if ($hub->GetPropBool('GroupGrid')) {
                 $hub->SetVarFloat('grid_curr', $mb->readFloat32($blk, 0));
-                $hub->SetVarFloat('grid_volt', $mb->readFloat32($blk, 4));
-                $hub->SetVarFloat('grid_freq', $mb->readFloat32($blk, 6));
+                $hub->SetVarFloat('grid_volt', $mb->readFloat32($blk, 14));
+                $hub->SetVarFloat('grid_freq', $mb->readFloat32($blk, 22));
             }
             if ($hub->GetPropBool('GroupEnergy')) {
-                $hub->SetVarFloat('e_total', $mb->readFloat32($blk, 20) / 1000.0);
+                $hub->SetVarFloat('e_total', $mb->readFloat32($blk, 30) / 1000.0);
             }
         } else {
             // Int+SF-Variante: Werte ganzzahlig mit separatem Skalierungsfaktor-
             // Register (SF), hier vereinfacht ohne SF-Auswertung (Rohwert).
-            $hub->SetVarFloat('ac_power', (float)$mb->s16($blk, 13));
-            $hub->SetVarInt('status', $mb->u16($blk, 19));
+            $hub->SetVarFloat('ac_power', (float)$mb->s16($blk, 12));
+            $hub->SetVarInt('status', $mb->u16($blk, 36));
             if ($hub->GetPropBool('GroupGrid')) {
                 $hub->SetVarFloat('grid_curr', (float)$mb->u16($blk, 0));
-                $hub->SetVarFloat('grid_volt', (float)$mb->u16($blk, 4));
-                $hub->SetVarFloat('grid_freq', $mb->u16($blk, 6) / 100.0);
+                $hub->SetVarFloat('grid_volt', (float)$mb->u16($blk, 8));
+                $hub->SetVarFloat('grid_freq', $mb->u16($blk, 14) / 100.0);
             }
         }
 
@@ -1927,7 +1931,9 @@ class FroniusDriver implements InverterDriverInterface
                 [$mtbase, $mtlen] = $meter;
                 $mtblk = $mb->readHolding($mtbase, min($mtlen, 20));
                 if ($mtblk !== null) {
-                    $hub->SetVarFloat('meter_total', (float)$mb->s16($mtblk, 4));
+                    // Model 203/213 "Total Real Power" (W) liegt bei Offset 16
+                    // (verifiziert gegen OpenEMS-SunSpec-Modelldefinition).
+                    $hub->SetVarFloat('meter_total', (float)$mb->s16($mtblk, 16));
                 }
             }
         }
