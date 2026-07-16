@@ -335,33 +335,69 @@ class InverterHubDiscovery extends IPSModule
         return null;
     }
 
+    // Ein einzelnes "Register > 0"-Kriterium ist zu schwach — Zähler,
+    // RTU/TCP-Konverter und andere Modbus-Geräte erfüllen das leicht zufällig
+    // (real gemeldet: ein Janitza PAC2200 wurde als SolaX erkannt, ein
+    // RTU/TCP-Konverter als GoodWe). Wo der Hersteller ein Seriennummer-/
+    // Modell-Textregister dokumentiert, wird das als zweites, deutlich
+    // härteres Kriterium verlangt: das Register muss zu einem plausiblen
+    // ASCII-Text dekodieren, kein Zufallswert.
     private function probeVendor($vendor, $ip, $port, $unitId)
     {
         switch ($vendor) {
             case 'goodwe':
                 // DSP 35001: Nennleistung, sollte > 0 sein
                 $r = $this->readHolding($ip, $port, $unitId, 35001, 1, 1.0);
-                return ($r !== null && $r[0] > 0);
+                if ($r === null || $r[0] <= 0) {
+                    return false;
+                }
+                // DSP 35003: Seriennummer (8 Register, ASCII)
+                $sn = $this->readHolding($ip, $port, $unitId, 35003, 8, 1.0);
+                return $this->looksLikeAsciiText($sn, 4);
 
             case 'sungrow':
-                // Input 5000 (PDU 4999): Gerätetyp-Code, sollte > 0 sein
-                $r = $this->readInput($ip, $port, $unitId, 4999, 1, 1.0);
-                return ($r !== null && $r[0] > 0);
+                // Input 5000: Gerätetyp-Code, sollte > 0 sein
+                $r = $this->readInput($ip, $port, $unitId, 5000, 1, 1.0);
+                if ($r === null || $r[0] <= 0) {
+                    return false;
+                }
+                // Input 4990-4999: Seriennummer (10 Register, UTF-8/ASCII)
+                $sn = $this->readInput($ip, $port, $unitId, 4990, 10, 1.0);
+                return $this->looksLikeAsciiText($sn, 4);
 
             case 'solis':
-                // Input 33000 (PDU 32999): Modell-Nr., sollte > 0 sein
-                $r = $this->readInput($ip, $port, $unitId, 32999, 1, 1.0);
-                return ($r !== null && $r[0] > 0);
+                // Input 33000: Modell-Nr., sollte > 0 sein
+                $r = $this->readInput($ip, $port, $unitId, 33000, 1, 1.0);
+                if ($r === null || $r[0] <= 0) {
+                    return false;
+                }
+                // Input 33004-33019: Seriennummer (16 Register, ASCII)
+                $sn = $this->readInput($ip, $port, $unitId, 33004, 16, 1.0);
+                return $this->looksLikeAsciiText($sn, 4);
 
             case 'growatt':
                 // Input 0: Inverter-Status, plausibel 0/1/3
                 $r = $this->readInput($ip, $port, $unitId, 0, 1, 1.0);
-                return ($r !== null && in_array($r[0], [0, 1, 3], true));
+                if ($r === null || !in_array($r[0], [0, 1, 3], true)) {
+                    return false;
+                }
+                // Input 93: Wechselrichter-Temperatur (0.1°C), plausibel -40..90°C
+                $t = $this->readInput($ip, $port, $unitId, 93, 1, 1.0);
+                if ($t === null) {
+                    return false;
+                }
+                $temp = $t[0] > 32767 ? $t[0] - 65536 : $t[0];
+                return ($temp > -400 && $temp < 900);
 
             case 'solax':
                 // Holding 0x0015: InverterType, sollte > 0 sein
                 $r = $this->readHolding($ip, $port, $unitId, 0x0015, 1, 1.0);
-                return ($r !== null && $r[0] > 0);
+                if ($r === null || $r[0] <= 0) {
+                    return false;
+                }
+                // Holding 0x00AA-0x00AE: Modul-Seriennummer (5 Register, ASCII)
+                $sn = $this->readHolding($ip, $port, $unitId, 0x00AA, 5, 1.0);
+                return $this->looksLikeAsciiText($sn, 3);
 
             case 'sma':
                 // Holding 30200 (Reg 30201): Operation.Health, plausible Enum-Werte
@@ -373,11 +409,35 @@ class InverterHubDiscovery extends IPSModule
                 return in_array($val, [35, 303, 307, 455], true);
 
             case 'fronius':
-                // SunSpec-Marker "SunS" an Basisregister 40000
+                // SunSpec-Marker "SunS" an Basisregister 40000 — bereits ein
+                // sehr starkes, absichtlich reserviertes Erkennungsmerkmal.
                 $r = $this->readHolding($ip, $port, $unitId, 40000, 2, 1.0);
                 return ($r !== null && $r[0] === 0x5375 && $r[1] === 0x6e53);
         }
         return false;
+    }
+
+    // Dekodiert Registerpaare als Big-Endian-ASCII und prüft, ob mindestens
+    // $minPrintable druckbare, nicht-Leerzeichen-Zeichen enthalten sind —
+    // filtert Zufallswerte fremder Modbus-Geräte zuverlässig heraus.
+    private function looksLikeAsciiText($regs, $minPrintable)
+    {
+        if ($regs === null) {
+            return false;
+        }
+        $printable = 0;
+        foreach ($regs as $r) {
+            foreach ([($r >> 8) & 0xFF, $r & 0xFF] as $byte) {
+                if ($byte >= 0x21 && $byte <= 0x7E) {
+                    $printable++;
+                } elseif ($byte !== 0x00 && $byte !== 0x20) {
+                    // Nicht-druckbares, nicht-Null/Leerzeichen-Byte spricht
+                    // stark gegen echten Text -> sofort verwerfen.
+                    return false;
+                }
+            }
+        }
+        return $printable >= $minPrintable;
     }
 
     // -----------------------------------------------------------------------

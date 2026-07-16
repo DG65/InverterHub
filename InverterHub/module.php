@@ -917,14 +917,14 @@ class SungrowDriver implements InverterDriverInterface
 
     public function readFast($mb, $hub)
     {
-        $dc      = $mb->readInput(5010, 12);   // 5011-5022 (MPPT1-3 + DC total + Grid Volt)
-        $mppt4   = $mb->readInput(5114, 2);    // 5115-5116
-        $reactive= $mb->readInput(5032, 4);    // 5033-5036 (reactive/PF/freq)
-        $battery = $mb->readInput(5213, 2);    // 5214-5215 Bat power wide range
-        $meter   = $mb->readInput(5602, 6);    // 5603,5605,5607 (+ Reserve dazwischen)
-        $running = $mb->readInput(12999, 2);   // 13000 running state + 13001 power flow
-        $freqhi  = $mb->readInput(5241, 1);    // 5242 high precision freq
-        $sum     = $mb->readInput(13033, 2);   // 13034-13035 total active power
+        $dc      = $mb->readInput(5011, 12);   // 5011-5022 (MPPT1-3 + DC total + Grid Volt)
+        $mppt4   = $mb->readInput(5115, 2);    // 5115-5116
+        $reactive= $mb->readInput(5033, 4);    // 5033-5036 (reactive/PF/freq)
+        $battery = $mb->readInput(5214, 2);    // 5214-5215 Bat power wide range
+        $meter   = $mb->readInput(5603, 6);    // 5603,5605,5607 (+ Reserve dazwischen)
+        $running = $mb->readInput(13000, 2);   // 13000 running state + 13001 power flow
+        $freqhi  = $mb->readInput(5242, 1);    // 5242 high precision freq
+        $sum     = $mb->readInput(13034, 2);   // 13034-13035 total active power
 
         $ok = ($dc !== null);
         $hub->SetVarBool('connected', $ok);
@@ -976,7 +976,7 @@ class SungrowDriver implements InverterDriverInterface
         }
 
         if ($hub->GetPropBool('GroupBat')) {
-            $batBlk = $mb->readInput(13019, 7); // 13020-13026
+            $batBlk = $mb->readInput(13020, 7); // 13020-13026
             if ($batBlk !== null) {
                 $hub->SetVarFloat('bat_volt', $mb->u16($batBlk, 0) / 10.0);
                 $hub->SetVarFloat('bat_curr', $mb->u16($batBlk, 1) / 10.0);
@@ -987,7 +987,7 @@ class SungrowDriver implements InverterDriverInterface
         }
 
         if ($hub->GetPropBool('GroupBackup')) {
-            $bk = $mb->readInput(5725, 10); // 5726-5735
+            $bk = $mb->readInput(5726, 10); // 5726-5735
             if ($bk !== null) {
                 $hub->SetVarFloat('backup_total', (float)$mb->s32($bk, 0));
                 $hub->SetVarFloat('backup_freq',  $mb->u16($bk, 8) / 100.0);
@@ -1000,7 +1000,7 @@ class SungrowDriver implements InverterDriverInterface
     public function readSlow($mb, $hub)
     {
         if ($hub->GetPropBool('GroupEnergy')) {
-            $e = $mb->readInput(13001, 11); // 13002-13012
+            $e = $mb->readInput(13002, 11); // 13002-13012
             if ($e !== null) {
                 $hub->SetVarFloat('e_pv_day',   $mb->u16($e, 0) / 10.0);
                 $hub->SetVarFloat('e_pv_total', $mb->u32($e, 1) / 10.0);
@@ -1012,7 +1012,7 @@ class SungrowDriver implements InverterDriverInterface
 
     public function readDeviceInfo($mb, $hub)
     {
-        $dev = $mb->readInput(4999, 2); // 5000-5001
+        $dev = $mb->readInput(5000, 2); // 5000-5001
         if ($dev !== null) {
             $hub->SetVarInt('dev_type',    $mb->u16($dev, 0));
             $hub->SetVarInt('dev_rated_w', $mb->u16($dev, 1) * 100);
@@ -1134,10 +1134,10 @@ class SolisDriver implements InverterDriverInterface
 
     public function readFast($mb, $hub)
     {
-        $pv     = $mb->readInput(33048, 12);   // 33049-33060 (PV1-4 V/I + Total DC-Bereich)
-        $ac     = $mb->readInput(33078, 6);    // 33079-33084 Wirk/Blind/Scheinleistung
-        $bat    = $mb->readInput(33131, 20);   // 33132-33151 Batterie + Household/Backup Load
-        $meter  = $mb->readInput(33150, 3);    // 33151-33152 (+33153 Reserve) Grid Port Power
+        $pv     = $mb->readInput(33049, 12);   // 33049-33060 (PV1-4 V/I + Total DC-Bereich)
+        $ac     = $mb->readInput(33079, 6);    // 33079-33084 Wirk/Blind/Scheinleistung
+        $bat    = $mb->readInput(33132, 20);   // 33132-33151 Batterie + Household/Backup Load
+        $meter  = $mb->readInput(33151, 3);    // 33151-33152 (+33153 Reserve) Grid Port Power
 
         $ok = ($pv !== null);
         $hub->SetVarBool('connected', $ok);
@@ -1169,7 +1169,7 @@ class SolisDriver implements InverterDriverInterface
         }
 
         if ($hub->GetPropBool('GroupGrid')) {
-            $grid = $mb->readInput(33072, 24); // 33073-33096
+            $grid = $mb->readInput(33073, 24); // 33073-33096
             if ($grid !== null) {
                 $hub->SetVarFloat('grid_l1_volt', $mb->u16($grid, 0) / 10.0);
                 $hub->SetVarFloat('grid_l2_volt', $mb->u16($grid, 1) / 10.0);
@@ -1193,7 +1193,7 @@ class SolisDriver implements InverterDriverInterface
         }
 
         if ($hub->GetPropBool('GroupMeter')) {
-            $mtV = $mb->readInput(33250, 14); // 33251-33264
+            $mtV = $mb->readInput(33251, 14); // 33251-33264
             if ($mtV !== null) {
                 $hub->SetVarFloat('mt_l1_volt', $mb->u16($mtV, 0) / 10.0);
                 $hub->SetVarFloat('mt_l2_volt', $mb->u16($mtV, 2) / 10.0);
@@ -1208,12 +1208,12 @@ class SolisDriver implements InverterDriverInterface
     public function readSlow($mb, $hub)
     {
         if ($hub->GetPropBool('GroupEnergy')) {
-            $e1 = $mb->readInput(33028, 12);  // 33029-33040
+            $e1 = $mb->readInput(33029, 12);  // 33029-33040
             if ($e1 !== null) {
                 $hub->SetVarFloat('e_pv_total', $mb->u32($e1, 0) / 10.0);
                 $hub->SetVarFloat('e_pv_day',   $mb->u16($e1, 6) / 10.0);
             }
-            $e2 = $mb->readInput(33160, 20);  // 33161-33180
+            $e2 = $mb->readInput(33161, 20);  // 33161-33180
             if ($e2 !== null) {
                 $hub->SetVarFloat('e_charge_total', $mb->u32($e2, 0)  / 10.0);
                 $hub->SetVarFloat('e_charge_day',   $mb->u16($e2, 2)  / 10.0);
@@ -1229,11 +1229,11 @@ class SolisDriver implements InverterDriverInterface
 
     public function readDeviceInfo($mb, $hub)
     {
-        $model = $mb->readInput(32999, 1);
+        $model = $mb->readInput(33000, 1);
         if ($model !== null) {
             $hub->SetVarInt('dev_model', $mb->u16($model, 0));
         }
-        $sn = $mb->readInput(33003, 16);
+        $sn = $mb->readInput(33004, 16);
         if ($sn !== null) {
             $hub->SetVarStr('dev_sn', $mb->readStr($sn, 0, 16));
         }
