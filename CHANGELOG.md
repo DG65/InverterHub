@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.1-beta.1 (2026-07-16)
+
+- `InverterHubDiscovery` erkennt jetzt auch SolarEdge, Deye, Solplanet und Kostal. Fronius und
+  SolarEdge nutzen denselben SunSpec-"SunS"-Marker und werden zusätzlich über den
+  Herstellernamen im Common Block unterschieden, statt sich allein auf den Marker zu verlassen.
+
 ## 0.6.0-beta.1 (2026-07-16)
 
 Vier weitere Hersteller-Treiber, Register aus community-getesteten Modbus-Vorlagen des
