@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.3-beta.1 (2026-07-15)
+
+- **Kritischer Bugfix** (gemeldet von einem Beta-Tester, Sungrow SH 6.0 RT): Off-by-one-
+  Adressfehler in Sungrow und Solis behoben — beide Treiber lasen jedes Register einen Schritt
+  zu früh (Adresse = dokumentierte Registernummer − 1), was zu offensichtlichem Datenmüll führte
+  (z. B. `bat_power = -52690945`). Ursache war fälschlich übernommenes SunSpec-Adressierungs-
+  schema; Sungrow und Solis adressieren direkt ohne Offset
+- Discovery-Erkennung deutlich robuster gegen Fehlzuordnungen: für GoodWe/Sungrow/Solis/SolaX
+  wird jetzt zusätzlich zum Primärregister das jeweilige Seriennummer-/Modellregister auf
+  plausiblen ASCII-Text geprüft, für Growatt zusätzlich die Temperatur auf Plausibilität
+  (real gemeldet: ein Janitza PAC2200 wurde als SolaX erkannt, ein Modbus-RTU/TCP-Konverter
+  als GoodWe)
+
 ## 0.4.2-beta.1 (2026-07-14)
 
 - **Kritischer Bugfix** (gemeldet von einem Beta-Tester): Für alle Hersteller außer GoodWe
