@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.10.0-beta.1 (2026-07-16)
+
+- **Neu**: optionaler Hauslastzähler. `InverterHub` bekommt ein neues Konfigurationsfeld
+  „Hauslastzähler (optional)" — eine bereits vorhandene Variable mit real gemessener Hauslast
+  (z. B. ein Shelly am Hausanschluss) kann ausgewählt werden. Live an einer echten Anlage
+  gegengeprüft: die reine PV/Netz/Batterie-Bilanzschätzung lag konsistent ~100-120 W über dem
+  tatsächlich gemessenen Wert (Wechselrichter-Eigenverbrauch/Leitungsverluste, die in der
+  Bilanz nicht erfasst werden).
+- **Neu in `InverterHubTile`**: ist ein Hauslastzähler konfiguriert, zeigt die Kachel die
+  genauere, echte Last sowie einen zusätzlichen kleinen Kreis „Wandlungsverluste" mit der
+  Differenz zur Bilanzschätzung. Ohne konfigurierten Zähler bleibt alles wie bisher (reine
+  Bilanzschätzung, kein zusätzlicher Kreis).
+
 ## 0.9.1-beta.1 (2026-07-16)
 
 - **Kritischer Bugfix Last-Berechnung**: Die Bilanzformel ging von der falschen

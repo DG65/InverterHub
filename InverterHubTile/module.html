@@ -127,6 +127,19 @@
   <circle id="dot" class="status-dot" cx="20" cy="22" r="6.5"/>
   <text id="stateLabel" x="34" y="27" class="state-label">–</text>
 
+  <!-- ── Wandlungsverluste (nur sichtbar, wenn ein Hauslastzähler in der
+       InverterHub-Instanz konfiguriert ist) - klein am Kreuzungspunkt,
+       VOR den Speichen gezeichnet, damit die Pfeile darüber liegen ── -->
+  <g class="node" id="node-loss" transform="translate(280,360)" style="display:none">
+    <circle class="node-glow" r="28" style="stroke-width:9"/>
+    <circle class="node-ring" r="28"/>
+    <g class="node-icon" transform="translate(0,-13)" stroke-width="1.8" fill="none">
+      <path d="M0,-7 C3.4,-2.6 3.4,0.8 0,3.4 C0.8,0.8 -0.8,0 -0.8,1.7 C-1.7,-0.8 -2.6,-3.4 0,-7 Z" stroke-linejoin="round"/>
+    </g>
+    <text id="lbl-loss-val" x="0" y="4" text-anchor="middle" style="font-size:12px;font-weight:800" class="node-value">0<tspan class="node-value-unit" dx="1" style="font-size:8px">kW</tspan></text>
+    <text x="0" y="17" text-anchor="middle" style="font-size:8px" class="node-label">Verluste</text>
+  </g>
+
   <!-- ── Diamant-Layout: Mitte (205,285), 4 Speichen zu den Knoten ── -->
   <!-- Solar (oben) -->
   <line class="wire" x1="205" y1="285" x2="205" y2="135"/>
@@ -217,6 +230,7 @@ const C_BAT   = [33, 150, 243];  // Blau
 const C_GREEN = [67, 160, 71];   // Einspeisung / lokal versorgt
 const C_RED   = [229, 57, 53];   // Bezug / netzversorgt
 const C_GREY  = [158, 158, 158];
+const C_LOSS  = [255, 112, 67];  // Wandlungsverluste (Wechselrichter-Eigenverbrauch etc.)
 
 function rgb(c) { return 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')'; }
 function lerp(a, b, t) {
@@ -334,6 +348,21 @@ function handleMessage(raw) {
     fill.setAttribute('y', (7 - 14 * pct).toFixed(1));
   } else {
     socEl.textContent = '–%';
+  }
+
+  // Wandlungsverluste: nur sichtbar, wenn InverterHub einen Hauslastzähler
+  // konfiguriert hat (lossHave) UND ein nennenswerter Verlust vorliegt -
+  // sonst bleibt der kleine Kreis am Kreuzungspunkt ausgeblendet.
+  const lossNode = document.getElementById('node-loss');
+  const lossW = d.lossW ?? 0;
+  if (d.lossHave && lossW > 15) {
+    lossNode.style.display = '';
+    setValueText('lbl-loss-val', lossW);
+    lossNode.style.setProperty('--nc', rgb(C_LOSS));
+    lossNode.querySelector('.node-glow').style.stroke =
+      'rgba(' + C_LOSS[0] + ',' + C_LOSS[1] + ',' + C_LOSS[2] + ',' + glowAlpha(lossW, 800).toFixed(2) + ')';
+  } else {
+    lossNode.style.display = 'none';
   }
 }
 </script>

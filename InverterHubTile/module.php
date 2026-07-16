@@ -180,12 +180,30 @@ class InverterHubTile extends IPSModule
         // Notlösung AC-Wirkleistung zeigen (ungenau bei vorhandener Batterie),
         // andernfalls Kreis ausgrauen statt falsche Werte zu zeigen.
         $houseHave = $pvHave && $gridHave;
-        $houseW    = 0.0;
+        $houseBalanceW = 0.0;
         if ($houseHave) {
-            $houseW = max(0.0, $pvW - $gridW + $batW);
+            $houseBalanceW = max(0.0, $pvW - $gridW + $batW);
         } elseif ($pvHave && $ac !== null) {
-            $houseHave = true;
-            $houseW    = (float)$ac;
+            $houseHave     = true;
+            $houseBalanceW = (float)$ac;
+        }
+        $houseW = $houseBalanceW;
+
+        // Optionaler externer Hauslastzähler (z. B. Shelly am Hausanschluss):
+        // liefert die tatsächlich gemessene Last (genauer als die Bilanz) und
+        // erlaubt, die Differenz als "Wandlungsverluste" auszuweisen
+        // (Wechselrichter-Eigenverbrauch, Leitungsverluste, Messtoleranzen).
+        $lossHave = false;
+        $lossW    = 0.0;
+        $meterID  = (int)@IPS_GetProperty($src, 'HouseLoadMeterID');
+        if ($meterID > 0 && IPS_VariableExists($meterID)) {
+            $realHouseW = (float)GetValue($meterID);
+            $houseHave  = true;
+            $houseW     = $realHouseW;
+            if ($pvHave && $gridHave) {
+                $lossHave = true;
+                $lossW    = max(0.0, $houseBalanceW - $realHouseW);
+            }
         }
 
         $payload = array_merge($style, [
@@ -201,6 +219,8 @@ class InverterHubTile extends IPSModule
             'batW'       => round($batW),
             'socHave'    => $socHave,
             'soc'        => $socHave ? round((float)$soc) : null,
+            'lossHave'   => $lossHave,
+            'lossW'      => round($lossW),
         ]);
 
         return json_encode($payload);

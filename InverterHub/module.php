@@ -2824,6 +2824,7 @@ class InverterHub extends IPSModule
 
         $this->RegisterPropertyBoolean('Active', true);
         $this->RegisterPropertyString('Manufacturer', 'goodwe');
+        $this->RegisterPropertyInteger('HouseLoadMeterID', 0);
         $this->RegisterPropertyString('Host', '');
         $this->RegisterPropertyInteger('Port', 502);
         $this->RegisterPropertyInteger('UnitId', 247);
@@ -3008,6 +3009,15 @@ class InverterHub extends IPSModule
                         ['type' => 'ValidationTextBox', 'name' => 'Host', 'caption' => 'IP-Adresse', 'validate' => '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
                         ['type' => 'NumberSpinner', 'name' => 'Port', 'caption' => 'TCP-Port', 'minimum' => 1, 'maximum' => 65535],
                         ['type' => 'NumberSpinner', 'name' => 'UnitId', 'caption' => 'Unit ID', 'minimum' => 1, 'maximum' => 247],
+                    ],
+                ],
+                [
+                    'type'    => 'ExpansionPanel',
+                    'caption' => '🏠  Hauslastzähler (optional)',
+                    'expanded' => false,
+                    'items' => [
+                        ['type' => 'Label', 'caption' => 'Optional: eine bereits vorhandene Variable mit real gemessener Hauslast (z. B. ein separater Energiezähler/Shelly am Hausanschluss) auswählen. Ist ein Zähler gewählt, zeigt die InverterHubTile-Kachel damit eine genauere Last sowie die Differenz zur PV/Netz/Batterie-Bilanz als „Wandlungsverluste" (Wechselrichter-Eigenverbrauch, Leitungsverluste). Ohne Auswahl bleibt es bei der reinen Bilanzschätzung.'],
+                        ['type' => 'SelectVariable', 'name' => 'HouseLoadMeterID', 'caption' => 'Hauslastzähler-Variable'],
                     ],
                 ],
                 [

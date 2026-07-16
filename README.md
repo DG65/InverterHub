@@ -51,6 +51,12 @@ freigeschaltet. Architektur:
 Einrichtung: Instanz anlegen, Hersteller wählen, IP-Adresse (und bei Bedarf Port/Unit-ID)
 eintragen, gewünschte Datenpunkt-Gruppen aktivieren, übernehmen.
 
+**Hauslastzähler (optional):** Unter „Hauslastzähler (optional)" lässt sich eine bereits
+vorhandene Variable mit real gemessener Hauslast auswählen (z. B. ein Shelly am
+Hausanschluss). Die reine PV/Netz/Batterie-Bilanzschätzung berücksichtigt Wechselrichter-
+Eigenverbrauch und Leitungsverluste nicht — mit einem echten Zähler zeigt `InverterHubTile`
+die genauere Last sowie die Differenz als eigenen „Wandlungsverluste"-Kreis.
+
 ### InverterHubDiscovery
 
 Ein **Configurator**-Modul, das einen IP-Bereich im lokalen Netz nach Wechselrichtern auf
@@ -83,8 +89,10 @@ Netz = Grün bei Einspeisung/Rot bei Bezug, Batterie = Blau, Last = weicher Grü
 je nach Anteil aus Netzbezug vs. PV/Batterie. Da nicht jeder Treiber dieselben Datenpunkte
 liefert, wird ein Kreis grau dargestellt, wenn die zugehörige Größe bei der gewählten Quelle
 fehlt (z. B. keine Netzmessung bei Growatt, keine Batterie bei SMA/Fronius/SolarEdge), statt
-falsche Werte zu zeigen. Hintergrundfarbe, Schriftart und -größe sind über die
-Instanzkonfiguration anpassbar.
+falsche Werte zu zeigen. Ist in der Quell-Instanz ein Hauslastzähler konfiguriert, erscheint
+zusätzlich ein kleiner „Wandlungsverluste"-Kreis (Differenz zwischen Bilanzschätzung und
+echtem Zähler). Hintergrundfarbe und Schriftart sind über die Instanzkonfiguration anpassbar,
+die Kachel skaliert vollständig automatisch mit der Widget-Größe.
 
 Einrichtung: Kachel-Instanz anlegen, unter „Datenquelle" die gewünschte InverterHub-Instanz
 auswählen.
