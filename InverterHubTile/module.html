@@ -256,23 +256,28 @@ function buildOuterNode(def, angleDeg, d, markerDefs) {
   const have = !!d[def.have];
   const active = have && magnitude > (def.minMagnitude ?? 20);
   // Aktive Knoten sind alle gleich groß (ACTIVE_R); inaktive werden bewusst
-  // kleiner gezeichnet (INACTIVE_R) - der Größenunterschied selbst ist Teil
-  // des "ausgegraut"-Effekts, zusätzlich zu Farbe/Transparenz.
-  const nodeR = active ? ACTIVE_R : INACTIVE_R;
+  // kleiner gezeichnet (INACTIVE_R). Damit dabei nicht nur der Ring schrumpft
+  // sondern wirklich der GESAMTE Kreisinhalt (Icon, Wert, Beschriftung)
+  // proportional mitskaliert, wird Ring/Glow immer bei ACTIVE_R gezeichnet
+  // und stattdessen die komplette Knoten-Gruppe per CSS-Transform skaliert -
+  // die effektive (sichtbare) Größe ist dieselbe wie zuvor, nur skaliert
+  // jetzt alles gemeinsam statt nur der Kreis.
+  const effectiveR = active ? ACTIVE_R : INACTIVE_R;
+  const scale = effectiveR / ACTIVE_R;
   // Ohne nennenswerten Fluss wird der komplette Knoten (Ring, Icon, Wert,
   // Pfeile) grau dargestellt statt in seiner Akzentfarbe zu verharren, dazu
   // insgesamt abgedunkelt (Gruppen-Opazität) und der dunkle Kreis-Hintergrund
   // entfernt, damit inaktive Knoten spürbar zurücktreten.
   const color = def.grey ? C_GREY : (have && active ? def.color(w) : C_GREY);
 
-  const g = el('g', { transform: `translate(${cx},${cy})` });
+  const g = el('g', { transform: `translate(${cx},${cy}) scale(${scale})` });
   g.style.setProperty('--nc', rgb(color));
   g.style.opacity = active ? '1' : '0.32';
 
-  const glow = el('circle', { class: 'node-glow', r: nodeR });
+  const glow = el('circle', { class: 'node-glow', r: ACTIVE_R });
   glow.style.stroke = active ? `rgba(${color[0]},${color[1]},${color[2]},${glowAlpha(magnitude, def.battery || def.grey ? 5000 : 6000).toFixed(2)})` : 'var(--grey-glow)';
   g.appendChild(glow);
-  const ring = el('circle', { class: 'node-ring', r: nodeR });
+  const ring = el('circle', { class: 'node-ring', r: ACTIVE_R });
   ring.style.fill = active ? '#14171c' : 'none';
   g.appendChild(ring);
 
@@ -300,7 +305,7 @@ function buildOuterNode(def, angleDeg, d, markerDefs) {
   const dx = CX - cx, dy = CY - cy;
   const dist = Math.hypot(dx, dy);
   const ux = dx / dist, uy = dy / dist;
-  const startX = cx + ux * nodeR, startY = cy + uy * nodeR;
+  const startX = cx + ux * effectiveR, startY = cy + uy * effectiveR;
   const endX   = CX - ux * R_RING, endY   = CY - uy * R_RING;
 
   const markerId = 'arrow-' + def.key;
@@ -353,12 +358,15 @@ function handleMessage(raw) {
   const centerColor = lerp(C_GREEN, C_RED, gridShare);
   const centerActive = !!d.houseHave && houseW > 20;
 
-  const centerR = centerActive ? ACTIVE_R : INACTIVE_R;
+  // Wie bei den äußeren Knoten: Ring/Glow bleiben bei ACTIVE_R gezeichnet,
+  // die ganze Gruppe (inkl. Icon/Wert/Beschriftung) wird stattdessen
+  // skaliert, damit bei Inaktivität wirklich der gesamte Kreisinhalt
+  // schrumpft statt nur der Ring.
+  const centerScale = (centerActive ? ACTIVE_R : INACTIVE_R) / ACTIVE_R;
   const centerG = document.getElementById('node-center');
+  centerG.setAttribute('transform', `translate(280,301) scale(${centerScale})`);
   centerG.style.setProperty('--nc', rgb(d.houseHave && centerActive ? centerColor : C_GREY));
   centerG.style.opacity = centerActive ? '1' : '0.32';
-  centerG.querySelector('.node-ring').setAttribute('r', centerR);
-  centerG.querySelector('.node-glow').setAttribute('r', centerR);
   centerG.querySelector('.node-ring').style.fill = centerActive ? '#14171c' : 'none';
   centerG.querySelector('.node-glow').style.stroke = centerActive
     ? `rgba(${centerColor[0]},${centerColor[1]},${centerColor[2]},${glowAlpha(houseW, 8000).toFixed(2)})`

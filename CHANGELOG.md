@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.14.1-beta.1 (2026-07-16)
+
+- **Bugfix**: bei inaktiven Knoten schrumpfte bisher nur der Ring (Radius-Attribut), Icon,
+  Leistungswert und Beschriftung blieben in fester Pixelgröße stehen und wirkten dadurch
+  unproportional groß für den kleineren Kreis. Ring/Glow werden jetzt immer in voller Größe
+  gezeichnet und die komplette Knoten-Gruppe (Ring, Icon, Wert, Beschriftung) wird stattdessen
+  gemeinsam per CSS-Transform skaliert — die sichtbare Größe bleibt gleich, aber wirklich
+  alles im Kreis verkleinert sich jetzt gemeinsam.
+
 ## 0.14.0-beta.1 (2026-07-16)
 
 - **Einheitliche Kreisgröße für aktive Knoten**: die Batterie hatte bisher einen eigenen,
