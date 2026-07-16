@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.5.0-beta.1 (2026-07-16)
+
+Gegenprüfung gegen unabhängige Quellen: die [OpenEMS](https://github.com/OpenEMS/openems)-
+Referenzimplementierung (offizielle SunSpec-Modelldefinitionen, GoodWe/Fronius/SMA-Treiber)
+und community-getestete Modbus-Vorlagen aus dem
+[IP-Symcon-Forum](https://community.symcon.de/c/symcon/vorlagen-modbus/86).
+
+- **GoodWe**: alle Kernregister 1:1 gegen OpenEMS und eine unabhängige, community-getestete
+  Vorlage bestätigt — höchste Vertrauensstufe aller Treiber
+- **Kritischer Bugfix Fronius**: SunSpec-Feldoffsets waren im von Fronius empfohlenen
+  Standardpfad (Float-Modell 111/112/113) fast durchgehend falsch (ac_power, status, grid_volt,
+  grid_freq, e_total betroffen), ebenso im Int+SF-Fallback und im Meter-Modell. Gegen die
+  offizielle SunSpec-Modelldefinition korrigiert. Seriennummer-Offset im Common Block ebenfalls
+  falsch (48 statt 40)
+- **SMA komplett neu**: Treiber von SMA-eigenen nativen Registern auf SunSpec umgestellt
+  (wie von OpenEMS für den SMA Sunny Tripower verwendet) — schließt die vorher bewusst offene
+  AC-/Netzlücke vollständig und nutzt dieselben verifizierten Feldoffsets wie Fronius
+- **SolaX**: Grundregister (Netz, PV1/2, Meter, inkl. eigenständig hergeleiteter T-Phasen-
+  Adresse) durch unabhängige Community-Vorlage bestätigt. Batterie-Detailregister aus der
+  Vorlage bewusst noch nicht übernommen, da sie aus einer anderen Protokollversion
+  (Hybrid-G4 ModbusRTU statt ESS/TCP) stammen — Vermischen zweier Protokollversionen ohne
+  Auswahlmechanismus wäre riskant, folgt als eigener Schritt
+
 ## 0.4.3-beta.1 (2026-07-15)
 
 - **Kritischer Bugfix** (gemeldet von einem Beta-Tester, Sungrow SH 6.0 RT): Off-by-one-
