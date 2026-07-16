@@ -11,11 +11,15 @@
         },
         {
           "type": "Label",
-          "caption": "Zeigt die Werte einer InverterHub-Instanz (beliebiger Hersteller) als animierte Energiefluss-Kachel: Solar, Netz, Last und Batterie auf einen Blick."
+          "caption": "Zeigt die Werte einer InverterHub-Instanz (beliebiger Hersteller) als animierte Energiefluss-Kachel in Diamant-Anordnung: Solar oben, Netz links, Last rechts, Batterie unten."
         },
         {
           "type": "Label",
-          "caption": "Da nicht jeder Hersteller-Treiber dieselben Datenpunkte liefert (z. B. keine Netzmessung oder keine Batterie), wird ein Kreis ausgegraut dargestellt, wenn die zugehörige Größe bei der gewählten Quelle fehlt, statt falsche Werte zu zeigen."
+          "caption": "Farben sind semantisch fest vergeben: Solar = Sonnengelb, Netz = Grün bei Einspeisung/Rot bei Bezug, Last = Grün-Rot-Verlauf je nach Anteil aus Netz vs. PV/Batterie, Batterie = Blau."
+        },
+        {
+          "type": "Label",
+          "caption": "Da nicht jeder Hersteller-Treiber dieselben Datenpunkte liefert (z. B. keine Netzmessung oder keine Batterie), wird ein Kreis grau dargestellt, wenn die zugehörige Größe bei der gewählten Quelle fehlt, statt falsche Werte zu zeigen."
         },
         {
           "type": "Label",
@@ -31,7 +35,7 @@
         },
         {
           "type": "Label",
-          "caption": "Farben, Schriftart und -größe lassen sich anpassen (-1 bzw. leer = Systemstandard). Button „Stil zurücksetzen“ stellt alle Werte auf die Vorgabe zurück (Akzentfarbe: Solar-Grün #4CAF50)."
+          "caption": "Hintergrundfarbe, Schriftart und -größe lassen sich anpassen (-1 bzw. leer = Systemstandard). Button „Stil zurücksetzen“ stellt alle Werte auf die Vorgabe zurück."
         }
       ]
     },
@@ -55,32 +59,12 @@
       "items": [
         {
           "type": "Label",
-          "caption": "Farben (-1 = Systemstandard)"
-        },
-        {
-          "type": "ColorPicker",
-          "name": "ColorAccent",
-          "caption": "Akzentfarbe (Standard: Solar-Grün #4CAF50)"
+          "caption": "Die Kreisfarben sind fest an die jeweilige Größe gebunden (Solar = Gelb, Netz = Grün/Rot je nach Richtung, Last = Grün-Rot-Verlauf je nach Quellenanteil, Batterie = Blau) und nicht anpassbar."
         },
         {
           "type": "ColorPicker",
           "name": "ColorBackground",
-          "caption": "Hintergrundfarbe"
-        },
-        {
-          "type": "ColorPicker",
-          "name": "ColorBox",
-          "caption": "Box-Farbe"
-        },
-        {
-          "type": "ColorPicker",
-          "name": "ColorText",
-          "caption": "Textfarbe"
-        },
-        {
-          "type": "ColorPicker",
-          "name": "ColorTextMuted",
-          "caption": "Gedämpfte Textfarbe"
+          "caption": "Hintergrundfarbe (-1 = Systemstandard)"
         },
         {
           "type": "ValidationTextBox",

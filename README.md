@@ -76,11 +76,14 @@ dafür vorhanden).
 
 ### InverterHubTile
 
-Animierte Energiefluss-Kachel (Visualisierung) für eine InverterHub-Instanz: Solar, Netz, Last
-und Batterie mit SOC-Füllstand, unabhängig vom Hersteller. Da nicht jeder Treiber dieselben
-Datenpunkte liefert, wird ein Kreis ausgegraut dargestellt, wenn die zugehörige Größe bei der
-gewählten Quelle fehlt (z. B. keine Netzmessung bei Growatt, keine Batterie bei SMA/Fronius/
-SolarEdge), statt falsche Werte zu zeigen. Farben, Schriftart und -größe sind über die
+Animierte Energiefluss-Kachel (Visualisierung) für eine InverterHub-Instanz, unabhängig vom
+Hersteller: Solar, Netz, Last und Batterie mit SOC-Füllstand, angeordnet als auf der Spitze
+stehendes Quadrat (Diamant). Die Farben sind semantisch fest vergeben: Solar = Sonnengelb,
+Netz = Grün bei Einspeisung/Rot bei Bezug, Batterie = Blau, Last = weicher Grün-Rot-Verlauf
+je nach Anteil aus Netzbezug vs. PV/Batterie. Da nicht jeder Treiber dieselben Datenpunkte
+liefert, wird ein Kreis grau dargestellt, wenn die zugehörige Größe bei der gewählten Quelle
+fehlt (z. B. keine Netzmessung bei Growatt, keine Batterie bei SMA/Fronius/SolarEdge), statt
+falsche Werte zu zeigen. Hintergrundfarbe, Schriftart und -größe sind über die
 Instanzkonfiguration anpassbar.
 
 Einrichtung: Kachel-Instanz anlegen, unter „Datenquelle" die gewünschte InverterHub-Instanz

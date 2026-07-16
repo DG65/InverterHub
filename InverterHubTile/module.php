@@ -25,11 +25,7 @@ class InverterHubTile extends IPSModule
     private const IDENT_SOC    = ['soc', 'bat_soc'];
     private const IDENT_CONN   = ['connected'];
 
-    private const DEF_ACCENT     = 0x4CAF50;
     private const DEF_BACKGROUND = -1;
-    private const DEF_BOX        = -1;
-    private const DEF_TEXT       = -1;
-    private const DEF_TEXTMUTED  = -1;
     private const DEF_FONT       = 'system';
     private const DEF_SCALE      = 1.0;
 
@@ -38,11 +34,7 @@ class InverterHubTile extends IPSModule
         parent::Create();
 
         $this->RegisterPropertyInteger('SourceInstance', 0);
-        $this->RegisterPropertyInteger('ColorAccent',     self::DEF_ACCENT);
         $this->RegisterPropertyInteger('ColorBackground', self::DEF_BACKGROUND);
-        $this->RegisterPropertyInteger('ColorBox',        self::DEF_BOX);
-        $this->RegisterPropertyInteger('ColorText',       self::DEF_TEXT);
-        $this->RegisterPropertyInteger('ColorTextMuted',  self::DEF_TEXTMUTED);
         $this->RegisterPropertyString('FontFamily',       self::DEF_FONT);
         $this->RegisterPropertyFloat('FontScale',         self::DEF_SCALE);
 
@@ -122,11 +114,7 @@ class InverterHubTile extends IPSModule
     public function ResetStyle()
     {
         $id = $this->InstanceID;
-        IPS_SetProperty($id, 'ColorAccent',     self::DEF_ACCENT);
         IPS_SetProperty($id, 'ColorBackground', self::DEF_BACKGROUND);
-        IPS_SetProperty($id, 'ColorBox',        self::DEF_BOX);
-        IPS_SetProperty($id, 'ColorText',       self::DEF_TEXT);
-        IPS_SetProperty($id, 'ColorTextMuted',  self::DEF_TEXTMUTED);
         IPS_SetProperty($id, 'FontFamily',      self::DEF_FONT);
         IPS_SetProperty($id, 'FontScale',       self::DEF_SCALE);
         IPS_ApplyChanges($id);
@@ -147,13 +135,9 @@ class InverterHubTile extends IPSModule
     private function BuildPayload()
     {
         $style = [
-            'accent'    => $this->ColorHex($this->ReadPropertyInteger('ColorAccent'), '#4caf50'),
-            'bg'        => $this->ColorOrEmpty($this->ReadPropertyInteger('ColorBackground')),
-            'box'       => $this->ColorOrEmpty($this->ReadPropertyInteger('ColorBox')),
-            'text'      => $this->ColorOrEmpty($this->ReadPropertyInteger('ColorText')),
-            'textmuted' => $this->ColorOrEmpty($this->ReadPropertyInteger('ColorTextMuted')),
-            'font'      => $this->FontStack($this->ReadPropertyString('FontFamily')),
-            'scale'     => $this->FontScaleValue(),
+            'bg'    => $this->ColorOrEmpty($this->ReadPropertyInteger('ColorBackground')),
+            'font'  => $this->FontStack($this->ReadPropertyString('FontFamily')),
+            'scale' => $this->FontScaleValue(),
         ];
 
         $src = $this->ResolveSource();
@@ -230,14 +214,6 @@ class InverterHubTile extends IPSModule
     private function ResolveSource()
     {
         return (int)$this->ReadPropertyInteger('SourceInstance');
-    }
-
-    private function ColorHex(int $color, string $fallback)
-    {
-        if ($color < 0) {
-            return $fallback;
-        }
-        return sprintf('#%06x', $color);
     }
 
     private function ColorOrEmpty(int $color)

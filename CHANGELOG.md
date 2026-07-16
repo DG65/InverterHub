@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.9.0-beta.1 (2026-07-16)
+
+- **Überarbeitung `InverterHubTile`** nach Nutzer-Feedback (Layout und Farben wirkten
+  unstimmig, Icons/Zahlen teils schwarz und unlesbar):
+  - **Layout**: echtes, auf der Spitze stehendes Quadrat (Diamant) statt schiefer Anordnung —
+    Solar oben, Netz links, Last rechts, Batterie unten, alle vier gleich weit vom Mittelpunkt,
+    verbunden durch ein Kreuz aus Leitungen statt gebogener Äste.
+  - **Farben jetzt semantisch fest**: Solar = Sonnengelb, Netz = Grün bei Einspeisung/Rot bei
+    Bezug, Batterie = Blau, Last = weicher Grün-Rot-Verlauf je nach Anteil aus Netzbezug vs.
+    PV/Batterie (moderater, stufenloser Farbwechsel statt hartem Umschalten).
+  - **Bugfix**: Icons und Zahlen erschienen schwarz/unlesbar, weil `currentColor` in den
+    SVG-Kindelementen verwendet wurde — das bezieht sich auf die CSS-Eigenschaft `color`, die
+    nie gesetzt war, statt auf `fill`/`stroke`. Jetzt werden Farben direkt über `fill`/`stroke`
+    vererbt, zusätzlich erschienen Pfeilspitzen schwarz, da `<marker>`-Inhalte keine Farben vom
+    referenzierenden Pfad erben — jetzt werden sie passend zur aktiven Flussfarbe eingefärbt.
+  - Da die Kreisfarben jetzt fest vergeben sind, entfallen die bisherigen Farb-Einstellungen
+    „Akzent/Box/Text/Textfarbe" — nur Hintergrundfarbe, Schriftart und -größe bleiben
+    konfigurierbar.
+
 ## 0.8.2-beta.1 (2026-07-16)
 
 - **Bugfix `InverterHubTile`**: Konfigurationsformular ließ sich nicht öffnen

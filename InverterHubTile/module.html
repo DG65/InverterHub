@@ -5,14 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
   :root {
-    --accent: #4caf50;
-    --orange: #ff9800;
-    --idle: rgba(215,215,215,0.7);
-    --idle-glow: rgba(148,148,148,0);
-    --wire: rgba(148,148,148,0.5);
+    --grey: rgba(158,158,158,0.85);
+    --grey-glow: rgba(158,158,158,0);
+    --wire: rgba(148,148,148,0.45);
     --box: rgba(255,255,255,0.06);
     --text: inherit;
-    --textmuted: rgba(148,148,148,0.85);
+    --textmuted: rgba(158,158,158,0.9);
     --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     --scale: 1;
   }
@@ -24,7 +22,7 @@
     font-size: calc(13px * var(--scale));
     background: transparent;
     color: var(--text);
-    padding: 44px 14px 16px;
+    padding: 40px 10px 14px;
     user-select: none;
     min-height: 100%;
   }
@@ -33,7 +31,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
     font-size: calc(11px * var(--scale));
     color: var(--textmuted);
   }
@@ -43,28 +41,39 @@
     background: var(--textmuted);
     flex-shrink: 0;
   }
-  .status-dot.ok { background: var(--accent); }
+  .status-dot.ok { background: #4caf50; }
   .status-dot.pulse { animation: pulse 2s ease-in-out infinite; }
   @keyframes pulse {
     0%,100% { opacity: 1; }
     50%      { opacity: 0.35; }
   }
-  .state-label { font-weight: 600; color: var(--text); }
+  .state-label { font-weight: 600; color: var(--textmuted); }
 
   .flow-wrap {
     position: relative;
     width: 100%;
-    max-width: 340px;
+    max-width: 360px;
     margin: 0 auto;
   }
   .flow-svg { width: 100%; height: auto; display: block; overflow: visible; }
 
   text { font-family: var(--font); }
 
+  /* Fill/Stroke sind vererbbare CSS-Eigenschaften bei SVG (im Gegensatz zu
+     "color"/currentColor, das hier NICHT verwendet wird) - Kind-Elemente der
+     Icon-Gruppe erben --nc daher automatisch ohne "currentColor"-Fallstrick. */
+  .node-icon, .node-icon * {
+    fill: var(--nc, var(--grey));
+    stroke: var(--nc, var(--grey));
+    transition: fill 0.4s, stroke 0.4s;
+  }
+  .node-icon rect[fill="none"], .node-icon polygon[fill="none"] { fill: none; }
+
   .node-value {
     font-size: calc(21px * var(--scale));
     font-weight: 800;
-    fill: var(--text);
+    fill: var(--nc, var(--grey));
+    transition: fill 0.4s;
   }
   .node-value-unit {
     font-size: calc(11px * var(--scale));
@@ -78,14 +87,16 @@
   .node-soc {
     font-size: calc(22px * var(--scale));
     font-weight: 800;
+    fill: var(--nc, var(--grey));
+    transition: fill 0.4s;
   }
   .node-sub {
     font-size: calc(13px * var(--scale));
     font-weight: 700;
-    fill: var(--text);
+    fill: var(--nc, var(--grey));
+    transition: fill 0.4s;
   }
 
-  /* Verbindungen: dezente "Marschierende Ameisen" für Fluss-Richtung */
   .wire {
     fill: none;
     stroke: var(--wire);
@@ -98,7 +109,7 @@
     stroke-linecap: round;
     stroke-dasharray: 1 11;
     opacity: 0;
-    transition: opacity 0.35s;
+    transition: opacity 0.35s, stroke 0.4s;
   }
   .wire-flow.active {
     opacity: 1;
@@ -107,45 +118,19 @@
   .wire-flow.reverse.active { animation-direction: reverse; }
   @keyframes dash { to { stroke-dashoffset: -24; } }
 
-  .arrow {
-    opacity: 0;
-    transition: opacity 0.35s;
-  }
-  .arrow.active { opacity: 1; }
-
-  /* Node-Ringe: neutrales Grau im Ruhezustand, farbig + Leuchten wenn aktiv */
   .node-glow {
     fill: none;
     stroke-width: 12;
-    stroke: var(--idle-glow);
-    filter: blur(6px);
-    transition: stroke 0.35s;
+    stroke: var(--grey-glow);
+    filter: blur(7px);
+    transition: stroke 0.4s;
   }
   .node-ring {
     fill: #14171c;
     stroke-width: 3;
-    stroke: var(--idle);
-    transition: stroke 0.35s;
+    stroke: var(--nc, var(--grey));
+    transition: stroke 0.4s;
   }
-  .node.on-green .node-ring   { stroke: var(--accent); }
-  .node.on-green .node-glow   { stroke: color-mix(in srgb, var(--accent) 55%, transparent); }
-  .node.on-orange .node-ring  { stroke: var(--orange); }
-  .node.on-orange .node-glow  { stroke: color-mix(in srgb, var(--orange) 55%, transparent); }
-
-  .node-icon {
-    stroke: var(--idle);
-    fill: var(--idle);
-    transition: stroke 0.35s, fill 0.35s, opacity 0.35s;
-  }
-  .node.on-green .node-icon  { stroke: var(--accent); fill: var(--accent); }
-  .node.on-orange .node-icon { stroke: var(--orange); fill: var(--orange); }
-  .node.dim .node-icon { opacity: 0.3; }
-
-  .node.on-green .node-value,
-  .node.on-green .node-soc { fill: var(--accent); }
-  .node.on-orange .node-soc { fill: var(--orange); }
-
-  .node.dim .node-soc { fill: var(--idle); }
 </style>
 </head>
 <body>
@@ -156,35 +141,41 @@
 </div>
 
 <div class="flow-wrap">
-<svg class="flow-svg" viewBox="0 0 340 480" xmlns="http://www.w3.org/2000/svg">
+<svg class="flow-svg" viewBox="0 0 410 540" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
-      <path d="M0,0 L8,4 L0,8 Z" fill="var(--wire)"/>
-    </marker>
+    <marker id="arrow-pv"  markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z"/></marker>
+    <marker id="arrow-nz"  markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z"/></marker>
+    <marker id="arrow-ls"  markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z"/></marker>
+    <marker id="arrow-bt"  markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z"/></marker>
   </defs>
 
-  <!-- ── Verbindungen (Bus: Solar–Batterie senkrecht, Abzweige zu Netz/Last) ── -->
-  <!-- Solar -> Netz -->
-  <path class="wire" d="M170,148 C170,190 108,190 108,222" />
-  <path id="wf-grid-fwd" class="wire-flow" d="M170,148 C170,190 108,190 108,222" style="stroke:var(--wire)" marker-end="url(#arrowhead)"/>
-  <path id="wf-grid-rev" class="wire-flow reverse" d="M108,222 C108,190 170,190 170,148" style="stroke:var(--wire)" marker-end="url(#arrowhead)"/>
+  <!-- ── Diamant-Layout: Mitte (205,270), 4 Speichen zu den Knoten ── -->
+  <!-- Solar (oben) -->
+  <line class="wire" x1="205" y1="270" x2="205" y2="120"/>
+  <path id="wf-pv-out" class="wire-flow" d="M205,270 L205,120" marker-end="url(#arrow-pv)"/>
+  <path id="wf-pv-in"  class="wire-flow reverse" d="M205,120 L205,270" marker-end="url(#arrow-pv)"/>
 
-  <!-- Solar -> Last -->
-  <path class="wire" d="M170,148 C170,190 232,190 232,222" />
-  <path id="wf-house-fwd" class="wire-flow" d="M170,148 C170,190 232,190 232,222" style="stroke:var(--wire)" marker-end="url(#arrowhead)"/>
+  <!-- Netz (links) -->
+  <line class="wire" x1="205" y1="270" x2="55" y2="270"/>
+  <path id="wf-nz-out" class="wire-flow" d="M205,270 L55,270" marker-end="url(#arrow-nz)"/>
+  <path id="wf-nz-in"  class="wire-flow reverse" d="M55,270 L205,270" marker-end="url(#arrow-nz)"/>
 
-  <!-- Solar -> Batterie -->
-  <path class="wire" d="M170,158 L170,322" />
-  <path id="wf-bat-fwd" class="wire-flow" d="M170,158 L170,322" style="stroke:var(--wire)" marker-end="url(#arrowhead)"/>
-  <path id="wf-bat-rev" class="wire-flow reverse" d="M170,322 L170,158" style="stroke:var(--wire)" marker-end="url(#arrowhead)"/>
+  <!-- Last (rechts) -->
+  <line class="wire" x1="205" y1="270" x2="355" y2="270"/>
+  <path id="wf-ls-out" class="wire-flow" d="M205,270 L355,270" marker-end="url(#arrow-ls)"/>
 
-  <!-- ── Solar (oben) ── -->
-  <g class="node" id="node-pv" transform="translate(170,90)">
-    <circle class="node-glow" r="54"/>
-    <circle class="node-ring" r="54"/>
-    <g class="node-icon" transform="translate(0,-20)" stroke-width="2" fill="none">
-      <circle r="7" fill="currentColor" stroke="none"/>
-      <g stroke="currentColor">
+  <!-- Batterie (unten) -->
+  <line class="wire" x1="205" y1="270" x2="205" y2="420"/>
+  <path id="wf-bt-out" class="wire-flow" d="M205,270 L205,420" marker-end="url(#arrow-bt)"/>
+  <path id="wf-bt-in"  class="wire-flow reverse" d="M205,420 L205,270" marker-end="url(#arrow-bt)"/>
+
+  <!-- ── Solar ── -->
+  <g class="node" id="node-pv" transform="translate(205,120)">
+    <circle class="node-glow" r="50"/>
+    <circle class="node-ring" r="50"/>
+    <g class="node-icon" transform="translate(0,-16)" stroke-width="2" fill="none">
+      <circle r="7" stroke="none"/>
+      <g>
         <line x1="0" y1="-13" x2="0" y2="-10"/>
         <line x1="0" y1="10" x2="0" y2="13"/>
         <line x1="-13" y1="0" x2="-10" y2="0"/>
@@ -196,90 +187,108 @@
       </g>
     </g>
     <text id="lbl-pv-val" x="0" y="12" text-anchor="middle" class="node-value">0<tspan class="node-value-unit" dx="2">kW</tspan></text>
-    <text x="0" y="32" text-anchor="middle" class="node-label">Solar</text>
+    <text x="0" y="30" text-anchor="middle" class="node-label">Solar</text>
   </g>
 
-  <!-- ── Netz (links) ── -->
-  <g class="node dim" id="node-grid" transform="translate(60,270)">
-    <circle class="node-glow" r="54"/>
-    <circle class="node-ring" r="54"/>
-    <g class="node-icon" transform="translate(0,-20)" stroke-width="2" fill="none">
-      <rect x="-11" y="-9" width="22" height="15" rx="3" stroke="currentColor" fill="none"/>
-      <line x1="-5" y1="-13" x2="-5" y2="-9" stroke="currentColor"/>
-      <line x1="5"  y1="-13" x2="5"  y2="-9" stroke="currentColor"/>
-      <line x1="-11" y1="0" x2="-15" y2="0" stroke="currentColor"/>
-      <line x1="11" y1="0" x2="15" y2="0" stroke="currentColor"/>
+  <!-- ── Netz ── -->
+  <g class="node" id="node-grid" transform="translate(55,270)">
+    <circle class="node-glow" r="50"/>
+    <circle class="node-ring" r="50"/>
+    <g class="node-icon" transform="translate(0,-16)" stroke-width="2" fill="none">
+      <rect x="-11" y="-9" width="22" height="15" rx="3" fill="none"/>
+      <line x1="-5" y1="-13" x2="-5" y2="-9"/>
+      <line x1="5"  y1="-13" x2="5"  y2="-9"/>
+      <line x1="-11" y1="0" x2="-15" y2="0"/>
+      <line x1="11" y1="0" x2="15" y2="0"/>
     </g>
     <text id="lbl-grid-val" x="0" y="12" text-anchor="middle" class="node-value">0<tspan class="node-value-unit" dx="2">kW</tspan></text>
-    <text x="0" y="32" text-anchor="middle" class="node-label">Netz</text>
+    <text x="0" y="30" text-anchor="middle" class="node-label">Netz</text>
   </g>
 
-  <!-- ── Last (rechts) ── -->
-  <g class="node dim" id="node-house" transform="translate(280,270)">
-    <circle class="node-glow" r="54"/>
-    <circle class="node-ring" r="54"/>
-    <g class="node-icon" transform="translate(0,-20)" stroke-width="2" fill="none">
-      <polygon points="0,-13 15,-1 15,13 -15,13 -15,-1" stroke="currentColor" fill="none"/>
+  <!-- ── Last ── -->
+  <g class="node" id="node-house" transform="translate(355,270)">
+    <circle class="node-glow" r="50"/>
+    <circle class="node-ring" r="50"/>
+    <g class="node-icon" transform="translate(0,-16)" stroke-width="2" fill="none">
+      <polygon points="0,-13 15,-1 15,13 -15,13 -15,-1" fill="none"/>
     </g>
     <text id="lbl-house-val" x="0" y="12" text-anchor="middle" class="node-value">0<tspan class="node-value-unit" dx="2">kW</tspan></text>
-    <text x="0" y="32" text-anchor="middle" class="node-label">Last</text>
+    <text x="0" y="30" text-anchor="middle" class="node-label">Last</text>
   </g>
 
-  <!-- ── Batterie (unten) ── -->
-  <g class="node dim" id="node-bat" transform="translate(170,392)">
-    <circle class="node-glow" r="58"/>
-    <circle class="node-ring" r="58"/>
-    <g class="node-icon" transform="translate(0,-27)" stroke-width="2" fill="none">
-      <rect x="-11" y="-8" width="19" height="16" rx="2.5" stroke="currentColor" fill="none"/>
-      <rect x="8" y="-4" width="3.5" height="8" rx="1" fill="currentColor" stroke="none"/>
-      <rect id="bat-fill" x="-9" y="-6" width="15" height="12" rx="1.5" fill="currentColor" opacity="0.35" stroke="none"/>
+  <!-- ── Batterie ── -->
+  <g class="node" id="node-bat" transform="translate(205,420)">
+    <circle class="node-glow" r="54"/>
+    <circle class="node-ring" r="54"/>
+    <g class="node-icon" transform="translate(0,-24)" stroke-width="2" fill="none">
+      <rect x="-11" y="-8" width="19" height="16" rx="2.5" fill="none"/>
+      <rect x="8" y="-4" width="3.5" height="8" rx="1" stroke="none"/>
+      <rect id="bat-fill" x="-9" y="-6" width="15" height="12" rx="1.5" opacity="0.4" stroke="none"/>
       <g id="bat-badge" transform="translate(-14,-14)">
-        <circle r="6" fill="currentColor" stroke="none"/>
+        <circle r="6" stroke="none"/>
         <line x1="-3" y1="0" x2="3" y2="0" stroke="#14171c" stroke-width="1.6"/>
-        <line x1="0" y1="-3" x2="0" y2="3" stroke="#14171c" stroke-width="1.6"/>
+        <line id="bat-badge-vert" x1="0" y1="-3" x2="0" y2="3" stroke="#14171c" stroke-width="1.6"/>
       </g>
     </g>
-    <text id="lbl-bat-soc" x="0" y="6" text-anchor="middle" class="node-soc">–%</text>
-    <text x="0" y="24" text-anchor="middle" class="node-label">Batterie</text>
-    <text id="lbl-bat-val" x="0" y="41" text-anchor="middle" class="node-sub">0<tspan class="node-value-unit" dx="2">kW</tspan></text>
+    <text id="lbl-bat-soc" x="0" y="4" text-anchor="middle" class="node-soc">–%</text>
+    <text x="0" y="22" text-anchor="middle" class="node-label">Batterie</text>
+    <text id="lbl-bat-val" x="0" y="39" text-anchor="middle" class="node-sub">0<tspan class="node-value-unit" dx="2">kW</tspan></text>
   </g>
 
 </svg>
 </div>
 
 <script>
+const C_SOLAR = [255, 179, 0];   // Sonnengelb
+const C_BAT   = [33, 150, 243];  // Blau
+const C_GREEN = [67, 160, 71];   // Einspeisung / lokal versorgt
+const C_RED   = [229, 57, 53];   // Bezug / netzversorgt
+const C_GREY  = [158, 158, 158];
+
+function rgb(c) { return 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')'; }
+function lerp(a, b, t) {
+  t = Math.max(0, Math.min(1, t));
+  return [
+    Math.round(a[0] + (b[0] - a[0]) * t),
+    Math.round(a[1] + (b[1] - a[1]) * t),
+    Math.round(a[2] + (b[2] - a[2]) * t),
+  ];
+}
+
 function fmtKw(w) {
   const kw = (w || 0) / 1000;
   return kw.toLocaleString('de-DE', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 }
 
 function setValueText(id, watts) {
-  const el = document.getElementById(id);
-  const unitSpan = el.querySelector('.node-value-unit') || el.querySelector('tspan');
-  el.firstChild.nodeValue = fmtKw(watts);
+  document.getElementById(id).firstChild.nodeValue = fmtKw(watts);
 }
 
-function setFlow(idFwd, idRev, active, reverse, color) {
-  const fwd = document.getElementById(idFwd);
-  if (fwd) {
-    fwd.classList.toggle('active', active && !reverse);
-    fwd.style.stroke = color;
-  }
-  if (idRev) {
-    const rev = document.getElementById(idRev);
-    if (rev) {
-      rev.classList.toggle('active', active && reverse);
-      rev.style.stroke = color;
-    }
-  }
-}
-
-function setNodeState(nodeId, have, active, colorClass) {
+// Setzt Knotenfarbe (--nc), Glow (nur wenn aktiv) und Grau-Fallback ohne Daten
+function setNode(nodeId, have, active, color) {
   const el = document.getElementById(nodeId);
-  el.classList.remove('on-green', 'on-orange');
-  el.classList.toggle('dim', !have || !active);
-  if (have && active) {
-    el.classList.add(colorClass);
+  const c = have ? color : C_GREY;
+  el.style.setProperty('--nc', rgb(c));
+  el.querySelector('.node-glow').style.stroke = (have && active)
+    ? 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',0.55)'
+    : 'var(--grey-glow)';
+}
+
+function setFlow(idOut, idIn, active, reverse, color, markerId) {
+  const col = rgb(color);
+  const out = document.getElementById(idOut);
+  out.classList.toggle('active', active && !reverse);
+  out.style.stroke = col;
+  if (idIn) {
+    const inn = document.getElementById(idIn);
+    inn.classList.toggle('active', active && reverse);
+    inn.style.stroke = col;
+  }
+  // <marker>-Inhalte erben Farben nicht automatisch von der referenzierenden
+  // Linie (kein CSS-Vererbungskontext) - Pfeilspitze daher explizit einfärben.
+  if (markerId) {
+    const m = document.querySelector('#' + markerId + ' path');
+    if (m) m.style.fill = col;
   }
 }
 
@@ -287,11 +296,7 @@ function handleMessage(raw) {
   const d = typeof raw === 'string' ? JSON.parse(raw) : raw;
 
   const root = document.documentElement;
-  if (d.accent)    root.style.setProperty('--accent', d.accent);
   if (d.bg)        document.body.style.background = d.bg;
-  if (d.box)       root.style.setProperty('--box', d.box);
-  if (d.text)      root.style.setProperty('--text', d.text);
-  if (d.textmuted) root.style.setProperty('--textmuted', d.textmuted);
   if (d.font)      root.style.setProperty('--font', d.font);
   if (d.scale)     root.style.setProperty('--scale', d.scale);
 
@@ -302,35 +307,43 @@ function handleMessage(raw) {
   if (!d.ok) return;
 
   const pvW    = d.pvW    ?? 0;
-  const gridW  = d.gridW  ?? 0;
-  const houseW = d.houseW ?? 0;
-  const batW   = d.batW   ?? 0;
+  const gridW  = d.gridW  ?? 0;  // >0 Einspeisung, <0 Bezug
+  const houseW = d.houseW ?? 0;  // stets >=0 (Last)
+  const batW   = d.batW   ?? 0;  // >0 Laden, <0 Entladen
 
   const pvActive    = d.pvHave    && Math.abs(pvW)    > 20;
   const gridActive  = d.gridHave  && Math.abs(gridW)  > 20;
-  const houseActive = d.houseHave && Math.abs(houseW) > 20;
+  const houseActive = d.houseHave && houseW > 20;
   const batActive   = d.batHave   && Math.abs(batW)   > 20;
 
-  // Solar
+  // Solar: immer Sonnengelb
   setValueText('lbl-pv-val', Math.abs(pvW));
-  setNodeState('node-pv', d.pvHave, pvActive, 'on-green');
+  setNode('node-pv', d.pvHave, pvActive, C_SOLAR);
+  setFlow('wf-pv-out', 'wf-pv-in', pvActive, false, C_SOLAR, 'arrow-pv');
 
-  // Netz: Export (>0) = grün, Bezug (<0) = orange
+  // Netz: Einspeisung = Grün, Bezug = Rot
   setValueText('lbl-grid-val', Math.abs(gridW));
-  setNodeState('node-grid', d.gridHave, gridActive, gridW >= 0 ? 'on-green' : 'on-orange');
-  setFlow('wf-grid-fwd', 'wf-grid-rev', gridActive, gridW < 0, gridW >= 0 ? 'var(--accent)' : 'var(--orange)');
+  const gridColor = gridW >= 0 ? C_GREEN : C_RED;
+  setNode('node-grid', d.gridHave, gridActive, gridColor);
+  setFlow('wf-nz-out', 'wf-nz-in', gridActive, gridW < 0, gridColor, 'arrow-nz');
 
-  // Last
-  setValueText('lbl-house-val', Math.abs(houseW));
-  setNodeState('node-house', d.houseHave, houseActive, 'on-orange');
-  setFlow('wf-house-fwd', null, houseActive, false, 'var(--orange)');
+  // Last: moderater Farbverlauf je nach Quellenanteil (Netzbezug -> Rot,
+  // PV/Batterie-gedeckt -> Grün)
+  setValueText('lbl-house-val', houseW);
+  const gridImportW = (d.gridHave && gridW < 0) ? Math.abs(gridW) : 0;
+  const gridShare   = houseW > 0 ? Math.min(1, gridImportW / houseW) : 0;
+  const houseColor  = lerp(C_GREEN, C_RED, gridShare);
+  setNode('node-house', d.houseHave, houseActive, houseColor);
+  setFlow('wf-ls-out', null, houseActive, false, houseColor, 'arrow-ls');
 
-  // Batterie: Laden (>0) = orange, Entladen (<0) = grün (speist ins Haus)
+  // Batterie: immer Blau
   setValueText('lbl-bat-val', Math.abs(batW));
-  setNodeState('node-bat', d.batHave, batActive, batW >= 0 ? 'on-orange' : 'on-green');
-  setFlow('wf-bat-fwd', 'wf-bat-rev', batActive, batW < 0, batW >= 0 ? 'var(--orange)' : 'var(--accent)');
+  setNode('node-bat', d.batHave, batActive, C_BAT);
+  setFlow('wf-bt-out', 'wf-bt-in', batActive, batW < 0, C_BAT, 'arrow-bt');
 
-  document.getElementById('bat-badge').style.display = (d.batHave && batW >= 0) ? '' : 'none';
+  const badgeVisible = d.batHave && batW >= 20;
+  document.getElementById('bat-badge').style.display = badgeVisible ? '' : 'none';
+  document.getElementById('bat-badge-vert').style.display = (d.batHave && batW < -20) ? 'none' : '';
 
   const socEl = document.getElementById('lbl-bat-soc');
   if (d.socHave) {
