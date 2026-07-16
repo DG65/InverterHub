@@ -1,0 +1,126 @@
+{
+  "elements": [
+    {
+      "type": "ExpansionPanel",
+      "caption": "📖 Dokumentation & Hilfe",
+      "expanded": false,
+      "items": [
+        {
+          "type": "Label",
+          "caption": "── Funktionsweise ──"
+        },
+        {
+          "type": "Label",
+          "caption": "Zeigt die Werte einer InverterHub-Instanz (beliebiger Hersteller) als animierte Energiefluss-Kachel: Solar, Netz, Last und Batterie auf einen Blick."
+        },
+        {
+          "type": "Label",
+          "caption": "Da nicht jeder Hersteller-Treiber dieselben Datenpunkte liefert (z. B. keine Netzmessung oder keine Batterie), wird ein Kreis ausgegraut dargestellt, wenn die zugehörige Größe bei der gewählten Quelle fehlt, statt falsche Werte zu zeigen."
+        },
+        {
+          "type": "Label",
+          "caption": "── Einrichten ──"
+        },
+        {
+          "type": "Label",
+          "caption": "Unter „Datenquelle“ die InverterHub-Instanz auswählen, aus der die Werte kommen sollen. Status oben zeigt „Kachel aktiv“, sobald eine gültige Quelle gewählt ist."
+        },
+        {
+          "type": "Label",
+          "caption": "── Darstellung ──"
+        },
+        {
+          "type": "Label",
+          "caption": "Farben, Schriftart und -größe lassen sich anpassen (-1 bzw. leer = Systemstandard). Button „Stil zurücksetzen“ stellt alle Werte auf die Vorgabe zurück (Akzentfarbe: Solar-Grün #4CAF50)."
+        }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Datenquelle",
+      "expanded": true,
+      "items": [
+        {
+          "type": "SelectModule",
+          "name": "SourceInstance",
+          "caption": "InverterHub-Instanz",
+          "moduleID": "{BBE2C593-1A91-426D-A714-29A9C7E87589}"
+        }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Darstellung",
+      "expanded": false,
+      "items": [
+        {
+          "type": "Label",
+          "caption": "Farben (-1 = Systemstandard)"
+        },
+        {
+          "type": "ColorEditor",
+          "name": "ColorAccent",
+          "caption": "Akzentfarbe (Standard: Solar-Grün #4CAF50)"
+        },
+        {
+          "type": "ColorEditor",
+          "name": "ColorBackground",
+          "caption": "Hintergrundfarbe"
+        },
+        {
+          "type": "ColorEditor",
+          "name": "ColorBox",
+          "caption": "Box-Farbe"
+        },
+        {
+          "type": "ColorEditor",
+          "name": "ColorText",
+          "caption": "Textfarbe"
+        },
+        {
+          "type": "ColorEditor",
+          "name": "ColorTextMuted",
+          "caption": "Gedämpfte Textfarbe"
+        },
+        {
+          "type": "ValidationTextBox",
+          "name": "FontFamily",
+          "caption": "Schriftart (leer = Systemschrift)"
+        },
+        {
+          "type": "NumberSpinner",
+          "name": "FontScale",
+          "caption": "Schriftgröße (Faktor)",
+          "digits": 2,
+          "minimum": 0.5,
+          "maximum": 3.0,
+          "suffix": "×"
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "type": "Button",
+      "caption": "Stil zurücksetzen",
+      "onClick": "IHUBTILE_ResetStyle($id);"
+    }
+  ],
+  "status": [
+    {
+      "code": 104,
+      "icon": "inactive",
+      "caption": "Bitte InverterHub-Instanz auswählen."
+    },
+    {
+      "code": 102,
+      "icon": "active",
+      "caption": "Kachel aktiv."
+    },
+    {
+      "code": 201,
+      "icon": "error",
+      "caption": "Quell-Instanz nicht gefunden."
+    }
+  ]
+}

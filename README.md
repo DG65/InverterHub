@@ -74,6 +74,19 @@ IP-Symcon-Konfigurator-Ansicht — ihre Position und ein „einzeln als gesehen 
 sich modulseitig nicht beeinflussen bzw. ergänzen (IP-Symcon-API-Grenze, keine Dokumentation
 dafür vorhanden).
 
+### InverterHubTile
+
+Animierte Energiefluss-Kachel (Visualisierung) für eine InverterHub-Instanz: Solar, Netz, Last
+und Batterie mit SOC-Füllstand, unabhängig vom Hersteller. Da nicht jeder Treiber dieselben
+Datenpunkte liefert, wird ein Kreis ausgegraut dargestellt, wenn die zugehörige Größe bei der
+gewählten Quelle fehlt (z. B. keine Netzmessung bei Growatt, keine Batterie bei SMA/Fronius/
+SolarEdge), statt falsche Werte zu zeigen. Farben, Schriftart und -größe sind über die
+Instanzkonfiguration anpassbar.
+
+Einrichtung: Kachel-Instanz anlegen, unter „Datenquelle" die gewünschte InverterHub-Instanz
+auswählen.
+dafür vorhanden).
+
 ## Fronius und SMA: Hinweis zur SunSpec-Discovery
 
 Beide Hersteller sprechen den offenen SunSpec-Standard statt eigener Register (bei Fronius

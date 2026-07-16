@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.0-beta.1 (2026-07-16)
+
+- **Neu**: `InverterHubTile` — animierte Energiefluss-Kachel für InverterHub (Solar, Netz, Last,
+  Batterie mit SOC-Füllstand), analog zu bekannten Wechselrichter-Apps. Als „Datenquelle" wird
+  eine beliebige InverterHub-Instanz gewählt; die Kachel liest deren Werte per Ident, unabhängig
+  vom Hersteller. Da nicht jeder Treiber dieselben Datenpunkte liefert (z. B. Growatt ohne
+  Netzmessung, SMA/Fronius/SolarEdge ohne Batterie), wird ein Kreis ausgegraut statt mit
+  falschen Werten befüllt, wenn die zugehörige Größe bei der gewählten Quelle fehlt. Farben,
+  Schriftart und -größe sind anpassbar (Muster identisch zu `GoodweETTile`).
+
 ## 0.7.0-beta.1 (2026-07-16)
 
 - **Neu**: Checkbox „Kommunikation aktiv" in `InverterHub`, direkt über der Hersteller-Auswahl.
