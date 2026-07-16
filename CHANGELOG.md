@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.3-beta.1 (2026-07-16)
+
+- `InverterHubDiscovery`: Fortschrittsanzeige während der Netzwerksuche. Ein Fortschrittsbalken
+  zeigt live den Portscan (geschätzt anhand verstrichenem Zeitbudget) und danach die
+  Hersteller-Erkennung je gefundener IP (Prozentwert + Klartext, z. B. „Prüfe Hersteller:
+  192.168.2.50 (3 von 7 offenen Ports) …"). Vorher lief die Suche ohne jede Rückmeldung, bis das
+  Ergebnis fertig war.
+
 ## 0.6.2-beta.1 (2026-07-16)
 
 - **Bugfix Sungrow**: Basisvariable `meter_total` wurde nie beschrieben (blieb dauerhaft auf 0).

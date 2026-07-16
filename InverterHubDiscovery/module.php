@@ -159,6 +159,16 @@ class InverterHubDiscovery extends IPSModule
                         ['type' => 'ValidationTextBox', 'name' => 'NameTemplate', 'caption' => 'Name-Vorlage (leer = Hersteller + lfd. Nr.)'],
                         ['type' => 'Label', 'caption' => 'Platzhalter für die Vorlage: {hersteller} {ip} {unitid} {nr} — z.B. "{hersteller} Dach ({ip})"'],
                         ['type' => 'Button', 'caption' => '🔎  Netzwerk durchsuchen', 'onClick' => 'IHUBD_Discover($id);'],
+                        [
+                            'type'          => 'ProgressBar',
+                            'name'          => 'ScanProgress',
+                            'caption'       => 'Bereit.',
+                            'minimum'       => 0,
+                            'maximum'       => 100,
+                            'current'       => 0,
+                            'indeterminate' => false,
+                            'visible'       => false,
+                        ],
                     ],
                 ],
                 [
@@ -216,6 +226,17 @@ class InverterHubDiscovery extends IPSModule
     // Discovery
     // -----------------------------------------------------------------------
 
+    // Aktualisiert die Fortschrittsanzeige im GEÖFFNETEN Formular, während
+    // Discover() noch läuft (UpdateFormField pusht sofort über die
+    // WebSocket-Verbindung zur Konsole, unabhängig vom RPC-Rückgabewert).
+    private function ShowProgress($caption, $current, $indeterminate = false)
+    {
+        $this->UpdateFormField('ScanProgress', 'visible', true);
+        $this->UpdateFormField('ScanProgress', 'caption', $caption);
+        $this->UpdateFormField('ScanProgress', 'indeterminate', $indeterminate);
+        $this->UpdateFormField('ScanProgress', 'current', $current);
+    }
+
     public function Discover()
     {
         $start = $this->ReadPropertyString('RangeStart');
@@ -233,15 +254,23 @@ class InverterHubDiscovery extends IPSModule
             $ips = array_slice($ips, 0, 1024);
         }
 
+        $this->ShowProgress('Durchsuche ' . count($ips) . ' IP-Adressen auf Port ' . $port . ' …', 0);
+
         $openIps = $this->scanPortOpen($ips, $port, 2.0);
 
         $results = [];
+        $total   = count($openIps);
+        $i       = 0;
         foreach ($openIps as $ip) {
+            $i++;
+            $this->ShowProgress("Prüfe Hersteller: $ip ($i von $total offenen Ports) …", (int)round(($i / max(1, $total)) * 100));
             $found = $this->identifyVendor($ip, $port);
             if ($found !== null) {
                 $results[] = $found;
             }
         }
+
+        $this->ShowProgress('Fertig: ' . count($results) . ' Wechselrichter gefunden (von ' . $total . ' offenen Ports).', 100);
 
         $this->WriteAttributeString('ResultsJSON', json_encode($results));
         $this->SetStatus(102);
@@ -297,8 +326,10 @@ class InverterHubDiscovery extends IPSModule
             }
         }
 
-        $open     = [];
-        $deadline = microtime(true) + $timeoutSec;
+        $open      = [];
+        $totalOpen = count($pending);
+        $startTime = microtime(true);
+        $deadline  = $startTime + $timeoutSec;
         while (count($pending) > 0 && microtime(true) < $deadline) {
             $write  = array_values($pending);
             $read   = [];
@@ -319,6 +350,14 @@ class InverterHubDiscovery extends IPSModule
                     unset($pending[$ip]);
                 }
             }
+            // Fortschritt anhand verbrauchtem Zeitbudget (grobe Schätzung,
+            // da einzelne IPs unterschiedlich schnell antworten/timeouten).
+            $elapsed = microtime(true) - $startTime;
+            $pct     = (int)round(min(95, ($elapsed / $timeoutSec) * 90));
+            $this->ShowProgress(
+                "Portscan läuft … " . count($open) . " offen, " . count($pending) . " von $totalOpen noch offen",
+                $pct
+            );
         }
         foreach ($pending as $sock) {
             @fclose($sock);
