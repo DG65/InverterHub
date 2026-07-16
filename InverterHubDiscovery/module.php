@@ -16,23 +16,31 @@ class InverterHubDiscovery extends IPSModule
     // Kandidaten je Hersteller: Unit-IDs, die typischerweise/dokumentiert
     // Standard sind (kleine Liste statt vollem 1-247-Bereich).
     private const VENDOR_UNIT_IDS = [
-        'goodwe'  => [247, 1],
-        'sungrow' => [1, 247, 246],
-        'solis'   => [1],
-        'growatt' => [1],
-        'solax'   => [1],
-        'sma'     => [3, 1, 126],
-        'fronius' => [1, 100],
+        'goodwe'    => [247, 1],
+        'sungrow'   => [1, 247, 246],
+        'solis'     => [1],
+        'growatt'   => [1],
+        'solax'     => [1],
+        'sma'       => [3, 1, 126],
+        'fronius'   => [1, 100],
+        'solaredge' => [1],
+        'deye'      => [1, 2],
+        'solplanet' => [3, 1],
+        'kostal'    => [71, 1],
     ];
 
     private const VENDOR_LABELS = [
-        'goodwe'  => 'GoodWe',
-        'sungrow' => 'Sungrow',
-        'solis'   => 'Solis',
-        'growatt' => 'Growatt',
-        'solax'   => 'SolaX',
-        'sma'     => 'SMA',
-        'fronius' => 'Fronius (SunSpec)',
+        'goodwe'    => 'GoodWe',
+        'sungrow'   => 'Sungrow',
+        'solis'     => 'Solis',
+        'growatt'   => 'Growatt',
+        'solax'     => 'SolaX',
+        'sma'       => 'SMA',
+        'fronius'   => 'Fronius (SunSpec)',
+        'solaredge' => 'SolarEdge (SunSpec)',
+        'deye'      => 'Deye',
+        'solplanet' => 'Solplanet / AISWEI',
+        'kostal'    => 'Kostal',
     ];
 
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-inverterhub-multi-wechselrichter-ein-modbus-tcp-modul-fuer-goodwe-sma-fronius-sungrow-solis-growatt-solax/144121';
@@ -409,10 +417,43 @@ class InverterHubDiscovery extends IPSModule
                 return in_array($val, [35, 303, 307, 455], true);
 
             case 'fronius':
-                // SunSpec-Marker "SunS" an Basisregister 40000 — bereits ein
-                // sehr starkes, absichtlich reserviertes Erkennungsmerkmal.
-                $r = $this->readHolding($ip, $port, $unitId, 40000, 2, 1.0);
-                return ($r !== null && $r[0] === 0x5375 && $r[1] === 0x6e53);
+                // SunSpec-Marker "SunS" allein reicht nicht — SolarEdge nutzt
+                // denselben Marker. Zusätzlich der Herstellername im Common
+                // Block (Model 1, Feld MN ab Offset 2 hinter Marker+Header).
+                return $this->probeSunSpecManufacturer($ip, $port, $unitId, 'fronius');
+
+            case 'solaredge':
+                return $this->probeSunSpecManufacturer($ip, $port, $unitId, 'solaredge');
+
+            case 'deye':
+                // Holding 0: Inverter-Typ, sollte > 0 sein; Holding 500:
+                // Status-Register muss lesbar sein (zweites Kriterium).
+                $r = $this->readHolding($ip, $port, $unitId, 0, 1, 1.0);
+                if ($r === null || $r[0] <= 0) {
+                    return false;
+                }
+                $s = $this->readHolding($ip, $port, $unitId, 500, 1, 1.0);
+                return ($s !== null);
+
+            case 'solplanet':
+                // Input 1600: PV-Gesamtleistung (U32), muss lesbar sein;
+                // Input 1026: Netzcode, plausibel ein kleiner Enum-Wert.
+                $r = $this->readInput($ip, $port, $unitId, 1600, 2, 1.0);
+                if ($r === null) {
+                    return false;
+                }
+                $g = $this->readInput($ip, $port, $unitId, 1026, 1, 1.0);
+                return ($g !== null && $g[0] < 100);
+
+            case 'kostal':
+                // Holding 100: PV-Gesamtleistung (Float32), muss lesbar sein;
+                // Holding 768: Produktname, muss zu ASCII-Text dekodieren.
+                $r = $this->readHolding($ip, $port, $unitId, 100, 2, 1.0);
+                if ($r === null) {
+                    return false;
+                }
+                $name = $this->readHolding($ip, $port, $unitId, 768, 16, 1.0);
+                return $this->looksLikeAsciiText($name, 4);
         }
         return false;
     }
@@ -438,6 +479,33 @@ class InverterHubDiscovery extends IPSModule
             }
         }
         return $printable >= $minPrintable;
+    }
+
+    // Prüft den SunSpec-Marker "SunS" an Basisregister 40000 und liest
+    // anschließend den Herstellernamen aus dem Common Block (Model 1,
+    // Feld MN direkt ab Modelldatenbeginn 40004) — unterscheidet Fronius
+    // von SolarEdge, die beide denselben "SunS"-Marker verwenden.
+    private function probeSunSpecManufacturer($ip, $port, $unitId, $wantVendor)
+    {
+        $marker = $this->readHolding($ip, $port, $unitId, 40000, 2, 1.0);
+        if ($marker === null || $marker[0] !== 0x5375 || $marker[1] !== 0x6e53) {
+            return false;
+        }
+        $mn = $this->readHolding($ip, $port, $unitId, 40004, 16, 1.0);
+        if ($mn === null) {
+            return false;
+        }
+        $text = strtolower($this->decodeAsciiText($mn));
+        return (strpos($text, $wantVendor) !== false);
+    }
+
+    private function decodeAsciiText($regs)
+    {
+        $s = '';
+        foreach ($regs as $r) {
+            $s .= chr(($r >> 8) & 0xFF) . chr($r & 0xFF);
+        }
+        return trim($s, "\x00 ");
     }
 
     // -----------------------------------------------------------------------
