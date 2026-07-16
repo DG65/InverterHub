@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.14.3-beta.1 (2026-07-16)
+
+- Icons in allen Kreisen einen Ticken höher positioniert.
+- Flammen-Icon im Verluste-Kreis um 20 % vergrößert.
+
 ## 0.14.2-beta.1 (2026-07-16)
 
 - Haussymbol im Hauslast-Kreis um 20 % verkleinert.
