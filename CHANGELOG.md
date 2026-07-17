@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.23.0-beta.1 (2026-07-17)
+
+- **Neu in der Discovery: Ausschlussliste** („IPs ignorieren"). Dort eingetragene Adressen
+  werden beim Scan komplett übersprungen — gedacht für RTU/TCP-Konverter und andere
+  Modbus-Geräte, die sonst fälschlich als Wechselrichter in der Ergebnisliste erscheinen.
+  Solche Geräte lassen sich technisch nicht zuverlässig von echten Wechselrichtern
+  unterscheiden, da sie Modbus-Anfragen an den dahinterliegenden Bus weiterleiten und daher
+  mit plausiblen Werten antworten. Mehrere IPs Komma-, Semikolon- oder Leerzeichen-getrennt;
+  ungültige Einträge werden ignoriert.
+
 ## 0.22.2-beta.1 (2026-07-17)
 
 - **Kritischer Bugfix Discovery** (gemeldet vom Sungrow-Beta-Tester: nach dem Update wird der

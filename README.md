@@ -70,6 +70,12 @@ Modbus-TCP-Port 502 durchsucht:
 4. Treffer erscheinen in der Ergebnistabelle — Klick auf „Erstellen" legt eine
    `InverterHub`-Instanz mit vorausgefüllter IP-Adresse, Unit-ID und Hersteller an.
 
+**IPs ignorieren:** Adressen in dieser Liste werden beim Scan komplett übersprungen — gedacht
+für RTU/TCP-Konverter und andere Modbus-Geräte, die sonst fälschlich als Wechselrichter in
+der Ergebnisliste erscheinen (solche Geräte leiten Modbus-Anfragen an den dahinterliegenden
+Bus weiter und antworten daher mit plausiblen Werten; zuverlässig unterscheiden lässt sich
+das nicht). Mehrere IPs Komma-getrennt.
+
 **Namens-Vorlage:** leer lassen für den Standard „Hersteller + laufende Nummer" (z. B.
 „GoodWe 1", „GoodWe 2"), oder ein eigenes Muster mit den Platzhaltern `{hersteller}` `{ip}`
 `{unitid}` `{nr}` eintragen (z. B. `{hersteller} Dach ({ip})`).

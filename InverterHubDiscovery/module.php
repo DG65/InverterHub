@@ -55,6 +55,9 @@ class InverterHubDiscovery extends IPSModule
         $this->RegisterPropertyString('RangeEnd',   $prefix !== '' ? $prefix . '.254' : '');
         $this->RegisterPropertyInteger('Port', 502);
         $this->RegisterPropertyString('NameTemplate', '');
+        // IPs, die vom Scan ausgenommen werden (z. B. RTU/TCP-Konverter oder
+        // andere Modbus-Geräte, die als Wechselrichter durchgehen würden).
+        $this->RegisterPropertyString('IgnoreIPs', '');
         $this->RegisterAttributeString('ResultsJSON', '[]');
         $this->RegisterAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, false);
     }
@@ -158,6 +161,8 @@ class InverterHubDiscovery extends IPSModule
                         ['type' => 'NumberSpinner', 'name' => 'Port', 'caption' => 'Modbus-TCP-Port', 'minimum' => 1, 'maximum' => 65535],
                         ['type' => 'ValidationTextBox', 'name' => 'NameTemplate', 'caption' => 'Name-Vorlage (leer = Hersteller + lfd. Nr.)'],
                         ['type' => 'Label', 'caption' => 'Platzhalter für die Vorlage: {hersteller} {ip} {unitid} {nr} — z.B. "{hersteller} Dach ({ip})"'],
+                        ['type' => 'ValidationTextBox', 'name' => 'IgnoreIPs', 'caption' => 'IPs ignorieren (Komma-getrennt)'],
+                        ['type' => 'Label', 'caption' => 'Diese Adressen werden beim Scan komplett übersprungen — z.B. RTU/TCP-Konverter oder andere Modbus-Geräte, die sonst fälschlich als Wechselrichter erscheinen würden.'],
                         ['type' => 'Button', 'caption' => '🔎  Netzwerk durchsuchen', 'onClick' => 'IHUBD_Discover($id);'],
                         [
                             'type'          => 'ProgressBar',
@@ -262,6 +267,14 @@ class InverterHubDiscovery extends IPSModule
 
         $this->ShowProgress('Durchsuche ' . count($ips) . ' IP-Adressen auf Port ' . $port . ' …', 0);
 
+        // Ausgeschlossene IPs (z. B. bekannte RTU/TCP-Konverter) vor dem Scan
+        // entfernen - sie erscheinen damit weder in der Ergebnisliste noch
+        // kosten sie Probe-Zeit.
+        $ignore = $this->ParseIgnoreIPs();
+        if (count($ignore) > 0) {
+            $ips = array_values(array_diff($ips, $ignore));
+        }
+
         // 3 s statt 2 s: RTU/TCP-Konverter und Wechselrichter hinter Gateways
         // brauchen für den TCP-Handshake teils spürbar länger.
         $openIps = $this->scanPortOpen($ips, $port, 3.0);
@@ -299,6 +312,21 @@ class InverterHubDiscovery extends IPSModule
             }
         }
         return $map;
+    }
+
+    // Ausschlussliste einlesen: Komma-, Semikolon-, Leerzeichen- oder
+    // zeilengetrennte IPs, ungültige Einträge werden ignoriert.
+    private function ParseIgnoreIPs()
+    {
+        $raw = (string)$this->ReadPropertyString('IgnoreIPs');
+        $out = [];
+        foreach (preg_split('/[\s,;]+/', $raw) as $part) {
+            $part = trim($part);
+            if ($part !== '' && ip2long($part) !== false) {
+                $out[] = long2ip(ip2long($part));   // normalisieren
+            }
+        }
+        return array_unique($out);
     }
 
     private function expandRange($startIp, $endIp)
