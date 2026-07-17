@@ -125,7 +125,14 @@ Fahrzeug ist die Lage ohnehin eindeutig — dort darf die Verbunden-Bedingung au
 
 Die Farben sind semantisch fest vergeben: Solar = Sonnengelb, Netz = Grün bei Einspeisung/Rot
 bei Bezug, Batterie = Blau, Verluste = Grau, Hauslast = weicher Grün-Rot-Verlauf je nach
-Anteil aus Netzbezug vs. PV/Batterie.
+Anteil aus Netzbezug vs. PV/Batterie. Zusätzliche Verbraucher haben je Art eine eigene Farbe
+(Wärme in Feuertönen, Kühlung/Wasser in Türkis, Fahrzeuge in Violett) und lassen sich je Zeile
+auch frei einfärben.
+
+**Energiefluss:** Zwischen Hauslast und jedem Knoten läuft eine Speiche mit glimmendem Leiter,
+darauf wandern Dreiecke in Flussrichtung, begleitet von wabernden Blitzen. Die Richtung folgt
+dem Vorzeichen (Netz: Bezug zum Haus / Einspeisung nach außen; Batterie: Laden nach außen /
+Entladen zum Haus), das Tempo der Leistung.
 
 Kreise mit nennenswertem Leistungsfluss erscheinen groß, farbig und plastisch (Münz-Optik mit
 Wölbung, Kantenanschliff, Glanzlicht und geprägten Icons/Werten) samt Corona, deren Stärke mit

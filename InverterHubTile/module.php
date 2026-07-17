@@ -32,17 +32,20 @@ class InverterHubTile extends IPSModule
 
     // Auswählbare Verbraucher-Arten. Der Schlüssel steht in der Konfiguration,
     // 'label' dient als Vorgabe-Bezeichnung (wenn der Nutzer keine eigene
-    // vergibt) und 'icon' verweist auf den Icon-Zeichner in module.html.
+    // vergibt), 'icon' verweist auf den Icon-Zeichner in module.html und
+    // 'color' ist die Vorgabefarbe der Art (je Zeile überschreibbar).
+    // Farbwahl: Wärme in Feuertönen, Kühlung/Wasser in Türkis, Fahrzeuge in
+    // Violett (bewusst abgesetzt von der blauen Hausbatterie).
     private const CONSUMER_TYPES = [
-        'wallbox'  => ['label' => 'Wallbox',         'icon' => 'car'],
-        'heatpump' => ['label' => 'Wärmepumpe',      'icon' => 'heatpump'],
-        'ac'       => ['label' => 'Klimaanlage',     'icon' => 'ac'],
-        'poolheat' => ['label' => 'Pool-Wärmepumpe', 'icon' => 'poolheat'],
-        'poolpump' => ['label' => 'Pool-Pumpe',      'icon' => 'poolpump'],
-        'sauna'    => ['label' => 'Sauna',           'icon' => 'sauna'],
-        'boiler'   => ['label' => 'Warmwasser',      'icon' => 'boiler'],
-        'dryer'    => ['label' => 'Trockner',        'icon' => 'dryer'],
-        'other'    => ['label' => 'Verbraucher',     'icon' => 'other'],
+        'wallbox'  => ['label' => 'Wallbox',         'icon' => 'car',      'color' => 0x9575CD],
+        'heatpump' => ['label' => 'Wärmepumpe',      'icon' => 'heatpump', 'color' => 0xFF7A18],
+        'ac'       => ['label' => 'Klimaanlage',     'icon' => 'ac',       'color' => 0x26C6DA],
+        'poolheat' => ['label' => 'Pool-Wärmepumpe', 'icon' => 'poolheat', 'color' => 0xFF8A50],
+        'poolpump' => ['label' => 'Pool-Pumpe',      'icon' => 'poolpump', 'color' => 0x26A69A],
+        'sauna'    => ['label' => 'Sauna',           'icon' => 'sauna',    'color' => 0xF4511E],
+        'boiler'   => ['label' => 'Warmwasser',      'icon' => 'boiler',   'color' => 0xFFA726],
+        'dryer'    => ['label' => 'Trockner',        'icon' => 'dryer',    'color' => 0x78909C],
+        'other'    => ['label' => 'Verbraucher',     'icon' => 'other',    'color' => 0x90A4AE],
     ];
 
     public function Create()
@@ -151,11 +154,17 @@ class InverterHubTile extends IPSModule
                 $type = 'other';
             }
             $name = trim((string)($row['Name'] ?? ''));
+            // Eigene Farbe je Zeile; -1 (bzw. nicht gesetzt) = Vorgabe der Art.
+            $color = array_key_exists('Color', $row) ? (int)$row['Color'] : -1;
+            if ($color < 0) {
+                $color = self::CONSUMER_TYPES[$type]['color'];
+            }
             $out[] = [
                 'id'      => $vid,
                 'type'    => $type,
                 'name'    => ($name !== '' ? $name : self::CONSUMER_TYPES[$type]['label']),
                 'icon'    => self::CONSUMER_TYPES[$type]['icon'],
+                'color'   => sprintf('#%06x', $color),
                 // Nur für Wallboxen relevant, sonst unbenutzt.
                 'plugID'  => (int)($row['PlugID'] ?? 0),
                 'plugOp'  => (string)($row['PlugOp'] ?? 'truthy'),
@@ -503,6 +512,7 @@ class InverterHubTile extends IPSModule
                 'key'   => 'c' . $i,
                 'label' => $row['name'],
                 'icon'  => $row['icon'],
+                'color' => $row['color'],
                 'w'     => round((float)GetValue($row['id'])),
             ];
 

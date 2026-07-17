@@ -112,6 +112,13 @@
               "edit": { "type": "SelectVariable" }
             },
             {
+              "caption": "Farbe (leer = Vorgabe der Art)",
+              "name": "Color",
+              "width": "150px",
+              "add": -1,
+              "edit": { "type": "SelectColor" }
+            },
+            {
               "caption": "Nur Wallbox: Verbunden-Variable",
               "name": "PlugID",
               "width": "240px",

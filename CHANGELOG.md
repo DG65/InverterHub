@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.22.0-beta.1 (2026-07-17)
+
+- **Auto ist jetzt eine „fahrende Batterie"**: das unveränderte Batteriesymbol (gleiche Größe,
+  gleiche Ladestands-Füllung mit Prozentwert) plus Räder, um die Hälfte des Rad-Überstands nach
+  oben gerückt, damit es mittig sitzt.
+- **Eigene Farben je Verbraucher-Art** statt des bisherigen Grün-Rot-Verlaufs: Wärmepumpe in
+  Feuer-Orange, Pool-Wärmepumpe/Sauna/Warmwasser in verwandten Wärmetönen, Klimaanlage und
+  Pool-Pumpe in Türkis, Fahrzeuge in Violett (bewusst abgesetzt von der blauen Hausbatterie).
+  Zusätzlich je Zeile eine **eigene Farbe einstellbar** (leer = Vorgabe der Art).
+- **Energiefluss**: je Speiche ein glimmender Leiter, darauf laufende Dreiecke in
+  Flussrichtung, dazu wabernde Blitze im Stil einer Teslaspule. Die Dreiecke richten sich
+  automatisch entlang der Bahn aus (die Bahn wird in Flussrichtung erzeugt), sodass die Spitzen
+  immer korrekt vorausweisen und sich beim Vorzeichenwechsel mitdrehen - z. B. Netz bei Bezug
+  zum Haus, bei Einspeisung nach außen; Batterie beim Laden nach außen, beim Entladen zum Haus.
+  Das Tempo folgt der Leistung (2,2 s je Umlauf bei wenig, 0,5 s bei 40 kW), Solar fließt
+  konstruktionsbedingt immer zum Haus.
+
 ## 0.21.0-beta.1 (2026-07-17)
 
 - **Automatische Zuordnung Fahrzeug ↔ Wallbox, ohne eigenen Datenpunkt.** Der bisherige Ansatz

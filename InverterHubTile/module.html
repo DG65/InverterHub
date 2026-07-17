@@ -89,14 +89,51 @@
      Wallbox) - bewusst kleiner und gedämpfter als die Beschriftung. */
   .node-sub { font-size: 10px; font-weight: 700; fill: var(--nc, var(--grey)); opacity: 0.75; }
 
+  /* --- Energiefluss ------------------------------------------------------
+     Aufbau je Speiche: ruhiger Grundstrich, darüber ein glimmender Leiter,
+     darauf laufende Dreiecke in Flussrichtung, dazu wabernde Blitze. */
   .wire { fill: none; stroke: var(--wire); stroke-width: 2.5; stroke-linecap: round; }
-  .wire-flow {
-    fill: none; stroke-width: 3; stroke-linecap: round;
-    stroke-dasharray: 1 10; opacity: 0; transition: opacity 0.35s;
+
+  /* Glimmender Leiter: weich gezeichnet, wirkt dadurch "geladen". */
+  .flow-core {
+    fill: none; stroke-width: 3.5; stroke-linecap: round;
+    filter: blur(3px); opacity: 0;
+    transition: opacity 0.35s, stroke 0.4s;
   }
-  .wire-flow.active { opacity: 1; animation: dash 900ms linear infinite; }
-  .wire-flow.reverse { animation-direction: reverse; }
-  @keyframes dash { to { stroke-dashoffset: -22; } }
+
+  /* Laufende Dreiecke. offset-rotate:auto richtet sie automatisch entlang der
+     Bahn aus - die Bahn wird bereits IN Flussrichtung erzeugt, dadurch zeigen
+     die Spitzen immer korrekt voraus, ohne Extra-Logik. */
+  .flow-tri {
+    offset-rotate: auto;
+    animation-name: flowMove;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+    transition: opacity 0.35s;
+  }
+  @keyframes flowMove {
+    from { offset-distance: 0%; }
+    to   { offset-distance: 100%; }
+  }
+
+  /* Wabernde Blitze: drei vorberechnete Zickzack-Varianten, die versetzt
+     kurz aufblitzen - dadurch entsteht ein unruhiges Flackern wie bei einer
+     Teslaspule, ganz ohne laufende Neuberechnung. */
+  .flow-bolt {
+    fill: none; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round;
+    opacity: 0; filter: blur(1.1px);
+    animation-name: boltFlicker;
+    animation-timing-function: steps(1, end);
+    animation-iteration-count: infinite;
+  }
+  @keyframes boltFlicker {
+    0%   { opacity: 0; }
+    4%   { opacity: 0.55; }
+    9%   { opacity: 0; }
+    13%  { opacity: 0.35; }
+    17%  { opacity: 0; }
+    100% { opacity: 0; }
+  }
 
   /* Kollektor-Ring: bewusst kräftiger als die dünnen Speichen, damit er als
      eigenständiges Gestaltungselement erkennbar bleibt. */
@@ -237,6 +274,10 @@ const SCALE_INACTIVE = 44 / 56;
 // gleich groß bleibt (und die Statuszeile bündig sitzt).
 const R_MAX = 234;
 const NODE_GAP = 10;               // Mindestluft zwischen benachbarten Knoten
+const CENTER_R = DESIGN_R;         // Radius des Hauslast-Kreises (Skalierung 1)
+const SPOKE_GAP = 9;               // Luft zwischen Speiche und Kreisrand
+const TRI_COUNT = 3;               // laufende Dreiecke je Speiche
+const BOLT_COUNT = 3;              // Blitz-Varianten je Speiche
 
 // Kreisgröße und -abstand aus der Knotenzahl ableiten: Bei wenigen Knoten
 // bleibt es bei der Entwurfsgröße, ab ca. neun Knoten werden sie so weit
@@ -260,6 +301,13 @@ const C_RED   = [229, 57, 53];
 const C_GREY  = [158, 158, 158];
 
 function rgb(c) { return 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')'; }
+// "#rrggbb" -> [r,g,b]; ungültige/fehlende Werte liefern null.
+function hexToRgb(h) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(h || ''));
+  if (!m) { return null; }
+  const n = parseInt(m[1], 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
 function lerp(a, b, t) {
   t = Math.max(0, Math.min(1, t));
   return [
@@ -416,49 +464,19 @@ const ICONS = {
       g.appendChild(el('line', { x1: 0, y1: 0, x2: x, y2: y, 'stroke-linecap': 'round' }));
     });
   },
-  // Wallbox: Auto in Seitenansicht. Der Ladestand des angeschlossenen
-  // Fahrzeugs wird - wie beim Batteriesymbol - als Füllung von links nach
-  // rechts in der Karosserie dargestellt, mit Prozentwert darin. Ohne
-  // angeschlossenes Fahrzeug bleibt die Karosserie leer (nur Umriss).
-  car(g, socPct, uid) {
-    const body = 'M-17,1 L-13.2,-5.6 C-12.5,-6.8 -11.2,-7.6 -9.8,-7.6'
-      + ' L5.4,-7.6 C6.9,-7.6 8.3,-6.9 9.2,-5.7 L13.4,-0.4 L16.2,0.6'
-      + ' C17.3,1 18,2 18,3.2 L18,5 C18,5.9 17.3,6.6 16.4,6.6'
-      + ' L-16.4,6.6 C-17.3,6.6 -18,5.9 -18,5 L-18,2.4'
-      + ' C-18,1.8 -17.6,1.2 -17,1 Z';
+  // Wallbox: "fahrende Batterie" - exakt das Batteriesymbol in unveränderter
+  // Größe (inkl. Ladestands-Füllung und Prozentwert), dazu Räder. Das Ganze
+  // wird um die Hälfte dessen nach oben geschoben, was die Räder unten
+  // überstehen, damit es wieder mittig im Kreis sitzt.
+  car(g, socPct) {
+    const WHEEL_R = 3.5, WHEEL_CY = 14, BAT_BOTTOM = 11;
+    const overhang = (WHEEL_CY + WHEEL_R) - BAT_BOTTOM;
 
-    if (socPct != null) {
-      // Füllung exakt auf die Karosserie beschneiden - die ID muss je Knoten
-      // eindeutig sein, sonst greifen mehrere Autos auf denselben Clip zu.
-      const clipId = 'carclip-' + uid;
-      const cp = el('clipPath', { id: clipId });
-      cp.appendChild(el('path', { d: body }));
-      g.appendChild(cp);
-
-      const pct  = Math.max(0, Math.min(100, socPct)) / 100;
-      const fill = el('rect', {
-        x: -18, y: -8, width: (36 * pct).toFixed(2), height: 15,
-        opacity: 0.4, stroke: 'none',
-      });
-      fill.setAttribute('clip-path', 'url(#' + clipId + ')');
-      g.appendChild(fill);
-    }
-
-    g.appendChild(el('path', { d: body, 'data-hollow': '1', 'stroke-linejoin': 'round' }));
-
-    if (socPct != null) {
-      const t = el('text', {
-        x: 0, y: 2.8, 'text-anchor': 'middle', 'font-size': 9.5, 'font-weight': 800,
-      });
-      t.style.fill = '#fff';
-      t.style.stroke = 'none';
-      t.textContent = Math.round(socPct) + '%';
-      g.appendChild(t);
-    }
-
-    // Räder unterhalb der Karosserie, außerhalb der Füllung
-    [-9.5, 9.5].forEach(x =>
-      g.appendChild(el('circle', { cx: x, cy: 7.6, r: 2.9, stroke: 'none' })));
+    const inner = el('g', { transform: 'translate(0,' + (-overhang / 2).toFixed(2) + ')' });
+    ICONS.battery(inner, socPct);
+    [-11, 9].forEach(x =>
+      inner.appendChild(el('circle', { cx: x, cy: WHEEL_CY, r: WHEEL_R, stroke: 'none' })));
+    g.appendChild(inner);
   },
   // Klimaanlage: Innengerät (Split) mit austretendem Luftstrom.
   ac(g) {
@@ -570,17 +588,23 @@ function buildItems(d, consumerColor) {
   };
 
   NODE_DEFS_LEAD.forEach(addFixed);
-  (d.consumers || []).forEach(c => items.push({
-    key: c.key, label: c.label, icon: c.icon,
-    value: c.w || 0,
-    // Wallboxen liefern den Ladestand des Fahrzeugs, das gerade an ihnen
-    // steht (vom Modul ermittelt); alle anderen Verbraucher haben keinen.
-    soc: c.socHave ? c.soc : null,
-    // Name des erkannten Fahrzeugs (nur Wallboxen)
-    sub: c.sub || '',
-    color: () => consumerColor,
-    dir: () => 'out',
-  }));
+  (d.consumers || []).forEach(c => {
+    // Jeder Verbraucher hat seine eigene Farbe (Vorgabe der Art oder eigene
+    // Einstellung, vom Modul aufgelöst). Nur falls die einmal fehlt, greift
+    // der Grün-Rot-Verlauf der Hauslast als Rückfall.
+    const col = hexToRgb(c.color) || consumerColor;
+    items.push({
+      key: c.key, label: c.label, icon: c.icon,
+      value: c.w || 0,
+      // Wallboxen liefern den Ladestand des Fahrzeugs, das gerade an ihnen
+      // steht (vom Modul ermittelt); alle anderen Verbraucher haben keinen.
+      soc: c.socHave ? c.soc : null,
+      // Name des erkannten Fahrzeugs (nur Wallboxen)
+      sub: c.sub || '',
+      color: () => col,
+      dir: () => 'out',
+    });
+  });
   NODE_DEFS_TAIL.forEach(addFixed);
 
   return items;
@@ -646,6 +670,96 @@ function createOuterNode(item, angleDeg, layout) {
   return { g, glow, iconG, valText, subText, cx, cy, baseScale: layout.outerR / DESIGN_R };
 }
 
+// Zickzack entlang einer Strecke - Grundlage der Blitze. Der "seed" liefert
+// je Variante einen anderen, aber stabilen Verlauf.
+function jagPath(p1, p2, amp, seg, seed) {
+  const dx = p2[0] - p1[0], dy = p2[1] - p1[1];
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len, ny = dx / len;   // Normale zur Strecke
+  let d = 'M' + p1[0].toFixed(1) + ',' + p1[1].toFixed(1);
+  for (let i = 1; i < seg; i++) {
+    const t = i / seg;
+    const off = Math.sin(seed * 12.9898 + i * 4.1414) * amp * (i % 2 ? 1 : -1);
+    d += ' L' + (p1[0] + dx * t + nx * off).toFixed(1)
+       + ',' + (p1[1] + dy * t + ny * off).toFixed(1);
+  }
+  return d + ' L' + p2[0].toFixed(1) + ',' + p2[1].toFixed(1);
+}
+
+// Speiche zwischen Hauslast-Kreis und äußerem Knoten. Beide Flussrichtungen
+// werden als Bahn vorbereitet; welche gerade gilt, entscheidet updateSpoke.
+function createSpoke(angleDeg, layout, layer) {
+  const rad = angleDeg * Math.PI / 180;
+  const c = Math.cos(rad), s = Math.sin(rad);
+  const r1 = CENTER_R + SPOKE_GAP;                              // am Zentrum
+  const r2 = layout.rOuter - layout.outerR - SPOKE_GAP;         // am Knoten
+  const p1 = [CX + r1 * c, CY + r1 * s];
+  const p2 = [CX + r2 * c, CY + r2 * s];
+
+  const line = (cls) => el('line', {
+    class: cls, x1: p1[0].toFixed(1), y1: p1[1].toFixed(1),
+    x2: p2[0].toFixed(1), y2: p2[1].toFixed(1),
+  });
+
+  layer.appendChild(line('wire'));
+  const core = line('flow-core');
+  layer.appendChild(core);
+
+  const bolts = [];
+  for (let i = 0; i < BOLT_COUNT; i++) {
+    const b = el('path', { class: 'flow-bolt', d: jagPath(p1, p2, 3.4, 9, i + 1) });
+    layer.appendChild(b);
+    bolts.push(b);
+  }
+
+  const tris = [];
+  for (let i = 0; i < TRI_COUNT; i++) {
+    const t = el('path', { class: 'flow-tri', d: 'M-3.4,-3.8 L3.8,0 L-3.4,3.8 Z' });
+    layer.appendChild(t);
+    tris.push(t);
+  }
+
+  return {
+    tris, bolts, core,
+    dIn:  'M' + p2[0].toFixed(1) + ',' + p2[1].toFixed(1) + ' L' + p1[0].toFixed(1) + ',' + p1[1].toFixed(1),
+    dOut: 'M' + p1[0].toFixed(1) + ',' + p1[1].toFixed(1) + ' L' + p2[0].toFixed(1) + ',' + p2[1].toFixed(1),
+  };
+}
+
+// Zustand einer Speiche: Farbe, Flussrichtung und Tempo. Das Tempo folgt der
+// Leistung (gleiche Wurzel-Kennlinie wie die Corona), damit man auf einen
+// Blick sieht, wo viel fließt.
+function updateSpoke(sp, color, magnitude, active, dir) {
+  const col = rgb(color);
+  const d = (dir === 'in') ? sp.dIn : sp.dOut;
+
+  sp.core.style.stroke = col;
+  sp.core.style.opacity = active ? '0.5' : '0';
+
+  const k = Math.sqrt(Math.max(0, Math.min(1, magnitude / GLOW_MAX_W)));
+  const dur = 2.2 - 1.7 * k;   // 2,2 s bei wenig Leistung ... 0,5 s bei 40 kW
+
+  sp.tris.forEach((t, i) => {
+    t.style.display = active ? '' : 'none';
+    if (!active) { return; }
+    t.style.offsetPath = 'path("' + d + '")';
+    t.style.animationDuration = dur.toFixed(2) + 's';
+    // Negative Verzögerung startet mitten in der Bewegung -> die Dreiecke
+    // sind gleichmäßig über die Bahn verteilt, statt gemeinsam loszulaufen.
+    t.style.animationDelay = (-dur * i / TRI_COUNT).toFixed(2) + 's';
+    t.style.fill = col;
+    t.style.filter = 'drop-shadow(0 0 3px rgba(' + color[0] + ',' + color[1] + ',' + color[2] + ',0.9))';
+  });
+
+  sp.bolts.forEach((b, i) => {
+    b.style.display = active ? '' : 'none';
+    if (!active) { return; }
+    b.style.stroke = col;
+    b.style.animationDuration = (1.1 + i * 0.23).toFixed(2) + 's';
+    b.style.animationDelay = (i * 0.37).toFixed(2) + 's';
+  });
+}
+
 // Baut die Knoten nur dann (neu) auf, wenn sich die Menge der darzustellenden
 // Knoten tatsächlich geändert hat (Konfigurationsänderung) - im laufenden
 // Betrieb bleibt die Struktur stehen und wird nur aktualisiert.
@@ -655,7 +769,9 @@ function ensureNodes(items) {
   builtSig = sig;
 
   const nodesLayer = document.getElementById('nodes-layer');
+  const wiresLayer = document.getElementById('wires-layer');
   nodesLayer.textContent = '';
+  wiresLayer.textContent = '';
   Object.keys(nodeRefs).forEach(k => delete nodeRefs[k]);
 
   const n = items.length;
@@ -665,6 +781,8 @@ function ensureNodes(items) {
     // Reihenfolge aus buildItems, beginnend oben (-90°) im Uhrzeigersinn.
     const angleDeg = -90 + (360 / n) * i;
     const refs = createOuterNode(item, angleDeg, layout);
+    // Speichen liegen im eigenen Layer UNTER den Knoten.
+    refs.spoke = createSpoke(angleDeg, layout, wiresLayer);
     nodeRefs[item.key] = refs;
     nodesLayer.appendChild(refs.g);
   });
@@ -693,6 +811,7 @@ function updateOuterNode(refs, item, d) {
 
   applyNodeState(refs.g, refs.glow, color, magnitude, active,
     refs.cx, refs.cy, refs.baseScale);
+  updateSpoke(refs.spoke, color, magnitude, active, item.dir(w));
 
   // Icon neu zeichnen (Ladestände ändern sich laufend); die Farbe kommt
   // geerbt über --nc und animiert dadurch weiterhin mit. item.key dient dem
