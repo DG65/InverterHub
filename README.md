@@ -99,6 +99,21 @@ Trockner, Sonstiger Verbraucher. Mehrere Zeilen derselben Art sind möglich (z. 
 Wallboxen „Garage" und „Carport"); eine leere Bezeichnung fällt auf die Vorgabe der Art
 zurück.
 
+**Wallboxen mit Fahrzeug-Ladestand:** Eine Wallbox wird als **Auto** dargestellt, das – wie das
+Batteriesymbol – den Ladestand des gerade angeschlossenen Fahrzeugs als Füllung samt
+Prozentwert zeigt; ohne Fahrzeug bleibt nur der Umriss. Dafür gibt es die Tabelle
+**Fahrzeuge** (Bezeichnung, Kennung, Ladestand-Variable) sowie je Wallbox-Zeile zwei optionale
+Spalten:
+
+- *Fahrzeug angeschlossen* — boolesche Variable der Wallbox.
+- *Fahrzeug-Zuordnung* — Variable, deren **Wert** das angeschlossene Fahrzeug benennt.
+
+Damit lässt sich auch bei **mehreren Wallboxen und mehreren Autos** bestimmen, welches Auto
+gerade wo steht: Der Wert der Zuordnungs-Variable wird mit der **Kennung** der Fahrzeuge
+verglichen (Groß-/Kleinschreibung egal; leere Kennung = Bezeichnung). Bei genau einem Fahrzeug
+darf die Zuordnung leer bleiben — dann ist es eindeutig. Bei mehreren Fahrzeugen ohne
+Zuordnung wird bewusst **kein** Ladestand angezeigt, statt eine Zuordnung zu raten.
+
 Die Farben sind semantisch fest vergeben: Solar = Sonnengelb, Netz = Grün bei Einspeisung/Rot
 bei Bezug, Batterie = Blau, Verluste = Grau, Hauslast = weicher Grün-Rot-Verlauf je nach
 Anteil aus Netzbezug vs. PV/Batterie.

@@ -66,6 +66,10 @@
           "caption": "Beliebig viele zusätzliche Verbraucher, die als eigene Kreise dargestellt werden. Sie stammen nicht aus dem Wechselrichter, sondern aus vorhandenen Leistungs-Variablen (Watt) – z. B. mehrere Wallboxen, Wärmepumpe, Klimaanlage, Pool oder Sauna. Die Art bestimmt das Icon, die Bezeichnung den Text unter dem Kreis (leer = Vorgabe der Art). Die Anordnung verteilt alle Kreise automatisch radial und passt Größe und Abstand an ihre Anzahl an."
         },
         {
+          "type": "Label",
+          "caption": "Die beiden letzten Spalten gelten nur für die Art „Wallbox“ und dürfen sonst leer bleiben: „Fahrzeug angeschlossen“ ist eine boolesche Variable der Wallbox, „Fahrzeug-Zuordnung“ eine Variable, deren Wert das aktuell angeschlossene Fahrzeug benennt (siehe Fahrzeug-Tabelle weiter unten)."
+        },
+        {
           "type": "List",
           "name": "Consumers",
           "caption": "Verbraucher",
@@ -103,6 +107,59 @@
             {
               "caption": "Leistungs-Variable (W)",
               "name": "VariableID",
+              "width": "260px",
+              "add": 0,
+              "edit": { "type": "SelectVariable" }
+            },
+            {
+              "caption": "Nur Wallbox: Fahrzeug angeschlossen",
+              "name": "CarPluggedID",
+              "width": "260px",
+              "add": 0,
+              "edit": { "type": "SelectVariable" }
+            },
+            {
+              "caption": "Nur Wallbox: Fahrzeug-Zuordnung",
+              "name": "CarKeyID",
+              "width": "auto",
+              "add": 0,
+              "edit": { "type": "SelectVariable" }
+            }
+          ]
+        },
+        {
+          "type": "Label",
+          "caption": "── Fahrzeuge (für Wallboxen) ──"
+        },
+        {
+          "type": "Label",
+          "caption": "Eine Wallbox zeigt ein Auto-Symbol, das – wie das Batteriesymbol – den Ladestand des Fahrzeugs anzeigt, das gerade an ihr steht. Dafür hier die Fahrzeuge eintragen. Welches Fahrzeug an welcher Wallbox steht, ermittelt die Spalte „Fahrzeug-Zuordnung“ der Wallbox: Der Wert dieser Variable wird mit der „Kennung“ des Fahrzeugs verglichen (Groß-/Kleinschreibung egal). Ist die Kennung leer, gilt die Bezeichnung. Bei nur einem Fahrzeug darf die Zuordnung leer bleiben – dann ist es eindeutig; bei mehreren Fahrzeugen ohne Zuordnung wird bewusst kein Ladestand angezeigt, statt zu raten."
+        },
+        {
+          "type": "List",
+          "name": "Vehicles",
+          "caption": "Fahrzeuge",
+          "rowCount": 4,
+          "add": true,
+          "delete": true,
+          "columns": [
+            {
+              "caption": "Bezeichnung",
+              "name": "Name",
+              "width": "200px",
+              "add": "",
+              "edit": { "type": "ValidationTextBox" }
+            },
+            {
+              "caption": "Kennung (leer = Bezeichnung)",
+              "name": "Key",
+              "width": "220px",
+              "add": "",
+              "edit": { "type": "ValidationTextBox" }
+            },
+            {
+              "caption": "Ladestand-Variable (%)",
+              "name": "SocID",
               "width": "auto",
               "add": 0,
               "edit": { "type": "SelectVariable" }

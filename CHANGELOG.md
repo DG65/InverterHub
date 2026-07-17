@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.20.0-beta.1 (2026-07-16)
+
+- **Wallboxen zeigen jetzt ein Auto mit Ladestand** statt der Ladesäule: Das Auto-Symbol füllt
+  sich – wie das Batteriesymbol – entsprechend dem SOC des Fahrzeugs, das gerade an dieser
+  Wallbox steht, mit Prozentwert darin. Ohne angeschlossenes Fahrzeug bleibt nur der Umriss.
+- **Neu: Fahrzeug-Tabelle** (Bezeichnung, Kennung, Ladestand-Variable) und zwei zusätzliche
+  Spalten je Wallbox-Zeile:
+  - *Fahrzeug angeschlossen* – boolesche Variable der Wallbox.
+  - *Fahrzeug-Zuordnung* – Variable, deren Wert das angeschlossene Fahrzeug benennt.
+- **Zuordnung mehrerer Autos zu mehreren Wallboxen**: Der Wert der Zuordnungs-Variable wird
+  gegen die Kennung der Fahrzeuge verglichen (Groß-/Kleinschreibung egal; leere Kennung = die
+  Bezeichnung). Bei genau einem Fahrzeug darf die Zuordnung leer bleiben, dann ist die Lage
+  eindeutig. Bei mehreren Fahrzeugen ohne Zuordnung wird bewusst **kein** Ladestand angezeigt,
+  statt eine Zuordnung zu raten.
+
 ## 0.19.0-beta.1 (2026-07-16)
 
 - **Verbraucher jetzt als freie Tabelle** statt fester Felder: je Zeile Art, Bezeichnung und

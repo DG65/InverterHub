@@ -414,21 +414,49 @@ const ICONS = {
       g.appendChild(el('line', { x1: 0, y1: 0, x2: x, y2: y, 'stroke-linecap': 'round' }));
     });
   },
-  // Wallbox: Ladesäule mit Blitz, herabhängendem Kabel und Stecker - das
-  // gängige, erkennbare Motiv (eine reine Box mit Blitz liest sich nicht).
-  wallbox(g) {
-    g.appendChild(el('rect', { x: -15, y: -14, width: 16, height: 28, rx: 2.5, 'data-hollow': '1' }));
-    g.appendChild(el('polygon', {
-      points: '-5,-9.5 -11,0.5 -7.6,0.5 -9,8.5 -3,-1.5 -6.4,-1.5',
-      'data-hollow': '1', 'stroke-linejoin': 'round',
-    }));
-    // Ladekabel von der Säule zum Stecker
-    g.appendChild(el('path', {
-      d: 'M1,-6 C9,-6 12,-1.5 12,3.5 C12,6.5 13,8 14.5,9',
-      'data-hollow': '1', 'stroke-linecap': 'round',
-    }));
-    // Stecker am Kabelende
-    g.appendChild(el('rect', { x: 10.5, y: 9, width: 7, height: 5.5, rx: 1.5, stroke: 'none' }));
+  // Wallbox: Auto in Seitenansicht. Der Ladestand des angeschlossenen
+  // Fahrzeugs wird - wie beim Batteriesymbol - als Füllung von links nach
+  // rechts in der Karosserie dargestellt, mit Prozentwert darin. Ohne
+  // angeschlossenes Fahrzeug bleibt die Karosserie leer (nur Umriss).
+  car(g, socPct, uid) {
+    const body = 'M-17,1 L-13.2,-5.6 C-12.5,-6.8 -11.2,-7.6 -9.8,-7.6'
+      + ' L5.4,-7.6 C6.9,-7.6 8.3,-6.9 9.2,-5.7 L13.4,-0.4 L16.2,0.6'
+      + ' C17.3,1 18,2 18,3.2 L18,5 C18,5.9 17.3,6.6 16.4,6.6'
+      + ' L-16.4,6.6 C-17.3,6.6 -18,5.9 -18,5 L-18,2.4'
+      + ' C-18,1.8 -17.6,1.2 -17,1 Z';
+
+    if (socPct != null) {
+      // Füllung exakt auf die Karosserie beschneiden - die ID muss je Knoten
+      // eindeutig sein, sonst greifen mehrere Autos auf denselben Clip zu.
+      const clipId = 'carclip-' + uid;
+      const cp = el('clipPath', { id: clipId });
+      cp.appendChild(el('path', { d: body }));
+      g.appendChild(cp);
+
+      const pct  = Math.max(0, Math.min(100, socPct)) / 100;
+      const fill = el('rect', {
+        x: -18, y: -8, width: (36 * pct).toFixed(2), height: 15,
+        opacity: 0.4, stroke: 'none',
+      });
+      fill.setAttribute('clip-path', 'url(#' + clipId + ')');
+      g.appendChild(fill);
+    }
+
+    g.appendChild(el('path', { d: body, 'data-hollow': '1', 'stroke-linejoin': 'round' }));
+
+    if (socPct != null) {
+      const t = el('text', {
+        x: 0, y: 2.8, 'text-anchor': 'middle', 'font-size': 9.5, 'font-weight': 800,
+      });
+      t.style.fill = '#fff';
+      t.style.stroke = 'none';
+      t.textContent = Math.round(socPct) + '%';
+      g.appendChild(t);
+    }
+
+    // Räder unterhalb der Karosserie, außerhalb der Füllung
+    [-9.5, 9.5].forEach(x =>
+      g.appendChild(el('circle', { cx: x, cy: 7.6, r: 2.9, stroke: 'none' })));
   },
   // Klimaanlage: Innengerät (Split) mit austretendem Luftstrom.
   ac(g) {
@@ -530,13 +558,22 @@ const NODE_DEFS_TAIL = [
 function buildItems(d, consumerColor) {
   const items = [];
   const addFixed = (def) => {
-    if (d[def.have]) { items.push({ ...def, value: d[def.w] ?? 0 }); }
+    if (!d[def.have]) { return; }
+    items.push({
+      ...def,
+      value: d[def.w] ?? 0,
+      // Ladestand nur bei der Batterie; alle anderen festen Knoten haben keinen.
+      soc: (def.battery && d.socHave) ? d.soc : null,
+    });
   };
 
   NODE_DEFS_LEAD.forEach(addFixed);
   (d.consumers || []).forEach(c => items.push({
     key: c.key, label: c.label, icon: c.icon,
     value: c.w || 0,
+    // Wallboxen liefern den Ladestand des Fahrzeugs, das gerade an ihnen
+    // steht (vom Modul ermittelt); alle anderen Verbraucher haben keinen.
+    soc: c.socHave ? c.soc : null,
     color: () => consumerColor,
     dir: () => 'out',
   }));
@@ -648,10 +685,11 @@ function updateOuterNode(refs, item, d) {
   applyNodeState(refs.g, refs.glow, color, magnitude, active,
     refs.cx, refs.cy, refs.baseScale);
 
-  // Icon neu zeichnen (der Batterie-Füllstand ändert sich laufend); die Farbe
-  // kommt geerbt über --nc und animiert dadurch weiterhin mit.
+  // Icon neu zeichnen (Ladestände ändern sich laufend); die Farbe kommt
+  // geerbt über --nc und animiert dadurch weiterhin mit. item.key dient dem
+  // Auto-Icon als eindeutige ID für seinen Füllstands-Clip.
   refs.iconG.textContent = '';
-  ICONS[item.icon](refs.iconG, item.battery ? (d.socHave ? d.soc : null) : null);
+  ICONS[item.icon](refs.iconG, item.soc ?? null, item.key);
   setValueText(refs.valText, magnitude);
 }
 

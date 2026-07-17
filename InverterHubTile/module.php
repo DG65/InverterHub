@@ -33,7 +33,7 @@ class InverterHubTile extends IPSModule
     // 'label' dient als Vorgabe-Bezeichnung (wenn der Nutzer keine eigene
     // vergibt) und 'icon' verweist auf den Icon-Zeichner in module.html.
     private const CONSUMER_TYPES = [
-        'wallbox'  => ['label' => 'Wallbox',         'icon' => 'wallbox'],
+        'wallbox'  => ['label' => 'Wallbox',         'icon' => 'car'],
         'heatpump' => ['label' => 'Wärmepumpe',      'icon' => 'heatpump'],
         'ac'       => ['label' => 'Klimaanlage',     'icon' => 'ac'],
         'poolheat' => ['label' => 'Pool-Wärmepumpe', 'icon' => 'poolheat'],
@@ -56,6 +56,10 @@ class InverterHubTile extends IPSModule
         // sondern als vorhandene Leistungs-Variablen ausgewählt werden.
         // Frei erweiterbare Tabelle: je Zeile Art, Bezeichnung und Variable.
         $this->RegisterPropertyString('Consumers', '[]');
+        // Fahrzeuge (für Wallboxen): Bezeichnung, Kennung und SOC-Variable.
+        // Welches Fahrzeug an welcher Wallbox steht, ermittelt die Wallbox-Zeile
+        // über ihre Zuordnungs-Variable (Wert = Kennung des Fahrzeugs).
+        $this->RegisterPropertyString('Vehicles', '[]');
 
         $this->SetVisualizationType(1);
     }
@@ -113,6 +117,14 @@ class InverterHubTile extends IPSModule
         $ids = [];
         foreach ($this->ReadConsumerRows() as $row) {
             $ids[] = $row['id'];
+            foreach (['carPluggedID', 'carKeyID'] as $k) {
+                if ($row[$k] > 0 && IPS_VariableExists($row[$k])) {
+                    $ids[] = $row[$k];
+                }
+            }
+        }
+        foreach ($this->ReadVehicleRows() as $v) {
+            $ids[] = $v['socID'];
         }
         return array_unique($ids);
     }
@@ -138,13 +150,91 @@ class InverterHubTile extends IPSModule
             }
             $name = trim((string)($row['Name'] ?? ''));
             $out[] = [
-                'id'    => $vid,
-                'type'  => $type,
-                'name'  => ($name !== '' ? $name : self::CONSUMER_TYPES[$type]['label']),
-                'icon'  => self::CONSUMER_TYPES[$type]['icon'],
+                'id'           => $vid,
+                'type'         => $type,
+                'name'         => ($name !== '' ? $name : self::CONSUMER_TYPES[$type]['label']),
+                'icon'         => self::CONSUMER_TYPES[$type]['icon'],
+                // Nur für Wallboxen relevant, sonst schlicht 0/unbenutzt.
+                'carPluggedID' => (int)($row['CarPluggedID'] ?? 0),
+                'carKeyID'     => (int)($row['CarKeyID'] ?? 0),
             ];
         }
         return $out;
+    }
+
+    // Fahrzeug-Tabelle lesen. 'key' ist die Kennung, gegen die die
+    // Zuordnungs-Variable einer Wallbox verglichen wird; ist sie leer, dient
+    // die Bezeichnung als Kennung.
+    private function ReadVehicleRows()
+    {
+        $rows = json_decode($this->ReadPropertyString('Vehicles'), true);
+        if (!is_array($rows)) {
+            return [];
+        }
+        $out = [];
+        foreach ($rows as $row) {
+            $socID = (int)($row['SocID'] ?? 0);
+            if ($socID <= 0 || !IPS_VariableExists($socID)) {
+                continue;
+            }
+            $name = trim((string)($row['Name'] ?? ''));
+            $key  = trim((string)($row['Key'] ?? ''));
+            $out[] = [
+                'name'  => ($name !== '' ? $name : 'Fahrzeug'),
+                'key'   => ($key !== '' ? $key : $name),
+                'socID' => $socID,
+            ];
+        }
+        return $out;
+    }
+
+    // Ermittelt den SOC des Fahrzeugs, das an dieser Wallbox steht.
+    // Vorgehen: Die Zuordnungs-Variable der Wallbox liefert eine Kennung, die
+    // gegen die Fahrzeug-Kennungen verglichen wird (Groß-/Kleinschreibung egal).
+    // Ohne Zuordnungs-Variable ist die Lage nur bei genau einem Fahrzeug
+    // eindeutig - bei mehreren wäre jede Annahme geraten, daher dann kein SOC.
+    private function ResolveVehicleSoc($carKeyID)
+    {
+        $vehicles = $this->ReadVehicleRows();
+        if (count($vehicles) === 0) {
+            return null;
+        }
+
+        if ($carKeyID > 0 && IPS_VariableExists($carKeyID)) {
+            $needle = trim((string)GetValue($carKeyID));
+            if ($needle === '') {
+                return null;
+            }
+            foreach ($vehicles as $v) {
+                if (strcasecmp($v['key'], $needle) === 0) {
+                    return (float)GetValue($v['socID']);
+                }
+            }
+            return null;
+        }
+
+        if (count($vehicles) === 1) {
+            return (float)GetValue($vehicles[0]['socID']);
+        }
+        return null;
+    }
+
+    // Wertet eine "Fahrzeug angeschlossen"-Variable aus. Erwartet wird eine
+    // boolesche Variable; numerische/textuelle werden wohlwollend gedeutet.
+    private function IsPlugged($varID)
+    {
+        if ($varID <= 0 || !IPS_VariableExists($varID)) {
+            return null;   // nicht konfiguriert -> unbekannt
+        }
+        $v = GetValue($varID);
+        if (is_bool($v)) {
+            return $v;
+        }
+        if (is_numeric($v)) {
+            return ((float)$v) != 0.0;
+        }
+        $s = strtolower(trim((string)$v));
+        return !($s === '' || $s === '0' || $s === 'false' || $s === 'no' || $s === 'nein');
     }
 
     public function MessageSink($TimeStamp, $SenderID, $Message, $Data)
@@ -305,12 +395,29 @@ class InverterHubTile extends IPSModule
         $out = [];
         $i   = 0;
         foreach ($this->ReadConsumerRows() as $row) {
-            $out[] = [
+            $entry = [
                 'key'   => 'c' . $i++,
                 'label' => $row['name'],
                 'icon'  => $row['icon'],
                 'w'     => round((float)GetValue($row['id'])),
             ];
+
+            // Wallboxen: Fahrzeug-Symbol mit Ladestand des Fahrzeugs, das
+            // aktuell an DIESER Wallbox steht.
+            if ($row['type'] === 'wallbox') {
+                $plugged = $this->IsPlugged($row['carPluggedID']);
+                $soc     = null;
+                // Ist kein "angeschlossen"-Datenpunkt konfiguriert ($plugged
+                // === null), entscheidet allein die Fahrzeug-Zuordnung.
+                if ($plugged !== false) {
+                    $soc = $this->ResolveVehicleSoc($row['carKeyID']);
+                }
+                $entry['plugged'] = ($plugged === null) ? ($soc !== null) : $plugged;
+                $entry['socHave'] = ($soc !== null);
+                $entry['soc']     = ($soc !== null) ? round($soc) : null;
+            }
+
+            $out[] = $entry;
         }
         return $out;
     }
