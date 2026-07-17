@@ -1879,7 +1879,11 @@ class FroniusDriver implements InverterDriverInterface
                 ['e_total', 'Ertrag Gesamt', 'F', '~Electricity', true, 'energy', 'SunSpec WH (Model 101/103)'],
             ]],
             'GroupMeter' => ['caption' => 'Smart Meter (Leistung)', 'vars' => [
-                ['meter_total', 'Netz Leistung (Meter)', 'F', 'FRO.Watt', true, 'meter', 'SunSpec Meter Model 201/203'],
+                ['meter_total', 'Netz Leistung (Meter)', 'F', 'FRO.Watt', true, 'meter', 'SunSpec Meter Model 20x/21x (Unit-ID 200)'],
+            ]],
+            'GroupBat' => ['caption' => 'Batterie (GEN24-Hybrid: SOC, Leistung)', 'vars' => [
+                ['bat_soc',   'Bat. SOC', 'I', '~Battery.100', true, 'bat', 'SunSpec Model 124 ChaState'],
+                ['bat_power', 'Bat. Leistung (Entladen + / Laden -)', 'F', 'FRO.Watt', true, 'bat', 'SunSpec Model 160 Module 3+4'],
             ]],
             'GroupDevice' => ['caption' => 'Geräteinformation', 'vars' => [
                 ['dev_model', 'Modell', 'S', '', false, 'device', 'SunSpec Common Block'],
@@ -1891,6 +1895,23 @@ class FroniusDriver implements InverterDriverInterface
     public function getExtraBooleanProperties()
     {
         return [];
+    }
+
+    // sunssf-Skalierungsfaktor auswerten (int16, 0x8000 = nicht implementiert).
+    private function sfVal($raw)
+    {
+        $v = ($raw > 32767) ? $raw - 65536 : $raw;
+        return ($v === -32768) ? 0 : $v;
+    }
+
+    // uint16-Registerwert mit Skalierungsfaktor; 0xFFFF = nicht implementiert.
+    private function scaledU16($mb, $blk, $off, $sf)
+    {
+        $raw = $mb->u16($blk, $off);
+        if ($raw === 0xFFFF) {
+            return null;
+        }
+        return $raw * pow(10, $sf);
     }
 
     public function getProfiles()
@@ -1964,41 +1985,120 @@ class FroniusDriver implements InverterDriverInterface
             }
         }
 
-        $mppt1Power = 0.0;
-        $mppt2Power = 0.0;
-        if ($hub->GetPropBool('GroupPV')) {
+        if ($hub->GetPropBool('GroupPV') || $hub->GetPropBool('GroupBat')) {
             $mppt = $this->findModel($mb, 160);
             if ($mppt !== null) {
                 [$mbase, $mlen] = $mppt;
-                $mblk = $mb->readHolding($mbase, min($mlen, 40));
+                $readLen = min($mlen, 88);   // fester Kopf (8) + bis zu 4 Module à 20
+                $mblk = $mb->readHolding($mbase, $readLen);
                 if ($mblk !== null) {
-                    // Multiple MPPT Extension: je Modul ab Offset 8+n*20:
-                    // ID(1),IDStr(8, string),DCA(1),DCV(1),DCW(1),...
-                    $mppt1Power = (float)$mb->u16($mblk, 12);
-                    $mppt2Power = (float)$mb->u16($mblk, 32);
-                    $hub->SetVarFloat('mppt1_volt',  $mb->u16($mblk, 10) / 10.0);
-                    $hub->SetVarFloat('mppt1_power', $mppt1Power);
-                    $hub->SetVarFloat('mppt2_volt',  $mb->u16($mblk, 30) / 10.0);
-                    $hub->SetVarFloat('mppt2_power', $mppt2Power);
-                    $hub->SetVarFloat('pv_total', $mppt1Power + $mppt2Power);
+                    // Multiple MPPT Extension (Model 160), offizielles Layout:
+                    // fester Kopf: DCA_SF(0) DCV_SF(1) DCW_SF(2) DCWH_SF(3)
+                    // Evt(4-5) N(6) TmsPer(7); je Modul (20 Register ab 8+n*20):
+                    // ID(+0) IDStr(+1..+8, Text!) DCA(+9) DCV(+10) DCW(+11) ...
+                    // Bugfix: die alten Offsets (10/12 bzw. 30/32) lasen mitten
+                    // im IDStr-Textfeld - daher Fantasiewerte wie "2056,4 V".
+                    $dcvSf = $this->sfVal($mb->u16($mblk, 1));
+                    $dcwSf = $this->sfVal($mb->u16($mblk, 2));
+                    $modVal = function ($n, $inner, $sf) use ($mb, $mblk, $readLen) {
+                        $base = 8 + $n * 20;
+                        if ($base + 20 > $readLen) {
+                            return null;   // Modul nicht vorhanden/gelesen
+                        }
+                        return $this->scaledU16($mb, $mblk, $base + $inner, $sf);
+                    };
+
+                    if ($hub->GetPropBool('GroupPV')) {
+                        $p1 = $modVal(0, 11, $dcwSf);
+                        $p2 = $modVal(1, 11, $dcwSf);
+                        $hub->SetVarFloat('mppt1_volt',  (float)($modVal(0, 10, $dcvSf) ?? 0));
+                        $hub->SetVarFloat('mppt1_power', (float)($p1 ?? 0));
+                        $hub->SetVarFloat('mppt2_volt',  (float)($modVal(1, 10, $dcvSf) ?? 0));
+                        $hub->SetVarFloat('mppt2_power', (float)($p2 ?? 0));
+                        $hub->SetVarFloat('pv_total', (float)(($p1 ?? 0) + ($p2 ?? 0)));
+                    }
+
+                    // GEN24-Hybrid: Module 3 und 4 sind die Speicherkanäle
+                    // (Laden bzw. Entladen). Konvention im Modul: positiv =
+                    // Entladung (Leistung wird ans System abgegeben).
+                    if ($hub->GetPropBool('GroupBat')) {
+                        $charge    = $modVal(2, 11, $dcwSf);
+                        $discharge = $modVal(3, 11, $dcwSf);
+                        if ($charge !== null || $discharge !== null) {
+                            $hub->SetVarFloat('bat_power', (float)(($discharge ?? 0) - ($charge ?? 0)));
+                        }
+                    }
+                }
+            }
+        }
+
+        // Batterie-SOC aus dem Basic-Storage-Model 124: ChaState (Offset 6,
+        // uint16) mit ChaState_SF (Offset 20, sunssf).
+        if ($hub->GetPropBool('GroupBat')) {
+            $stor = $this->findModel($mb, 124);
+            if ($stor !== null) {
+                [$sbase, $slen] = $stor;
+                $sblk = $mb->readHolding($sbase, min($slen, 24));
+                if ($sblk !== null && min($slen, 24) >= 21) {
+                    $soc = $this->scaledU16($mb, $sblk, 6, $this->sfVal($mb->u16($sblk, 20)));
+                    if ($soc !== null) {
+                        $hub->SetVarInt('bat_soc', (int)round($soc));
+                    }
                 }
             }
         }
 
         if ($hub->GetPropBool('GroupMeter')) {
-            $meter = $this->findModel($mb, 201) ?: $this->findModel($mb, 203) ?: $this->findModel($mb, 211) ?: $this->findModel($mb, 213);
-            if ($meter !== null) {
-                [$mtbase, $mtlen] = $meter;
-                $mtblk = $mb->readHolding($mtbase, min($mtlen, 20));
-                if ($mtblk !== null) {
-                    // Model 203/213 "Total Real Power" (W) liegt bei Offset 16
-                    // (verifiziert gegen OpenEMS-SunSpec-Modelldefinition).
-                    $hub->SetVarFloat('meter_total', (float)$mb->s16($mtblk, 16));
-                }
+            // Fronius meldet den Smart Meter NICHT in der SunSpec-Kette des
+            // Wechselrichters, sondern unter einer eigenen Unit-ID (die
+            // "Zähleradresse", werksseitig 200). Erst dort suchen, zur
+            // Sicherheit als Rückfall auch in der eigenen Kette.
+            $meterVal = $this->readMeterTotal(new ModbusTcpClient($mb->host, $mb->port, 200));
+            if ($meterVal === null) {
+                $meterVal = $this->readMeterTotal($mb);
+            }
+            if ($meterVal !== null) {
+                // SunSpec-Meter: positiv = Bezug. Modul-Konvention: positiv =
+                // Einspeisung - daher Vorzeichen drehen.
+                $hub->SetVarFloat('meter_total', -$meterVal);
             }
         }
 
         return true;
+    }
+
+    // Liest die Gesamtwirkleistung eines SunSpec-Meters (Int-Modelle 20x mit
+    // Skalierungsfaktor, Float-Modelle 21x als IEEE-754) über den übergebenen
+    // Client. Rückgabe null, wenn kein Meter-Model gefunden wird.
+    private function readMeterTotal($client)
+    {
+        $meter = $this->findModel($client, 201) ?: $this->findModel($client, 202) ?: $this->findModel($client, 203);
+        if ($meter !== null) {
+            [$base, $len] = $meter;
+            $blk = $client->readHolding($base, min($len, 24));
+            if ($blk === null || min($len, 24) < 21) {
+                return null;
+            }
+            // Model 20x: W bei Offset 16 (int16), W_SF bei Offset 20.
+            $raw = $client->s16($blk, 16);
+            if ($raw === -32768) {
+                return null;
+            }
+            return $raw * pow(10, $this->sfVal($client->u16($blk, 20)));
+        }
+
+        $meter = $this->findModel($client, 211) ?: $this->findModel($client, 212) ?: $this->findModel($client, 213);
+        if ($meter !== null) {
+            [$base, $len] = $meter;
+            $blk = $client->readHolding($base, min($len, 30));
+            if ($blk === null || min($len, 30) < 28) {
+                return null;
+            }
+            // Float-Model 21x: W ist der 14. Messwert -> Offset 26 (je 2 Reg.).
+            return $client->readFloat32($blk, 26);
+        }
+
+        return null;
     }
 
     public function readSlow($mb, $hub)

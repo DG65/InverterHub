@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.24.0-beta.1 (2026-07-17)
+
+Fronius-Überarbeitung nach Beta-Test an einem Symo GEN24 12.0 Plus SC:
+
+- **Bugfix MPPT-Werte** ("2056,4 V"): die Model-160-Offsets lasen mitten im
+  IDStr-**Textfeld** der Modulblöcke statt bei DCV/DCW - die Modulblöcke beginnen erst nach
+  ID + 8 Registern Text. Jetzt korrektes offizielles Layout inklusive Auswertung der
+  SunSpec-Skalierungsfaktoren und der "nicht implementiert"-Kennungen (0xFFFF/0x8000).
+- **Smart Meter wird jetzt gefunden**: Fronius meldet den Zähler nicht in der SunSpec-Kette
+  des Wechselrichters, sondern unter einer **eigenen Unit-ID** (die "Zähleradresse",
+  werksseitig 200). Der Treiber liest den Meter jetzt dort (Rückfall: eigene Kette),
+  unterstützt Int- (20x, mit Skalierungsfaktor) und Float-Meter-Modelle (21x, W bei
+  Offset 26) und dreht das Vorzeichen auf die Modul-Konvention (positiv = Einspeisung).
+- **Neu: Batterie-Gruppe für GEN24-Hybride**: SOC aus dem Basic-Storage-Model 124
+  (ChaState inkl. Skalierungsfaktor), Lade-/Entladeleistung aus den Speicherkanälen
+  Modul 3 + 4 des Model 160 (positiv = Entladung, konsistent zu den anderen Treibern).
+
 ## 0.23.0-beta.1 (2026-07-17)
 
 - **Neu in der Discovery: Ausschlussliste** („IPs ignorieren"). Dort eingetragene Adressen
