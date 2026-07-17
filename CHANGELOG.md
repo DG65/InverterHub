@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.22.1-beta.1 (2026-07-17)
+
+- **Statusanzeige nach unten links** verlegt, damit sie dem Diagramm nicht mehr in die Quere
+  kommt, und in die Optik der Kreise eingepasst: eine Plakette mit derselben plastischen
+  Fläche und feiner Kante, darin der pulsierende Punkt (bei Verbindung grün mit Leuchtschein).
+  Sie ist an der Ecke der Zeichenfläche verankert (die sich ja dem Seitenverhältnis anpasst)
+  und wächst mit der Textbreite mit.
+- **Bugfix**: Ohne gültige Datenquelle blieb seit der Umstellung auf persistente Knoten das
+  alte Diagramm mit veralteten Werten stehen. Es wird jetzt wieder ausgeblendet, sodass nur
+  die Statusplakette sichtbar bleibt.
+
 ## 0.22.0-beta.1 (2026-07-17)
 
 - **Auto ist jetzt eine „fahrende Batterie"**: das unveränderte Batteriesymbol (gleiche Größe,

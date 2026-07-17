@@ -46,11 +46,14 @@
 
   text { font-family: var(--font); }
 
+  /* Statusanzeige als kleine Plakette im selben Stil wie die Kreise:
+     plastische Fläche, feine Kante, glühender Punkt. */
+  .status-pill { fill: url(#plasticFill); stroke: rgba(255,255,255,0.10); stroke-width: 1.4; }
   .status-dot { fill: var(--textmuted); }
-  .status-dot.ok { fill: #4caf50; }
+  .status-dot.ok { fill: #4caf50; filter: drop-shadow(0 0 4px rgba(76,175,80,0.85)); }
   .status-dot.pulse { animation: pulse 2s ease-in-out infinite; }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
-  .state-label { font-size: 15px; font-weight: 600; fill: var(--textmuted); }
+  .state-label { font-size: 14px; font-weight: 600; fill: var(--textmuted); }
 
   /* Der Knoten trägt --nc (Farbe erben Ring/Icon/Wert) sowie Position UND
      Skalierung in EINEM transform. transform-box/-origin sind bewusst gesetzt,
@@ -223,14 +226,6 @@
     </filter>
   </defs>
 
-  <!-- Statuszeile: Position ist an die Diagramm-Geometrie gekoppelt, nicht an
-       einen willkürlichen Fixpunkt. Der Punkt sitzt exakt am linken/oberen
-       Rand des Layout-Kreises: CX-R_MAX bzw. CY-R_MAX (jeweils + Punktradius).
-       Da der äußere Rand der Knoten per Konstruktion immer genau bei R_MAX
-       liegt, bleibt der Punkt unabhängig von der Knotenzahl bündig. -->
-  <circle id="dot" class="status-dot" cx="52.5" cy="73.5" r="6.5"/>
-  <text id="stateLabel" x="66" y="78.5" class="state-label">–</text>
-
   <!-- Dynamischer Inhalt: Speichen zuerst (unten), dann Knoten (oben) -->
   <g id="wires-layer"></g>
 
@@ -253,6 +248,16 @@
   </g>
 
   <g id="nodes-layer"></g>
+
+  <!-- Statusanzeige: sitzt als Plakette in der unteren linken Ecke der
+       Zeichenfläche und wird dort von layoutStatus() verankert - die
+       Zeichenfläche passt sich dem Seitenverhältnis an, ein fester Punkt
+       würde daher mitwandern. Zuletzt gezeichnet = liegt über allem. -->
+  <g id="status">
+    <rect id="status-pill" class="status-pill" x="0" y="0" rx="13" ry="13" height="26" width="120"/>
+    <circle id="dot" class="status-dot" cx="15" cy="13" r="5.5"/>
+    <text id="stateLabel" x="27" y="17.5" class="state-label">–</text>
+  </g>
 </svg>
 
 <script>
@@ -363,6 +368,28 @@ function fitViewBox() {
   svg.setAttribute('viewBox',
     (CX - vbW / 2).toFixed(2) + ' ' + (CY - vbH / 2).toFixed(2) + ' ' +
     vbW.toFixed(2) + ' ' + vbH.toFixed(2));
+  layoutStatus();
+}
+
+// Statusplakette an der unteren linken Ecke der Zeichenfläche ausrichten und
+// auf die Textbreite zuschneiden (die Beschriftung wechselt: "Verbunden",
+// "Getrennt", "Keine Datenquelle").
+function layoutStatus() {
+  const svg = document.getElementById('svg');
+  const vb = (svg.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number);
+  if (vb.length !== 4 || vb.some(isNaN)) { return; }
+
+  const g    = document.getElementById('status');
+  const pill = document.getElementById('status-pill');
+  const txt  = document.getElementById('stateLabel');
+
+  let tw = 80;
+  try { tw = txt.getBBox().width; } catch (e) { /* noch nicht gerendert */ }
+  pill.setAttribute('width', (27 + tw + 13).toFixed(1));
+
+  const inset = 4;
+  g.setAttribute('transform',
+    'translate(' + (vb[0] + inset).toFixed(1) + ',' + (vb[1] + vb[3] - inset - 26).toFixed(1) + ')');
 }
 window.addEventListener('resize', fitViewBox);
 if (window.ResizeObserver) {
@@ -835,7 +862,14 @@ function handleMessage(raw) {
   const dot = document.getElementById('dot');
   dot.setAttribute('class', 'status-dot' + (d.ok ? ' ok pulse' : ''));
   document.getElementById('stateLabel').textContent = d.stateLabel ?? '–';
+  layoutStatus();   // Plakettenbreite folgt dem Text
 
+  // Ohne gültige Daten das Diagramm ausblenden, statt veraltete Werte
+  // stehenzulassen - es bleibt dann nur die Statusplakette sichtbar.
+  const diagram = ['wires-layer', 'nodes-layer', 'node-center'];
+  diagram.forEach(id => {
+    document.getElementById(id).style.display = d.ok ? '' : 'none';
+  });
   if (!d.ok) return;
 
   // --- Zentrum (Hauslast) ---
