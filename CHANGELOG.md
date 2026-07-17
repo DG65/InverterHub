@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.17.0-beta.1 (2026-07-16)
+
+- **Gleitender Wechsel aktiv/inaktiv**: der Zustandswechsel eines Kreises springt nicht mehr,
+  sondern läuft weich ab - Größe, Deckkraft, Farbe (Identitätsfarbe ↔ Grau), Corona und alle
+  Münz-Ebenen (Wölbung, Kantenanschliff, Glanzlicht, Glint, Bodenschatten) blenden gemeinsam
+  über.
+- **Neu konfigurierbar**: „Übergangszeit aktiv/inaktiv" (Standard 800 ms, 0 = ohne Animation).
+- Dafür nötiger Umbau: die Knoten werden jetzt **einmalig** aufgebaut und danach nur noch
+  aktualisiert, statt bei jedem Update komplett neu erzeugt zu werden — vorher startete jedes
+  Element bereits im Zielzustand, weshalb CSS-Transitions grundsätzlich nicht greifen konnten.
+  Ein Neuaufbau erfolgt nur noch, wenn sich die Menge der vorhandenen Datenpunkte ändert.
+  Position und Skalierung stecken jetzt in einem gemeinsamen, animierbaren `transform`; die
+  Knotenfarbe ist als typisierte Custom Property (`@property`) registriert, damit der Browser
+  den Farbwechsel überhaupt interpolieren kann.
+
 ## 0.16.1-beta.1 (2026-07-16)
 
 - **Anordnung korrigiert**: die äußeren Kreise sind nicht mehr auf feste

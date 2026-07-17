@@ -36,6 +36,10 @@
         {
           "type": "Label",
           "caption": "Hintergrundfarbe und Schriftart lassen sich anpassen (-1 bzw. leer = Systemstandard). Die gesamte Kachel skaliert automatisch mit der Widget-Größe. Button „Stil zurücksetzen“ stellt alle Werte auf die Vorgabe zurück."
+        },
+        {
+          "type": "Label",
+          "caption": "„Übergangszeit“ bestimmt, wie lange der gleitende Wechsel eines Kreises zwischen inaktiv (klein, grau, flach) und aktiv (groß, farbig, plastisch inkl. Corona) dauert. 0 schaltet die Animation ab (sofortiger Wechsel)."
         }
       ]
     },
@@ -70,6 +74,14 @@
           "type": "ValidationTextBox",
           "name": "FontFamily",
           "caption": "Schriftart (leer = Systemschrift)"
+        },
+        {
+          "type": "NumberSpinner",
+          "name": "TransitionMs",
+          "caption": "Übergangszeit aktiv/inaktiv (0 = ohne Animation)",
+          "minimum": 0,
+          "maximum": 5000,
+          "suffix": "ms"
         }
       ]
     }

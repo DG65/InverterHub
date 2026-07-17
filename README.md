@@ -82,21 +82,33 @@ dafür vorhanden).
 
 ### InverterHubTile
 
-Animierte Energiefluss-Kachel (Visualisierung) für eine InverterHub-Instanz, unabhängig vom
-Hersteller: Solar, Netz, Last und Batterie mit SOC-Füllstand, angeordnet als auf der Spitze
-stehendes Quadrat (Diamant). Die Farben sind semantisch fest vergeben: Solar = Sonnengelb,
-Netz = Grün bei Einspeisung/Rot bei Bezug, Batterie = Blau, Last = weicher Grün-Rot-Verlauf
-je nach Anteil aus Netzbezug vs. PV/Batterie. Da nicht jeder Treiber dieselben Datenpunkte
-liefert, wird ein Kreis grau dargestellt, wenn die zugehörige Größe bei der gewählten Quelle
-fehlt (z. B. keine Netzmessung bei Growatt, keine Batterie bei SMA/Fronius/SolarEdge), statt
-falsche Werte zu zeigen. Ist in der Quell-Instanz ein Hauslastzähler konfiguriert, erscheint
-zusätzlich ein kleiner „Wandlungsverluste"-Kreis (Differenz zwischen Bilanzschätzung und
-echtem Zähler). Hintergrundfarbe und Schriftart sind über die Instanzkonfiguration anpassbar,
-die Kachel skaliert vollständig automatisch mit der Widget-Größe.
+Energiefluss-Kachel (Visualisierung) für eine InverterHub-Instanz, unabhängig vom Hersteller.
+Die **Hauslast** sitzt im Zentrum, alle übrigen Größen (Solar, Batterie, Netz und optional
+Wandlungsverluste) werden gleichmäßig **radial** darum verteilt — in der Reihenfolge Solar
+(oben), Batterie (rechts), Netz (unten), Verluste (links). Fehlt ein Datenpunkt, bleibt die
+Anordnung ausgewogen, statt eine Lücke zu hinterlassen.
+
+Die Farben sind semantisch fest vergeben: Solar = Sonnengelb, Netz = Grün bei Einspeisung/Rot
+bei Bezug, Batterie = Blau, Verluste = Grau, Hauslast = weicher Grün-Rot-Verlauf je nach
+Anteil aus Netzbezug vs. PV/Batterie.
+
+Kreise mit nennenswertem Leistungsfluss erscheinen groß, farbig und plastisch (Münz-Optik mit
+Wölbung, Kantenanschliff, Glanzlicht und geprägten Icons/Werten) samt Corona, deren Stärke mit
+der Leistung wächst (0 W = keine, 40 kW = maximal). Kreise ohne Fluss treten klein, grau und
+flach zurück; der Wechsel läuft gleitend in einstellbarer Zeit ab.
+
+Da nicht jeder Treiber dieselben Datenpunkte liefert, entfällt ein Kreis, wenn die zugehörige
+Größe bei der gewählten Quelle fehlt (z. B. keine Netzmessung bei Growatt, keine Batterie bei
+SMA/Fronius/SolarEdge), statt falsche Werte zu zeigen. Ist in der Quell-Instanz ein
+Hauslastzähler konfiguriert, erscheint zusätzlich der „Verluste"-Kreis (Differenz zwischen
+Bilanzschätzung und echtem Zähler).
+
+Hintergrundfarbe, Schriftart und die Übergangszeit für den gleitenden Wechsel aktiv/inaktiv
+sind über die Instanzkonfiguration anpassbar; die Kachel skaliert vollständig automatisch mit
+der Widget-Größe.
 
 Einrichtung: Kachel-Instanz anlegen, unter „Datenquelle" die gewünschte InverterHub-Instanz
 auswählen.
-dafür vorhanden).
 
 ## Fronius und SMA: Hinweis zur SunSpec-Discovery
 

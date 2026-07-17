@@ -4,6 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
+  /* --nc (Knotenfarbe) als typisierte Custom Property registrieren. Nur so
+     interpoliert der Browser den Farbwechsel grau <-> Identitätsfarbe weich;
+     unregistrierte Custom Properties springen hart. Fällt die Registrierung
+     aus (älterer Browser), bleibt alles funktionsfähig - der Farbwechsel
+     springt dann lediglich, Größe/Deckkraft gleiten weiterhin. */
+  @property --nc {
+    syntax: '<color>';
+    inherits: true;
+    initial-value: rgb(158,158,158);
+  }
+
   :root {
     --grey: rgba(158,158,158,0.85);
     --grey-glow: rgba(158,158,158,0);
@@ -12,6 +23,10 @@
     --text: inherit;
     --textmuted: rgba(158,158,158,0.9);
     --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    /* Übergangszeit aktiv<->inaktiv, wird aus der Instanzkonfiguration
+       gesetzt (TransitionMs). 0ms = ohne Animation. */
+    --trans: 800ms;
+    --ease: cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -38,6 +53,20 @@
   .status-dot.pulse { animation: pulse 2s ease-in-out infinite; }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
   .state-label { font-size: 15px; font-weight: 600; fill: var(--textmuted); }
+
+  /* Der Knoten trägt --nc (Farbe erben Ring/Icon/Wert) sowie Position UND
+     Skalierung in EINEM transform. transform-box/-origin sind bewusst gesetzt,
+     damit sich das CSS-transform exakt wie das SVG-transform-Attribut verhält
+     (Ursprung im Koordinatensystem des Knotens) - nur so skaliert der Kreis um
+     seinen eigenen Mittelpunkt statt um eine Bounding-Box-Mitte. Da der
+     translate-Anteil konstant bleibt, animiert praktisch nur die Skalierung. */
+  .node {
+    transform-box: view-box;
+    transform-origin: 0 0;
+    transition: --nc var(--trans) var(--ease),
+                transform var(--trans) var(--ease),
+                opacity var(--trans) var(--ease);
+  }
 
   /* Fill/Stroke sind vererbbare CSS-Eigenschaften bei SVG (im Gegensatz zu
      "color"/currentColor) - Icon-Kinder erben --nc automatisch. */
@@ -66,8 +95,16 @@
      eigenständiges Gestaltungselement erkennbar bleibt. */
   .ring-decor { fill: none; stroke: var(--ring-decor); stroke-width: 3.5; stroke-dasharray: 2 6; }
 
-  .node-glow { fill: none; stroke-width: 13; filter: blur(8px); }
-  .node-ring { fill: #14171c; stroke-width: 3; stroke: var(--nc, var(--grey)); }
+  .node-glow {
+    fill: none; stroke-width: 13; filter: blur(8px);
+    transition: stroke var(--trans) var(--ease), stroke-width var(--trans) var(--ease),
+                filter var(--trans) var(--ease);
+  }
+  /* Ring = nur die farbige Kante; die gewölbte Fläche liegt als eigenes
+     Element (.node-face) darunter, damit sie separat ein-/ausgeblendet werden
+     kann (ein Wechsel fill: none <-> Verlauf ließe sich nicht animieren). */
+  .node-ring { fill: none; stroke-width: 3; stroke: var(--nc, var(--grey)); }
+  .node-face { fill: url(#plasticFill); }
 
   /* --- Münz-/Schlaglicht-Ebenen (nur für aktive Knoten) --- */
   /* Dunkle Bodenschattierung leicht nach unten versetzt, damit der Kreis wie
@@ -81,6 +118,18 @@
   .node-highlight { fill: #fff; opacity: 0.13; filter: blur(6px); }
   /* Kleiner, knackiger Glint - wie Licht, das auf die Münzkante trifft. */
   .node-spec { fill: #fff; opacity: 0.30; filter: blur(2px); }
+
+  /* Alle Münz-Ebenen blenden weich aus, sobald der Knoten inaktiv wird -
+     gesteuert allein über die Klasse .inactive am Knoten, damit Zustand und
+     Animation an einer Stelle definiert sind. */
+  .node-face, .coin-shadow, .node-bevel, .node-highlight, .node-spec {
+    transition: opacity var(--trans) var(--ease);
+  }
+  .node.inactive .node-face,
+  .node.inactive .coin-shadow,
+  .node.inactive .node-bevel,
+  .node.inactive .node-highlight,
+  .node.inactive .node-spec { opacity: 0; }
 </style>
 </head>
 <body>
@@ -145,19 +194,20 @@
 
   <!-- Zentrum: Hauslast, immer vorhanden. Kollektor-Ring (für den Moment
        ausgeblendet, siehe SHOW_RING in <script>) liegt etwa mittig zwischen
-       Zentrums- und äußeren Kreisen (siehe R_RING/R_CENTER/R_OUTER). -->
+       Zentrums- und äußeren Kreisen (r=96 bei R_OUTER=178). -->
   <circle class="ring-decor" id="ring-decor" cx="280" cy="301" r="96" style="display:none"/>
-  <g id="node-center" transform="translate(280,301)">
-    <circle id="center-shadow" class="coin-shadow" cx="0" cy="8.96" r="54.88" style="display:none"/>
+  <g id="node-center" class="node">
+    <circle class="coin-shadow" cx="0" cy="8.96" r="54.88"/>
     <circle class="node-glow" r="56"/>
+    <circle class="node-face" r="56"/>
     <circle class="node-ring" r="56"/>
-    <circle id="center-bevel" class="node-bevel" r="56" style="display:none"/>
-    <ellipse id="center-highlight" class="node-highlight" cx="-16.8" cy="-26.9" rx="25.8" ry="14.6" style="display:none"/>
-    <ellipse id="center-spec" class="node-spec" cx="-24.6" cy="-30.8" rx="11.2" ry="6.2" style="display:none"/>
-    <g id="center-icon" class="node-icon" transform="translate(0,-30)" stroke-width="2" fill="none">
+    <circle class="node-bevel" r="56"/>
+    <ellipse class="node-highlight" cx="-16.8" cy="-26.9" rx="25.8" ry="14.6"/>
+    <ellipse class="node-spec" cx="-24.6" cy="-30.8" rx="11.2" ry="6.2"/>
+    <g id="center-icon" class="node-icon" transform="translate(0,-30)" stroke-width="2" fill="none" filter="url(#relief)">
       <polygon points="0,-12 13.6,-0.8 13.6,12 -13.6,12 -13.6,-0.8" data-hollow="1"/>
     </g>
-    <text id="lbl-center-val" x="0" y="9" text-anchor="middle" class="node-value">0<tspan class="node-value-unit" dx="2">kW</tspan></text>
+    <text id="lbl-center-val" x="0" y="9" text-anchor="middle" class="node-value" filter="url(#relief)">0<tspan class="node-value-unit" dx="2">kW</tspan></text>
     <text x="0" y="33" text-anchor="middle" class="node-label">Hauslast</text>
   </g>
 
@@ -165,14 +215,11 @@
 </svg>
 
 <script>
-// Pfeile/Lauflinien und der große Kollektor-Ring sind für den Moment
-// ausgeblendet (Nutzerwunsch) - auf true setzen, um beides wieder zu zeigen;
-// der ring-decor-Kreis selbst wird zusätzlich per style="display:none" im
-// Markup ausgeblendet.
-const SHOW_FLOW = false;
-
+// Hinweis: Pfeile/Lauflinien und der große Kollektor-Ring werden derzeit nicht
+// gezeichnet (Nutzerwunsch). Die zugehörigen Platzhalter (#wires-layer,
+// #markerDefs, #ring-decor) sowie deren CSS sind absichtlich erhalten, damit
+// sie sich bei Bedarf wieder befüllen lassen.
 const CX = 280, CY = 301;          // Zentrum
-const R_RING = 96;                 // Kollektorring-Radius
 // Aktive Knoten sind alle gleich groß; inaktive (kein nennenswerter Fluss)
 // werden bewusst kleiner gezeichnet - der Größenunterschied selbst ist das
 // gewünschte Signal für "inaktiv", nicht nur Farbe/Transparenz.
@@ -353,101 +400,106 @@ function setValueText(textEl, watts) {
   textEl.firstChild.nodeValue = fmtKw(watts);
 }
 
-function buildOuterNode(def, angleDeg, d, markerDefs) {
+// --- Persistente Knoten -----------------------------------------------------
+// Die Knoten werden EINMAL aufgebaut und danach nur noch aktualisiert. Nur so
+// können CSS-Transitions überhaupt greifen: würde bei jedem Update wie früher
+// alles neu erzeugt, startet jedes Element bereits in seinem Zielzustand und
+// der Wechsel aktiv/inaktiv wirkt zwangsläufig schlagartig.
+let builtSig = null;
+const nodeRefs = {};   // key -> { g, glow, iconG, valText, cx, cy }
+
+function createOuterNode(def, angleDeg) {
   const rad = angleDeg * Math.PI / 180;
   const cx = CX + R_OUTER * Math.cos(rad);
   const cy = CY + R_OUTER * Math.sin(rad);
-  const w = d[def.w] ?? 0;
-  const magnitude = Math.abs(w);
-  const have = !!d[def.have];
-  const active = have && magnitude > (def.minMagnitude ?? 20);
-  // Aktive Knoten sind alle gleich groß (ACTIVE_R); inaktive werden bewusst
-  // kleiner gezeichnet (INACTIVE_R). Damit dabei nicht nur der Ring schrumpft
-  // sondern wirklich der GESAMTE Kreisinhalt (Icon, Wert, Beschriftung)
-  // proportional mitskaliert, wird Ring/Glow immer bei ACTIVE_R gezeichnet
-  // und stattdessen die komplette Knoten-Gruppe per CSS-Transform skaliert -
-  // die effektive (sichtbare) Größe ist dieselbe wie zuvor, nur skaliert
-  // jetzt alles gemeinsam statt nur der Kreis.
-  const effectiveR = active ? ACTIVE_R : INACTIVE_R;
-  const scale = effectiveR / ACTIVE_R;
-  // Ohne nennenswerten Fluss wird der komplette Knoten (Ring, Icon, Wert,
-  // Pfeile) grau dargestellt statt in seiner Akzentfarbe zu verharren, dazu
-  // insgesamt abgedunkelt (Gruppen-Opazität) und der dunkle Kreis-Hintergrund
-  // entfernt, damit inaktive Knoten spürbar zurücktreten.
-  const color = def.grey ? C_GREY : (have && active ? def.color(w) : C_GREY);
 
-  const g = el('g', { transform: `translate(${cx},${cy}) scale(${scale})` });
-  g.style.setProperty('--nc', rgb(color));
-  g.style.opacity = active ? '1' : '0.32';
-
-  // Bodenschatten ganz unten (nur aktiv), damit die Münze über der Fläche liegt.
-  if (active) { g.appendChild(makeCoinShadow(ACTIVE_R)); }
-
+  // Ring/Glow werden immer in voller Größe (ACTIVE_R) gezeichnet; die
+  // Verkleinerung bei Inaktivität passiert über die Skalierung der ganzen
+  // Gruppe, damit der gesamte Kreisinhalt proportional mitgeht.
+  const g = el('g', { class: 'node' });
+  g.appendChild(makeCoinShadow(ACTIVE_R));
   const glow = el('circle', { class: 'node-glow', r: ACTIVE_R });
-  if (active) { applyGlow(glow, color, magnitude); } else { glow.style.stroke = 'var(--grey-glow)'; }
   g.appendChild(glow);
-  const ring = el('circle', { class: 'node-ring', r: ACTIVE_R });
-  ring.style.fill = active ? 'url(#plasticFill)' : 'none';
-  g.appendChild(ring);
-  // Münz-Aufbau von unten nach oben: Kantenanschliff, diffuses Glanzlicht,
-  // knackiger Glint.
-  if (active) {
-    g.appendChild(makeBevel(ACTIVE_R));
-    g.appendChild(makeHighlight(ACTIVE_R));
-    g.appendChild(makeSpecular(ACTIVE_R));
-  }
+  g.appendChild(el('circle', { class: 'node-face', r: ACTIVE_R }));
+  g.appendChild(el('circle', { class: 'node-ring', r: ACTIVE_R }));
+  g.appendChild(makeBevel(ACTIVE_R));
+  g.appendChild(makeHighlight(ACTIVE_R));
+  g.appendChild(makeSpecular(ACTIVE_R));
 
-  const iconG = el('g', { class: 'node-icon', transform: 'translate(0,-30)', 'stroke-width': 2, fill: 'none' });
-  ICONS[def.icon](iconG, def.battery ? (d.socHave ? d.soc : null) : null);
-  if (active) { iconG.setAttribute('filter', 'url(#relief)'); }
+  const iconG = el('g', {
+    class: 'node-icon', transform: 'translate(0,-30)',
+    'stroke-width': 2, fill: 'none', filter: 'url(#relief)',
+  });
   g.appendChild(iconG);
 
   // Platzreserve wie für "33,333 kW" (breitester realistischer Wert)
   // eingeplant, Wert vertikal nahe der Kreismitte statt weiter oben.
-  const valText = el('text', { x: 0, y: 9, 'text-anchor': 'middle', class: 'node-value' });
-  if (active) { valText.setAttribute('filter', 'url(#relief)'); }
+  const valText = el('text', {
+    x: 0, y: 9, 'text-anchor': 'middle', class: 'node-value', filter: 'url(#relief)',
+  });
   valText.appendChild(document.createTextNode('0'));
   const unit = el('tspan', { class: 'node-value-unit', dx: 2 });
   unit.textContent = 'kW';
   valText.appendChild(unit);
-  setValueText(valText, magnitude);
   g.appendChild(valText);
 
   const labelText = el('text', { x: 0, y: 33, 'text-anchor': 'middle', class: 'node-label' });
   labelText.textContent = def.label;
   g.appendChild(labelText);
 
-  // Speiche: von der Kante des äußeren Knotens bis zur Kante des
-  // Kollektor-Rings, exakt entlang der Verbindungslinie berechnet - "streng
-  // geometrisch", keine Freihand-Kurven.
-  const dx = CX - cx, dy = CY - cy;
-  const dist = Math.hypot(dx, dy);
-  const ux = dx / dist, uy = dy / dist;
-  const startX = cx + ux * effectiveR, startY = cy + uy * effectiveR;
-  const endX   = CX - ux * R_RING, endY   = CY - uy * R_RING;
+  return { g, glow, iconG, valText, cx, cy };
+}
 
-  const markerId = 'arrow-' + def.key;
-  markerDefs.appendChild(makeMarker(markerId, color));
+// Baut die Knoten nur dann (neu) auf, wenn sich die Menge der vorhandenen
+// Datenpunkte tatsächlich geändert hat (Konfigurationsänderung) - im
+// laufenden Betrieb bleibt die Struktur stehen und wird nur aktualisiert.
+function ensureNodes(presentDefs) {
+  const sig = presentDefs.map(x => x.key).join(',');
+  if (sig === builtSig) return;
+  builtSig = sig;
 
-  const wireStatic = el('line', { class: 'wire', x1: startX, y1: startY, x2: endX, y2: endY });
+  const nodesLayer = document.getElementById('nodes-layer');
+  nodesLayer.textContent = '';
+  Object.keys(nodeRefs).forEach(k => delete nodeRefs[k]);
 
-  const dir = def.dir(w);
-  const flowActive = active;
-  // "in"  = Fluss vom Knoten ins Zentrum -> Pfeil endet am Ring (Kreuz-Layout-Mitte)
-  // "out" = Fluss vom Zentrum zum Knoten -> Pfeil endet am Knoten
-  const outPath = el('path', {
-    class: 'wire-flow' + (flowActive && dir === 'in' ? ' active' : ''),
-    d: `M${startX},${startY} L${endX},${endY}`,
-    'marker-end': `url(#${markerId})`,
+  const n = presentDefs.length;
+  presentDefs.forEach((def, i) => {
+    // Vorhandene Knoten gleichmäßig radial um die Hauslast verteilen, in der
+    // Reihenfolge aus NODE_DEFS, beginnend oben (-90°) im Uhrzeigersinn.
+    const angleDeg = -90 + (360 / n) * i;
+    const refs = createOuterNode(def, angleDeg);
+    nodeRefs[def.key] = refs;
+    nodesLayer.appendChild(refs.g);
   });
-  const inPath = el('path', {
-    class: 'wire-flow reverse' + (flowActive && dir === 'out' ? ' active' : ''),
-    d: `M${endX},${endY} L${startX},${startY}`,
-    'marker-end': `url(#${markerId})`,
-  });
-  [outPath, inPath].forEach(p => { p.style.stroke = rgb(color); });
+}
 
-  return { g, wires: [wireStatic, outPath, inPath] };
+// Gemeinsame Zustandslogik für äußere Knoten UND das Zentrum: Position und
+// Skalierung stecken in EINEM transform (nur der Skalenanteil ändert sich),
+// Farbe/Deckkraft/Corona werden gesetzt - das Ein-/Ausblenden der Münz-Ebenen
+// erledigt die Klasse .inactive per CSS.
+function applyNodeState(g, glow, color, magnitude, active, cx, cy) {
+  const scale = (active ? ACTIVE_R : INACTIVE_R) / ACTIVE_R;
+  g.classList.toggle('inactive', !active);
+  g.style.transform = `translate(${cx}px, ${cy}px) scale(${scale})`;
+  g.style.opacity = active ? '1' : '0.32';
+  g.style.setProperty('--nc', rgb(color));
+  if (active) { applyGlow(glow, color, magnitude); }
+  else { glow.style.stroke = 'var(--grey-glow)'; }
+}
+
+function updateOuterNode(refs, def, d) {
+  const w = d[def.w] ?? 0;
+  const magnitude = Math.abs(w);
+  const active = magnitude > (def.minMagnitude ?? 20);
+  const color = def.grey ? C_GREY : (active ? def.color(w) : C_GREY);
+
+  applyNodeState(refs.g, refs.glow, color, magnitude, active, refs.cx, refs.cy);
+
+  // Icon neu zeichnen (der Batterie-Füllstand ändert sich laufend); die Farbe
+  // kommt geerbt über --nc und animiert dadurch weiterhin mit.
+  refs.iconG.textContent = '';
+  ICONS[def.icon](refs.iconG, def.battery ? (d.socHave ? d.soc : null) : null);
+  setValueText(refs.valText, magnitude);
 }
 
 function handleMessage(raw) {
@@ -456,58 +508,31 @@ function handleMessage(raw) {
 
   if (d.font) document.documentElement.style.setProperty('--font', d.font);
   if (d.bg)   document.body.style.background = d.bg;
+  if (d.transMs !== undefined && d.transMs !== null) {
+    document.documentElement.style.setProperty('--trans', (+d.transMs || 0) + 'ms');
+  }
 
   const dot = document.getElementById('dot');
   dot.setAttribute('class', 'status-dot' + (d.ok ? ' ok pulse' : ''));
   document.getElementById('stateLabel').textContent = d.stateLabel ?? '–';
 
-  const wiresLayer = document.getElementById('wires-layer');
-  const nodesLayer = document.getElementById('nodes-layer');
-  const markerDefs = document.getElementById('markerDefs');
-  wiresLayer.innerHTML = '';
-  nodesLayer.innerHTML = '';
-  markerDefs.innerHTML = '';
-
   if (!d.ok) return;
 
+  // --- Zentrum (Hauslast) ---
   const houseW = d.houseW ?? 0;
   const gridImportW = (d.gridHave && (d.gridW ?? 0) < 0) ? Math.abs(d.gridW) : 0;
   const gridShare = houseW > 0 ? Math.min(1, gridImportW / houseW) : 0;
-  const centerColor = lerp(C_GREEN, C_RED, gridShare);
   const centerActive = !!d.houseHave && houseW > 20;
-
-  // Wie bei den äußeren Knoten: Ring/Glow bleiben bei ACTIVE_R gezeichnet,
-  // die ganze Gruppe (inkl. Icon/Wert/Beschriftung) wird stattdessen
-  // skaliert, damit bei Inaktivität wirklich der gesamte Kreisinhalt
-  // schrumpft statt nur der Ring.
-  const centerScale = (centerActive ? ACTIVE_R : INACTIVE_R) / ACTIVE_R;
+  const centerColor = centerActive ? lerp(C_GREEN, C_RED, gridShare) : C_GREY;
   const centerG = document.getElementById('node-center');
-  centerG.setAttribute('transform', `translate(280,301) scale(${centerScale})`);
-  centerG.style.setProperty('--nc', rgb(d.houseHave && centerActive ? centerColor : C_GREY));
-  centerG.style.opacity = centerActive ? '1' : '0.32';
-  centerG.querySelector('.node-ring').style.fill = centerActive ? 'url(#plasticFill)' : 'none';
-  ['center-shadow', 'center-bevel', 'center-highlight', 'center-spec'].forEach(id => {
-    document.getElementById(id).style.display = centerActive ? '' : 'none';
-  });
-  document.getElementById('center-icon').setAttribute('filter', centerActive ? 'url(#relief)' : '');
-  document.getElementById('lbl-center-val').setAttribute('filter', centerActive ? 'url(#relief)' : '');
-  const centerGlow = centerG.querySelector('.node-glow');
-  if (centerActive) { applyGlow(centerGlow, centerColor, houseW); } else { centerGlow.style.stroke = 'var(--grey-glow)'; }
+  applyNodeState(centerG, centerG.querySelector('.node-glow'),
+    centerColor, houseW, centerActive, CX, CY);
   setValueText(document.getElementById('lbl-center-val'), houseW);
 
+  // --- Äußere Knoten ---
   const presentDefs = NODE_DEFS.filter(def => d[def.have]);
-  const n = presentDefs.length;
-  presentDefs.forEach((def, i) => {
-    // Vorhandene Knoten gleichmäßig radial um die Hauslast verteilen, in der
-    // Reihenfolge aus NODE_DEFS, beginnend oben (-90°) im Uhrzeigersinn.
-    const angleDeg = -90 + (360 / n) * i;
-    const { g, wires } = buildOuterNode(def, angleDeg, d, markerDefs);
-    // Pfeile/Lauflinien für den Moment ausgeblendet (SHOW_FLOW), Geometrie
-    // bleibt vollständig berechnet, um sie jederzeit einfach wieder
-    // einzuschalten.
-    if (SHOW_FLOW) { wires.forEach(w => wiresLayer.appendChild(w)); }
-    nodesLayer.appendChild(g);
-  });
+  ensureNodes(presentDefs);
+  presentDefs.forEach(def => updateOuterNode(nodeRefs[def.key], def, d));
 }
 </script>
 </body>

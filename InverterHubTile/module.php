@@ -27,6 +27,7 @@ class InverterHubTile extends IPSModule
 
     private const DEF_BACKGROUND = -1;
     private const DEF_FONT       = 'system';
+    private const DEF_TRANSITION = 800;
 
     public function Create()
     {
@@ -35,6 +36,7 @@ class InverterHubTile extends IPSModule
         $this->RegisterPropertyInteger('SourceInstance', 0);
         $this->RegisterPropertyInteger('ColorBackground', self::DEF_BACKGROUND);
         $this->RegisterPropertyString('FontFamily',       self::DEF_FONT);
+        $this->RegisterPropertyInteger('TransitionMs',    self::DEF_TRANSITION);
 
         $this->SetVisualizationType(1);
     }
@@ -114,6 +116,7 @@ class InverterHubTile extends IPSModule
         $id = $this->InstanceID;
         IPS_SetProperty($id, 'ColorBackground', self::DEF_BACKGROUND);
         IPS_SetProperty($id, 'FontFamily',      self::DEF_FONT);
+        IPS_SetProperty($id, 'TransitionMs',    self::DEF_TRANSITION);
         IPS_ApplyChanges($id);
         $this->ReloadForm();
     }
@@ -132,8 +135,9 @@ class InverterHubTile extends IPSModule
     private function BuildPayload()
     {
         $style = [
-            'bg'   => $this->ColorOrEmpty($this->ReadPropertyInteger('ColorBackground')),
-            'font' => $this->FontStack($this->ReadPropertyString('FontFamily')),
+            'bg'      => $this->ColorOrEmpty($this->ReadPropertyInteger('ColorBackground')),
+            'font'    => $this->FontStack($this->ReadPropertyString('FontFamily')),
+            'transMs' => $this->TransitionValue(),
         ];
 
         $src = $this->ResolveSource();
@@ -246,5 +250,11 @@ class InverterHubTile extends IPSModule
             return '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
         }
         return $family;
+    }
+
+    private function TransitionValue()
+    {
+        $v = (int)$this->ReadPropertyInteger('TransitionMs');
+        return ($v >= 0 && $v <= 5000) ? $v : self::DEF_TRANSITION;
     }
 }
