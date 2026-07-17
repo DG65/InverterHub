@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.22.2-beta.1 (2026-07-17)
+
+- **Kritischer Bugfix Discovery** (gemeldet vom Sungrow-Beta-Tester: nach dem Update wird der
+  Wechselrichter nicht mehr gefunden, nur noch der RTU/TCP-Konverter): Regressionsfehler aus
+  0.6.3 - die Fortschrittsanzeige feuerte in **jeder** Runde der Portscan-Schleife vier
+  `UpdateFormField`-Aufrufe ab. Diese RPCs fraßen das 2-Sekunden-Zeitfenster des Scans auf,
+  sodass kaum noch echte Socket-Abfragen stattfanden: schnell antwortende Geräte (der
+  Konverter) wurden noch erwischt, langsamere TCP-Handshakes (der Wechselrichter dahinter)
+  fielen aus dem Fenster. Die Fortschrittsanzeige ist jetzt auf max. alle 300 ms gedrosselt
+  und ihre Laufzeit wird dem Scan-Budget gutgeschrieben.
+- Scan-Fenster von 2 s auf 3 s erhöht - Geräte hinter RTU/TCP-Konvertern/Gateways brauchen für
+  den TCP-Handshake teils spürbar länger.
+
 ## 0.22.1-beta.1 (2026-07-17)
 
 - **Statusanzeige nach unten links** verlegt, damit sie dem Diagramm nicht mehr in die Quere

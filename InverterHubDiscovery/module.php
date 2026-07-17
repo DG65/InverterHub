@@ -262,7 +262,9 @@ class InverterHubDiscovery extends IPSModule
 
         $this->ShowProgress('Durchsuche ' . count($ips) . ' IP-Adressen auf Port ' . $port . ' …', 0);
 
-        $openIps = $this->scanPortOpen($ips, $port, 2.0);
+        // 3 s statt 2 s: RTU/TCP-Konverter und Wechselrichter hinter Gateways
+        // brauchen für den TCP-Handshake teils spürbar länger.
+        $openIps = $this->scanPortOpen($ips, $port, 3.0);
 
         $results = [];
         $total   = count($openIps);
@@ -336,6 +338,7 @@ class InverterHubDiscovery extends IPSModule
         $totalOpen = count($pending);
         $startTime = microtime(true);
         $deadline  = $startTime + $timeoutSec;
+        $lastUi    = 0.0;
         while (count($pending) > 0 && microtime(true) < $deadline) {
             $write  = array_values($pending);
             $read   = [];
@@ -358,12 +361,25 @@ class InverterHubDiscovery extends IPSModule
             }
             // Fortschritt anhand verbrauchtem Zeitbudget (grobe Schätzung,
             // da einzelne IPs unterschiedlich schnell antworten/timeouten).
-            $elapsed = microtime(true) - $startTime;
-            $pct     = (int)round(min(95, ($elapsed / $timeoutSec) * 90));
-            $this->ShowProgress(
-                "Portscan läuft … " . count($open) . " offen, " . count($pending) . " von $totalOpen noch offen",
-                $pct
-            );
+            //
+            // WICHTIG: gedrosselt (max. alle 300 ms) und die dafür verbrauchte
+            // Zeit wird dem Scan-Budget gutgeschrieben. Ungedrosselt liefen
+            // die UpdateFormField-RPCs in JEDER Schleifenrunde und fraßen das
+            // Zeitfenster auf - langsamer verbindende Geräte (z. B. ein
+            // Wechselrichter hinter einem RTU/TCP-Konverter) fielen dadurch
+            // aus dem Scan, obwohl ihr Port offen war (real gemeldet, ab
+            // 0.6.3 aufgetreten).
+            $now = microtime(true);
+            if ($now - $lastUi >= 0.3) {
+                $lastUi  = $now;
+                $elapsed = $now - $startTime;
+                $pct     = (int)round(min(95, ($elapsed / $timeoutSec) * 90));
+                $this->ShowProgress(
+                    "Portscan läuft … " . count($open) . " offen, " . count($pending) . " von $totalOpen noch offen",
+                    $pct
+                );
+                $deadline += microtime(true) - $now;   // UI-Zeit nicht anrechnen
+            }
         }
         foreach ($pending as $sock) {
             @fclose($sock);
