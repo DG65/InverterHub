@@ -71,7 +71,14 @@
   /* Fill/Stroke sind vererbbare CSS-Eigenschaften bei SVG (im Gegensatz zu
      "color"/currentColor) - Icon-Kinder erben --nc automatisch. */
   .node-icon, .node-icon * { fill: var(--nc, var(--grey)); stroke: var(--nc, var(--grey)); }
-  .node-icon rect[data-hollow], .node-icon polygon[data-hollow] { fill: none; }
+  /* Konturformen: die Regel oben setzt fill auf ALLE Kinder und schlägt dabei
+     das fill="none"-Attribut (CSS gewinnt gegen Präsentationsattribut). Formen,
+     die nur als Umriss gezeichnet werden sollen, werden daher per data-hollow
+     ausgenommen - das muss jeden verwendeten Elementtyp abdecken. */
+  .node-icon rect[data-hollow],
+  .node-icon polygon[data-hollow],
+  .node-icon circle[data-hollow],
+  .node-icon path[data-hollow] { fill: none; }
 
   /* Striktes, überall identisches Template: Icon -> Wert -> Label, in genau
      dieser Reihenfolge und mit denselben Abständen für JEDEN Knoten. */
@@ -179,22 +186,19 @@
     </filter>
   </defs>
 
-  <!-- Statuszeile: Position ist an die Diagramm-Geometrie gekoppelt (knapp
-       oberhalb/links von Solar- und Verluste-Kreis), nicht an einen
-       willkürlichen Fixpunkt in der viewBox. -->
-  <!-- Punkt exakt linksbündig mit dem Verluste-Kreis (CX-R_OUTER-ACTIVE_R) und
-       obenbündig mit dem Solar-Kreis (CY-R_OUTER-ACTIVE_R), bezogen auf deren
-       MAXIMALE (aktive) Größe, damit der Punkt nicht mitwandert, wenn ein
-       Knoten inaktiv/kleiner wird. -->
+  <!-- Statuszeile: Position ist an die Diagramm-Geometrie gekoppelt, nicht an
+       einen willkürlichen Fixpunkt. Der Punkt sitzt exakt am linken/oberen
+       Rand des Layout-Kreises: CX-R_MAX bzw. CY-R_MAX (jeweils + Punktradius).
+       Da der äußere Rand der Knoten per Konstruktion immer genau bei R_MAX
+       liegt, bleibt der Punkt unabhängig von der Knotenzahl bündig. -->
   <circle id="dot" class="status-dot" cx="52.5" cy="73.5" r="6.5"/>
   <text id="stateLabel" x="66" y="78.5" class="state-label">–</text>
 
   <!-- Dynamischer Inhalt: Speichen zuerst (unten), dann Knoten (oben) -->
   <g id="wires-layer"></g>
 
-  <!-- Zentrum: Hauslast, immer vorhanden. Kollektor-Ring (für den Moment
-       ausgeblendet, siehe SHOW_RING in <script>) liegt etwa mittig zwischen
-       Zentrums- und äußeren Kreisen (r=96 bei R_OUTER=178). -->
+  <!-- Zentrum: Hauslast, immer vorhanden. Kollektor-Ring derzeit ausgeblendet
+       (Nutzerwunsch), lag mittig zwischen Zentrums- und äußeren Kreisen. -->
   <circle class="ring-decor" id="ring-decor" cx="280" cy="301" r="96" style="display:none"/>
   <g id="node-center" class="node">
     <circle class="coin-shadow" cx="0" cy="8.96" r="54.88"/>
@@ -220,12 +224,34 @@
 // #markerDefs, #ring-decor) sowie deren CSS sind absichtlich erhalten, damit
 // sie sich bei Bedarf wieder befüllen lassen.
 const CX = 280, CY = 301;          // Zentrum
+// Die Knoten-Geometrie wird IMMER in dieser Entwurfsgröße gezeichnet; die
+// tatsächliche Darstellungsgröße entsteht ausschließlich über die Skalierung
+// der Gruppe. Dadurch skaliert stets der komplette Kreisinhalt mit.
+const DESIGN_R = 56;
 // Aktive Knoten sind alle gleich groß; inaktive (kein nennenswerter Fluss)
 // werden bewusst kleiner gezeichnet - der Größenunterschied selbst ist das
 // gewünschte Signal für "inaktiv", nicht nur Farbe/Transparenz.
-const ACTIVE_R   = 56;
-const INACTIVE_R = 44;
-const R_OUTER  = 178;              // Abstand der äußeren Knoten vom Zentrum
+const SCALE_INACTIVE = 44 / 56;
+// Äußerer Rand des Layouts: Der Abstand vom Zentrum plus Knotenradius ergibt
+// immer exakt diesen Wert, damit die Kachel unabhängig von der Knotenzahl
+// gleich groß bleibt (und die Statuszeile bündig sitzt).
+const R_MAX = 234;
+const NODE_GAP = 10;               // Mindestluft zwischen benachbarten Knoten
+
+// Kreisgröße und -abstand aus der Knotenzahl ableiten: Bei wenigen Knoten
+// bleibt es bei der Entwurfsgröße, ab ca. neun Knoten werden sie so weit
+// verkleinert, dass sich benachbarte Kreise gerade nicht berühren.
+// Herleitung: Sehne zwischen zwei benachbarten Mittelpunkten
+// = 2*rOuter*sin(pi/n) muss >= 2*outerR + NODE_GAP sein, mit rOuter = R_MAX - outerR.
+function computeLayout(n) {
+  let outerR = DESIGN_R;
+  if (n >= 3) {
+    const s = Math.sin(Math.PI / n);
+    outerR = Math.min(DESIGN_R, (R_MAX * s - NODE_GAP / 2) / (1 + s));
+  }
+  outerR = Math.max(16, outerR);
+  return { outerR, rOuter: R_MAX - outerR };
+}
 
 const C_SOLAR = [255, 179, 0];
 const C_BAT   = [33, 150, 243];
@@ -372,29 +398,72 @@ const ICONS = {
       'stroke-linejoin': 'round'
     }));
   },
+  // Wärmepumpe: Außeneinheit (Gehäuse) mit Lüfterrad.
+  heatpump(g) {
+    g.appendChild(el('rect', { x: -15, y: -12, width: 30, height: 24, rx: 3, 'data-hollow': '1' }));
+    g.appendChild(el('circle', { cx: 0, cy: 0, r: 7.5, 'data-hollow': '1' }));
+    g.appendChild(el('circle', { cx: 0, cy: 0, r: 1.6, stroke: 'none' }));
+    [[0, -7.5], [6.5, 3.75], [-6.5, 3.75]].forEach(([x, y]) => {
+      g.appendChild(el('line', { x1: 0, y1: 0, x2: x, y2: y, 'stroke-linecap': 'round' }));
+    });
+  },
+  // Wallbox: Wandladestation mit Blitz und abgehendem Ladekabel.
+  wallbox(g) {
+    g.appendChild(el('rect', { x: -11, y: -13, width: 19, height: 26, rx: 3, 'data-hollow': '1' }));
+    g.appendChild(el('polygon', {
+      points: '0,-9 -4.5,-1 -1.2,-1 -2.4,7 2.4,-1.5 -0.9,-1.5',
+      'data-hollow': '1', 'stroke-linejoin': 'round',
+    }));
+    g.appendChild(el('path', {
+      d: 'M8,7 C13,7 13,11 10.5,13.5', 'data-hollow': '1', 'stroke-linecap': 'round',
+    }));
+  },
 };
 
-// -- Node-Definitionen: legen fest, welche äußeren Knoten grundsätzlich
-//    existieren können. "have"/"w" verweisen auf Felder im Payload.
-//    Die REIHENFOLGE hier ist die im Uhrzeigersinn ab oben: Solar (oben),
-//    Batterie (rechts), Netz (unten), Verluste (links). Die tatsächlichen
-//    Winkel werden aber NICHT fest vergeben, sondern die jeweils vorhandenen
-//    Knoten werden gleichmäßig (radial) um die Hauslast verteilt - so bleibt
-//    die Anordnung immer ausgewogen, auch wenn ein Knoten fehlt (kein
-//    "Loch" an einer festen Himmelsrichtung). Bei allen vier vorhandenen
-//    Knoten ergibt sich exakt oben/rechts/unten/links. Künftige Verbraucher
-//    (Wallbox, Wärmepumpe, ...) werden einfach an der gewünschten Stelle in
-//    dieser Liste eingefügt.
-const NODE_DEFS = [
+// -- Node-Definitionen: legen fest, welche festen äußeren Knoten es gibt.
+//    "have"/"w" verweisen auf Felder im Payload.
+//    Die Reihenfolge ist die im Uhrzeigersinn ab oben: Solar (oben), Batterie
+//    (rechts), [zusätzliche Verbraucher], Netz (unten), Verluste (links). Die
+//    Winkel werden NICHT fest vergeben, sondern alle vorhandenen Knoten werden
+//    gleichmäßig (radial) um die Hauslast verteilt - so bleibt die Anordnung
+//    immer ausgewogen, auch wenn ein Knoten fehlt oder Verbraucher dazukommen.
+//    Bei genau diesen vier Knoten ergibt sich weiterhin exakt
+//    oben/rechts/unten/links.
+const NODE_DEFS_LEAD = [
   { key: 'pv',   label: 'Solar',    icon: 'sun',     have: 'pvHave',   w: 'pvW',
     color: () => C_SOLAR, dir: () => 'in' },
   { key: 'bat',  label: 'Batterie', icon: 'battery', have: 'batHave',  w: 'batW',
     color: () => C_BAT, dir: (w) => w > 0 ? 'in' : 'out', battery: true },
+];
+const NODE_DEFS_TAIL = [
   { key: 'grid', label: 'Netz',     icon: 'bolt',    have: 'gridHave', w: 'gridW',
     color: (w) => w >= 0 ? C_GREEN : C_RED, dir: (w) => w >= 0 ? 'out' : 'in' },
   { key: 'loss', label: 'Verluste', icon: 'flame',   have: 'lossHave', w: 'lossW',
     color: () => C_GREY, dir: () => 'out', grey: true, minMagnitude: 15 },
 ];
+
+// Baut die tatsächlich darzustellende Knotenliste: feste Knoten (soweit im
+// Payload vorhanden) plus die frei konfigurierten Verbraucher (Wärmepumpe,
+// beliebig viele Wallboxen), die zwischen Batterie und Netz eingereiht werden.
+// consumerColor: Verbraucher folgen derselben Semantik wie die Hauslast -
+// grün, solange lokal aus PV/Batterie gedeckt, rot bei Netzbezug.
+function buildItems(d, consumerColor) {
+  const items = [];
+  const addFixed = (def) => {
+    if (d[def.have]) { items.push({ ...def, value: d[def.w] ?? 0 }); }
+  };
+
+  NODE_DEFS_LEAD.forEach(addFixed);
+  (d.consumers || []).forEach(c => items.push({
+    key: c.key, label: c.label, icon: c.icon,
+    value: c.w || 0,
+    color: () => consumerColor,
+    dir: () => 'out',
+  }));
+  NODE_DEFS_TAIL.forEach(addFixed);
+
+  return items;
+}
 
 function setValueText(textEl, watts) {
   textEl.firstChild.nodeValue = fmtKw(watts);
@@ -406,25 +475,26 @@ function setValueText(textEl, watts) {
 // alles neu erzeugt, startet jedes Element bereits in seinem Zielzustand und
 // der Wechsel aktiv/inaktiv wirkt zwangsläufig schlagartig.
 let builtSig = null;
-const nodeRefs = {};   // key -> { g, glow, iconG, valText, cx, cy }
+const nodeRefs = {};   // key -> { g, glow, iconG, valText, cx, cy, baseScale }
 
-function createOuterNode(def, angleDeg) {
+function createOuterNode(item, angleDeg, layout) {
   const rad = angleDeg * Math.PI / 180;
-  const cx = CX + R_OUTER * Math.cos(rad);
-  const cy = CY + R_OUTER * Math.sin(rad);
+  const cx = CX + layout.rOuter * Math.cos(rad);
+  const cy = CY + layout.rOuter * Math.sin(rad);
 
-  // Ring/Glow werden immer in voller Größe (ACTIVE_R) gezeichnet; die
-  // Verkleinerung bei Inaktivität passiert über die Skalierung der ganzen
-  // Gruppe, damit der gesamte Kreisinhalt proportional mitgeht.
+  // Die Geometrie entsteht immer in der Entwurfsgröße (DESIGN_R); sowohl die
+  // layoutbedingte Größe (viele Knoten -> kleinere Kreise) als auch die
+  // Verkleinerung bei Inaktivität laufen ausschließlich über die Skalierung
+  // der ganzen Gruppe, damit stets der komplette Kreisinhalt mitgeht.
   const g = el('g', { class: 'node' });
-  g.appendChild(makeCoinShadow(ACTIVE_R));
-  const glow = el('circle', { class: 'node-glow', r: ACTIVE_R });
+  g.appendChild(makeCoinShadow(DESIGN_R));
+  const glow = el('circle', { class: 'node-glow', r: DESIGN_R });
   g.appendChild(glow);
-  g.appendChild(el('circle', { class: 'node-face', r: ACTIVE_R }));
-  g.appendChild(el('circle', { class: 'node-ring', r: ACTIVE_R }));
-  g.appendChild(makeBevel(ACTIVE_R));
-  g.appendChild(makeHighlight(ACTIVE_R));
-  g.appendChild(makeSpecular(ACTIVE_R));
+  g.appendChild(el('circle', { class: 'node-face', r: DESIGN_R }));
+  g.appendChild(el('circle', { class: 'node-ring', r: DESIGN_R }));
+  g.appendChild(makeBevel(DESIGN_R));
+  g.appendChild(makeHighlight(DESIGN_R));
+  g.appendChild(makeSpecular(DESIGN_R));
 
   const iconG = el('g', {
     class: 'node-icon', transform: 'translate(0,-30)',
@@ -444,17 +514,17 @@ function createOuterNode(def, angleDeg) {
   g.appendChild(valText);
 
   const labelText = el('text', { x: 0, y: 33, 'text-anchor': 'middle', class: 'node-label' });
-  labelText.textContent = def.label;
+  labelText.textContent = item.label;
   g.appendChild(labelText);
 
-  return { g, glow, iconG, valText, cx, cy };
+  return { g, glow, iconG, valText, cx, cy, baseScale: layout.outerR / DESIGN_R };
 }
 
-// Baut die Knoten nur dann (neu) auf, wenn sich die Menge der vorhandenen
-// Datenpunkte tatsächlich geändert hat (Konfigurationsänderung) - im
-// laufenden Betrieb bleibt die Struktur stehen und wird nur aktualisiert.
-function ensureNodes(presentDefs) {
-  const sig = presentDefs.map(x => x.key).join(',');
+// Baut die Knoten nur dann (neu) auf, wenn sich die Menge der darzustellenden
+// Knoten tatsächlich geändert hat (Konfigurationsänderung) - im laufenden
+// Betrieb bleibt die Struktur stehen und wird nur aktualisiert.
+function ensureNodes(items) {
+  const sig = items.map(x => x.key + ':' + x.label + ':' + x.icon).join(',');
   if (sig === builtSig) return;
   builtSig = sig;
 
@@ -462,13 +532,14 @@ function ensureNodes(presentDefs) {
   nodesLayer.textContent = '';
   Object.keys(nodeRefs).forEach(k => delete nodeRefs[k]);
 
-  const n = presentDefs.length;
-  presentDefs.forEach((def, i) => {
-    // Vorhandene Knoten gleichmäßig radial um die Hauslast verteilen, in der
-    // Reihenfolge aus NODE_DEFS, beginnend oben (-90°) im Uhrzeigersinn.
+  const n = items.length;
+  const layout = computeLayout(n);
+  items.forEach((item, i) => {
+    // Alle Knoten gleichmäßig radial um die Hauslast verteilen, in der
+    // Reihenfolge aus buildItems, beginnend oben (-90°) im Uhrzeigersinn.
     const angleDeg = -90 + (360 / n) * i;
-    const refs = createOuterNode(def, angleDeg);
-    nodeRefs[def.key] = refs;
+    const refs = createOuterNode(item, angleDeg, layout);
+    nodeRefs[item.key] = refs;
     nodesLayer.appendChild(refs.g);
   });
 }
@@ -476,9 +547,10 @@ function ensureNodes(presentDefs) {
 // Gemeinsame Zustandslogik für äußere Knoten UND das Zentrum: Position und
 // Skalierung stecken in EINEM transform (nur der Skalenanteil ändert sich),
 // Farbe/Deckkraft/Corona werden gesetzt - das Ein-/Ausblenden der Münz-Ebenen
-// erledigt die Klasse .inactive per CSS.
-function applyNodeState(g, glow, color, magnitude, active, cx, cy) {
-  const scale = (active ? ACTIVE_R : INACTIVE_R) / ACTIVE_R;
+// erledigt die Klasse .inactive per CSS. baseScale bringt die layoutbedingte
+// Größe ein (bei vielen Knoten werden alle Kreise kleiner).
+function applyNodeState(g, glow, color, magnitude, active, cx, cy, baseScale) {
+  const scale = baseScale * (active ? 1 : SCALE_INACTIVE);
   g.classList.toggle('inactive', !active);
   g.style.transform = `translate(${cx}px, ${cy}px) scale(${scale})`;
   g.style.opacity = active ? '1' : '0.32';
@@ -487,18 +559,19 @@ function applyNodeState(g, glow, color, magnitude, active, cx, cy) {
   else { glow.style.stroke = 'var(--grey-glow)'; }
 }
 
-function updateOuterNode(refs, def, d) {
-  const w = d[def.w] ?? 0;
+function updateOuterNode(refs, item, d) {
+  const w = item.value ?? 0;
   const magnitude = Math.abs(w);
-  const active = magnitude > (def.minMagnitude ?? 20);
-  const color = def.grey ? C_GREY : (active ? def.color(w) : C_GREY);
+  const active = magnitude > (item.minMagnitude ?? 20);
+  const color = item.grey ? C_GREY : (active ? item.color(w) : C_GREY);
 
-  applyNodeState(refs.g, refs.glow, color, magnitude, active, refs.cx, refs.cy);
+  applyNodeState(refs.g, refs.glow, color, magnitude, active,
+    refs.cx, refs.cy, refs.baseScale);
 
   // Icon neu zeichnen (der Batterie-Füllstand ändert sich laufend); die Farbe
   // kommt geerbt über --nc und animiert dadurch weiterhin mit.
   refs.iconG.textContent = '';
-  ICONS[def.icon](refs.iconG, def.battery ? (d.socHave ? d.soc : null) : null);
+  ICONS[item.icon](refs.iconG, item.battery ? (d.socHave ? d.soc : null) : null);
   setValueText(refs.valText, magnitude);
 }
 
@@ -519,20 +592,22 @@ function handleMessage(raw) {
   if (!d.ok) return;
 
   // --- Zentrum (Hauslast) ---
+  // Anteil des Netzbezugs am Verbrauch bestimmt die Farbe: vollständig lokal
+  // gedeckt = grün, vollständig aus dem Netz = rot.
   const houseW = d.houseW ?? 0;
   const gridImportW = (d.gridHave && (d.gridW ?? 0) < 0) ? Math.abs(d.gridW) : 0;
   const gridShare = houseW > 0 ? Math.min(1, gridImportW / houseW) : 0;
+  const consumerColor = lerp(C_GREEN, C_RED, gridShare);
   const centerActive = !!d.houseHave && houseW > 20;
-  const centerColor = centerActive ? lerp(C_GREEN, C_RED, gridShare) : C_GREY;
   const centerG = document.getElementById('node-center');
   applyNodeState(centerG, centerG.querySelector('.node-glow'),
-    centerColor, houseW, centerActive, CX, CY);
+    centerActive ? consumerColor : C_GREY, houseW, centerActive, CX, CY, 1);
   setValueText(document.getElementById('lbl-center-val'), houseW);
 
-  // --- Äußere Knoten ---
-  const presentDefs = NODE_DEFS.filter(def => d[def.have]);
-  ensureNodes(presentDefs);
-  presentDefs.forEach(def => updateOuterNode(nodeRefs[def.key], def, d));
+  // --- Äußere Knoten (feste Knoten + konfigurierte Verbraucher) ---
+  const items = buildItems(d, consumerColor);
+  ensureNodes(items);
+  items.forEach(item => updateOuterNode(nodeRefs[item.key], item, d));
 }
 </script>
 </body>

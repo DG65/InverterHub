@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.18.0-beta.1 (2026-07-16)
+
+- **Neu: Wärmepumpe und beliebig viele Wallboxen** als zusätzliche Verbraucher-Kreise in
+  `InverterHubTile`. Sie stammen nicht aus dem Wechselrichter, sondern werden im neuen Panel
+  „Weitere Verbraucher (optional)" als vorhandene Leistungs-Variablen ausgewählt: Wärmepumpe
+  als einzelne Variable, Wallboxen als Liste mit frei wählbarer Bezeichnung (z. B. „Garage",
+  „Carport") - also mehrere Wallboxen möglich. Die Kachel abonniert diese Variablen selbst und
+  aktualisiert sich bei deren Änderung.
+- **Anordnung skaliert jetzt mit der Knotenzahl**: Kreisgröße und -abstand werden aus der
+  Anzahl berechnet (Sehnenformel), sodass sich benachbarte Kreise auch bei vielen Verbrauchern
+  nie berühren. Bis acht Knoten bleibt es bei der bisherigen Größe, darüber verkleinern sich
+  alle Kreise gemeinsam. Der äußere Rand liegt konstruktionsbedingt immer exakt gleich weit
+  vom Zentrum - die Kachel behält damit unabhängig von der Knotenzahl ihre Größe, und die
+  Statuszeile bleibt bündig. Der bisherige Vier-Knoten-Fall bleibt unverändert
+  (oben/rechts/unten/links, gleiche Größe).
+- Verbraucher werden zwischen Batterie und Netz eingereiht und folgen farblich derselben
+  Semantik wie die Hauslast: grün, solange lokal aus PV/Batterie gedeckt, rot bei Netzbezug.
+- Bugfix am Rande: bei Icons wurden `circle`/`path`-Konturen gefüllt statt als Umriss
+  gezeichnet — die CSS-Ausnahme für Konturformen deckte nur `rect`/`polygon` ab.
+
 ## 0.17.0-beta.1 (2026-07-16)
 
 - **Gleitender Wechsel aktiv/inaktiv**: der Zustandswechsel eines Kreises springt nicht mehr,

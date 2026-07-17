@@ -58,6 +58,46 @@
     },
     {
       "type": "ExpansionPanel",
+      "caption": "Weitere Verbraucher (optional)",
+      "expanded": false,
+      "items": [
+        {
+          "type": "Label",
+          "caption": "Zusätzliche Verbraucher werden als eigene Kreise dargestellt. Sie stammen nicht aus dem Wechselrichter, sondern aus vorhandenen Leistungs-Variablen (Watt). Die Anordnung verteilt alle Kreise automatisch radial und passt Größe und Abstand an ihre Anzahl an."
+        },
+        {
+          "type": "SelectVariable",
+          "name": "HeatPumpID",
+          "caption": "Wärmepumpe (Leistung in W)"
+        },
+        {
+          "type": "List",
+          "name": "Wallboxes",
+          "caption": "Wallboxen (Leistung in W)",
+          "rowCount": 3,
+          "add": true,
+          "delete": true,
+          "columns": [
+            {
+              "caption": "Bezeichnung",
+              "name": "Name",
+              "width": "200px",
+              "add": "Wallbox",
+              "edit": { "type": "ValidationTextBox" }
+            },
+            {
+              "caption": "Leistungs-Variable",
+              "name": "VariableID",
+              "width": "auto",
+              "add": 0,
+              "edit": { "type": "SelectVariable" }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
       "caption": "Darstellung",
       "expanded": false,
       "items": [

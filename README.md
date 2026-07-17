@@ -83,10 +83,17 @@ dafür vorhanden).
 ### InverterHubTile
 
 Energiefluss-Kachel (Visualisierung) für eine InverterHub-Instanz, unabhängig vom Hersteller.
-Die **Hauslast** sitzt im Zentrum, alle übrigen Größen (Solar, Batterie, Netz und optional
-Wandlungsverluste) werden gleichmäßig **radial** darum verteilt — in der Reihenfolge Solar
-(oben), Batterie (rechts), Netz (unten), Verluste (links). Fehlt ein Datenpunkt, bleibt die
-Anordnung ausgewogen, statt eine Lücke zu hinterlassen.
+Die **Hauslast** sitzt im Zentrum, alle übrigen Größen (Solar, Batterie, Netz, optional
+Wandlungsverluste sowie frei konfigurierte Verbraucher) werden gleichmäßig **radial** darum
+verteilt — in der Reihenfolge Solar (oben), Batterie (rechts), Verbraucher, Netz (unten),
+Verluste (links). Fehlt ein Datenpunkt, bleibt die Anordnung ausgewogen, statt eine Lücke zu
+hinterlassen. Kreisgröße und -abstand werden aus der Knotenzahl berechnet, sodass sich auch
+bei vielen Verbrauchern nie Kreise überlappen und die Kachel ihre Größe behält.
+
+**Weitere Verbraucher (optional):** Im Panel „Weitere Verbraucher" lassen sich eine
+**Wärmepumpe** sowie **beliebig viele Wallboxen** (Liste mit frei wählbarer Bezeichnung)
+ergänzen. Sie kommen nicht aus dem Wechselrichter, sondern werden als vorhandene
+Leistungs-Variablen (Watt) ausgewählt und erscheinen als eigene Kreise.
 
 Die Farben sind semantisch fest vergeben: Solar = Sonnengelb, Netz = Grün bei Einspeisung/Rot
 bei Bezug, Batterie = Blau, Verluste = Grau, Hauslast = weicher Grün-Rot-Verlauf je nach

@@ -37,6 +37,10 @@ class InverterHubTile extends IPSModule
         $this->RegisterPropertyInteger('ColorBackground', self::DEF_BACKGROUND);
         $this->RegisterPropertyString('FontFamily',       self::DEF_FONT);
         $this->RegisterPropertyInteger('TransitionMs',    self::DEF_TRANSITION);
+        // Zusätzliche Verbraucher, die nicht aus dem Wechselrichter kommen,
+        // sondern als vorhandene Leistungs-Variablen ausgewählt werden.
+        $this->RegisterPropertyInteger('HeatPumpID', 0);
+        $this->RegisterPropertyString('Wallboxes', '[]');
 
         $this->SetVisualizationType(1);
     }
@@ -77,7 +81,49 @@ class InverterHubTile extends IPSModule
             $this->SetStatus(201);
         }
 
+        // Zusätzliche Verbraucher (Wärmepumpe/Wallboxen) liegen außerhalb der
+        // Quell-Instanz und müssen separat abonniert werden.
+        foreach ($this->CollectConsumerVarIDs() as $vid) {
+            $this->RegisterReference($vid);
+            $this->RegisterMessage($vid, VM_UPDATE);
+        }
+
         $this->UpdateVisualizationValue($this->BuildPayload());
+    }
+
+    // Liefert die IDs aller konfigurierten Verbraucher-Variablen (Wärmepumpe,
+    // Wallboxen), gefiltert auf tatsächlich existierende Variablen.
+    private function CollectConsumerVarIDs()
+    {
+        $ids = [];
+        $hp = (int)$this->ReadPropertyInteger('HeatPumpID');
+        if ($hp > 0 && IPS_VariableExists($hp)) {
+            $ids[] = $hp;
+        }
+        foreach ($this->ReadWallboxRows() as $row) {
+            $ids[] = $row['id'];
+        }
+        return array_unique($ids);
+    }
+
+    // Wallbox-Liste aus der Konfiguration lesen und auf gültige Zeilen
+    // reduzieren (Name + existierende Variable).
+    private function ReadWallboxRows()
+    {
+        $rows = json_decode($this->ReadPropertyString('Wallboxes'), true);
+        if (!is_array($rows)) {
+            return [];
+        }
+        $out = [];
+        foreach ($rows as $row) {
+            $vid = (int)($row['VariableID'] ?? 0);
+            if ($vid <= 0 || !IPS_VariableExists($vid)) {
+                continue;
+            }
+            $name = trim((string)($row['Name'] ?? ''));
+            $out[] = ['id' => $vid, 'name' => ($name !== '' ? $name : 'Wallbox')];
+        }
+        return $out;
     }
 
     public function MessageSink($TimeStamp, $SenderID, $Message, $Data)
@@ -225,9 +271,39 @@ class InverterHubTile extends IPSModule
             'soc'        => $socHave ? round((float)$soc) : null,
             'lossHave'   => $lossHave,
             'lossW'      => round($lossW),
+            'consumers'  => $this->BuildConsumers(),
         ]);
 
         return json_encode($payload);
+    }
+
+    // Zusätzliche Verbraucher als Liste für die Kachel. Die Kachel verteilt
+    // alle vorhandenen Knoten selbst radial - die Anzahl ist daher frei.
+    private function BuildConsumers()
+    {
+        $out = [];
+
+        $hp = (int)$this->ReadPropertyInteger('HeatPumpID');
+        if ($hp > 0 && IPS_VariableExists($hp)) {
+            $out[] = [
+                'key'   => 'hp',
+                'label' => 'Wärmepumpe',
+                'icon'  => 'heatpump',
+                'w'     => round((float)GetValue($hp)),
+            ];
+        }
+
+        $i = 0;
+        foreach ($this->ReadWallboxRows() as $row) {
+            $out[] = [
+                'key'   => 'wb' . $i++,
+                'label' => $row['name'],
+                'icon'  => 'wallbox',
+                'w'     => round((float)GetValue($row['id'])),
+            ];
+        }
+
+        return $out;
     }
 
     // -----------------------------------------------------------------------
