@@ -29,6 +29,21 @@ class InverterHubTile extends IPSModule
     private const DEF_FONT       = 'system';
     private const DEF_TRANSITION = 800;
 
+    // Auswählbare Verbraucher-Arten. Der Schlüssel steht in der Konfiguration,
+    // 'label' dient als Vorgabe-Bezeichnung (wenn der Nutzer keine eigene
+    // vergibt) und 'icon' verweist auf den Icon-Zeichner in module.html.
+    private const CONSUMER_TYPES = [
+        'wallbox'  => ['label' => 'Wallbox',         'icon' => 'wallbox'],
+        'heatpump' => ['label' => 'Wärmepumpe',      'icon' => 'heatpump'],
+        'ac'       => ['label' => 'Klimaanlage',     'icon' => 'ac'],
+        'poolheat' => ['label' => 'Pool-Wärmepumpe', 'icon' => 'poolheat'],
+        'poolpump' => ['label' => 'Pool-Pumpe',      'icon' => 'poolpump'],
+        'sauna'    => ['label' => 'Sauna',           'icon' => 'sauna'],
+        'boiler'   => ['label' => 'Warmwasser',      'icon' => 'boiler'],
+        'dryer'    => ['label' => 'Trockner',        'icon' => 'dryer'],
+        'other'    => ['label' => 'Verbraucher',     'icon' => 'other'],
+    ];
+
     public function Create()
     {
         parent::Create();
@@ -39,8 +54,8 @@ class InverterHubTile extends IPSModule
         $this->RegisterPropertyInteger('TransitionMs',    self::DEF_TRANSITION);
         // Zusätzliche Verbraucher, die nicht aus dem Wechselrichter kommen,
         // sondern als vorhandene Leistungs-Variablen ausgewählt werden.
-        $this->RegisterPropertyInteger('HeatPumpID', 0);
-        $this->RegisterPropertyString('Wallboxes', '[]');
+        // Frei erweiterbare Tabelle: je Zeile Art, Bezeichnung und Variable.
+        $this->RegisterPropertyString('Consumers', '[]');
 
         $this->SetVisualizationType(1);
     }
@@ -91,26 +106,23 @@ class InverterHubTile extends IPSModule
         $this->UpdateVisualizationValue($this->BuildPayload());
     }
 
-    // Liefert die IDs aller konfigurierten Verbraucher-Variablen (Wärmepumpe,
-    // Wallboxen), gefiltert auf tatsächlich existierende Variablen.
+    // Liefert die IDs aller konfigurierten Verbraucher-Variablen, gefiltert auf
+    // tatsächlich existierende Variablen.
     private function CollectConsumerVarIDs()
     {
         $ids = [];
-        $hp = (int)$this->ReadPropertyInteger('HeatPumpID');
-        if ($hp > 0 && IPS_VariableExists($hp)) {
-            $ids[] = $hp;
-        }
-        foreach ($this->ReadWallboxRows() as $row) {
+        foreach ($this->ReadConsumerRows() as $row) {
             $ids[] = $row['id'];
         }
         return array_unique($ids);
     }
 
-    // Wallbox-Liste aus der Konfiguration lesen und auf gültige Zeilen
-    // reduzieren (Name + existierende Variable).
-    private function ReadWallboxRows()
+    // Verbraucher-Tabelle aus der Konfiguration lesen und auf gültige Zeilen
+    // reduzieren (existierende Variable). Unbekannte Arten fallen auf
+    // 'other' zurück, eine leere Bezeichnung auf die Vorgabe der Art.
+    private function ReadConsumerRows()
     {
-        $rows = json_decode($this->ReadPropertyString('Wallboxes'), true);
+        $rows = json_decode($this->ReadPropertyString('Consumers'), true);
         if (!is_array($rows)) {
             return [];
         }
@@ -120,8 +132,17 @@ class InverterHubTile extends IPSModule
             if ($vid <= 0 || !IPS_VariableExists($vid)) {
                 continue;
             }
+            $type = (string)($row['Type'] ?? 'other');
+            if (!isset(self::CONSUMER_TYPES[$type])) {
+                $type = 'other';
+            }
             $name = trim((string)($row['Name'] ?? ''));
-            $out[] = ['id' => $vid, 'name' => ($name !== '' ? $name : 'Wallbox')];
+            $out[] = [
+                'id'    => $vid,
+                'type'  => $type,
+                'name'  => ($name !== '' ? $name : self::CONSUMER_TYPES[$type]['label']),
+                'icon'  => self::CONSUMER_TYPES[$type]['icon'],
+            ];
         }
         return $out;
     }
@@ -282,27 +303,15 @@ class InverterHubTile extends IPSModule
     private function BuildConsumers()
     {
         $out = [];
-
-        $hp = (int)$this->ReadPropertyInteger('HeatPumpID');
-        if ($hp > 0 && IPS_VariableExists($hp)) {
+        $i   = 0;
+        foreach ($this->ReadConsumerRows() as $row) {
             $out[] = [
-                'key'   => 'hp',
-                'label' => 'Wärmepumpe',
-                'icon'  => 'heatpump',
-                'w'     => round((float)GetValue($hp)),
-            ];
-        }
-
-        $i = 0;
-        foreach ($this->ReadWallboxRows() as $row) {
-            $out[] = [
-                'key'   => 'wb' . $i++,
+                'key'   => 'c' . $i++,
                 'label' => $row['name'],
-                'icon'  => 'wallbox',
+                'icon'  => $row['icon'],
                 'w'     => round((float)GetValue($row['id'])),
             ];
         }
-
         return $out;
     }
 

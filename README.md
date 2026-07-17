@@ -90,10 +90,14 @@ Verluste (links). Fehlt ein Datenpunkt, bleibt die Anordnung ausgewogen, statt e
 hinterlassen. Kreisgröße und -abstand werden aus der Knotenzahl berechnet, sodass sich auch
 bei vielen Verbrauchern nie Kreise überlappen und die Kachel ihre Größe behält.
 
-**Weitere Verbraucher (optional):** Im Panel „Weitere Verbraucher" lassen sich eine
-**Wärmepumpe** sowie **beliebig viele Wallboxen** (Liste mit frei wählbarer Bezeichnung)
-ergänzen. Sie kommen nicht aus dem Wechselrichter, sondern werden als vorhandene
-Leistungs-Variablen (Watt) ausgewählt und erscheinen als eigene Kreise.
+**Weitere Verbraucher (optional):** Im Panel „Weitere Verbraucher" lassen sich **beliebig
+viele** zusätzliche Verbraucher als Tabelle pflegen — je Zeile **Art**, **Bezeichnung** und
+**Leistungs-Variable** (Watt). Sie kommen nicht aus dem Wechselrichter, sondern werden aus
+vorhandenen Variablen gespeist und erscheinen als eigene Kreise. Verfügbare Arten (bestimmen
+das Icon): Wallbox, Wärmepumpe, Klimaanlage, Pool-Wärmepumpe, Pool-Pumpe, Sauna, Warmwasser,
+Trockner, Sonstiger Verbraucher. Mehrere Zeilen derselben Art sind möglich (z. B. zwei
+Wallboxen „Garage" und „Carport"); eine leere Bezeichnung fällt auf die Vorgabe der Art
+zurück.
 
 Die Farben sind semantisch fest vergeben: Solar = Sonnengelb, Netz = Grün bei Einspeisung/Rot
 bei Bezug, Batterie = Blau, Verluste = Grau, Hauslast = weicher Grün-Rot-Verlauf je nach

@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.19.0-beta.1 (2026-07-16)
+
+- **Verbraucher jetzt als freie Tabelle** statt fester Felder: je Zeile Art, Bezeichnung und
+  Leistungs-Variable. Damit sind beliebig viele Verbraucher jeder Art möglich (auch mehrere
+  Wallboxen). Verfügbare Arten: Wallbox, Wärmepumpe, Klimaanlage, Pool-Wärmepumpe, Pool-Pumpe,
+  Sauna, Warmwasser, Trockner, Sonstiger Verbraucher — die Art bestimmt das Icon, eine leere
+  Bezeichnung fällt auf die Vorgabe der Art zurück. Ersetzt die Felder „Wärmepumpe" und
+  „Wallboxen" aus 0.18.0 (dort ggf. neu eintragen).
+- **Wallbox-Icon neu**: Ladesäule mit Blitz, Kabel und Stecker statt der bisherigen Box, die
+  sich nicht als Wallbox lesen ließ.
+- **Bugfix Zuschnitt**: In breiten Kacheln wurden die unteren Kreise abgeschnitten, der obere
+  Abstand blieb dabei konstant. Ursache war eine feste viewBox mit unsymmetrischem Leerraum
+  (oben 67, unten 45 Einheiten): Der Inhalt saß darin nicht mittig und wurde nach unten
+  gedrückt. Die viewBox passt sich jetzt dem tatsächlichen Seitenverhältnis der gerenderten
+  Fläche an, wodurch das Zentrum immer exakt mittig liegt und der Inhalt die kürzere Seite
+  voll ausnutzt. Zusätzlich hängt das SVG jetzt am Viewport der Kachel statt an der body-Box,
+  die bei manchen Hosts höher ausfallen kann als der sichtbare Bereich.
+
 ## 0.18.0-beta.1 (2026-07-16)
 
 - **Neu: Wärmepumpe und beliebig viele Wallboxen** als zusätzliche Verbraucher-Kreise in

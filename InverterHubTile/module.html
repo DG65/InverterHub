@@ -37,14 +37,12 @@
      Kachel-Hosts nicht zuverlässig auf die tatsächliche Containergröße
      schrumpft und dadurch Inhalt am Rand abgeschnitten wurde. */
   html, body { width: 100%; height: 100%; background: transparent; user-select: none; overflow: hidden; }
-  body { position: relative; }
 
-  /* width/height werden zusätzlich per JS als explizite Pixel-Attribute
-     gesetzt (siehe syncSvgSize) - in manchen Kachel-Hosts wird die 100%-Höhe
-     nicht zuverlässig bis zum <body> durchgereicht, wodurch preserveAspectRatio
-     gegen eine falsche (zu große) Fläche skalierte und Inhalt am Rand
-     abgeschnitten wurde, besonders bei kleinen Kachelgrößen. */
-  .flow-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  /* position:fixed bindet das SVG an den Viewport der Kachel statt an die
+     body-Box. Bei manchen Kachel-Hosts ist die body-Höhe größer als der
+     tatsächlich sichtbare Bereich, wodurch der Inhalt zwar korrekt in die
+     (zu große) Box eingepasst, unten aber abgeschnitten wurde. */
+  .flow-svg { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 
   text { font-family: var(--font); }
 
@@ -141,7 +139,7 @@
 </head>
 <body>
 
-<svg class="flow-svg" id="svg" viewBox="0 0 560 580" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+<svg class="flow-svg" id="svg" viewBox="20 41 520 520" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
   <defs id="markerDefs"></defs>
   <defs>
     <!-- Münz-Look für AKTIVE Kreise. Inaktive Kreise bleiben bewusst flach
@@ -293,25 +291,34 @@ function el(tag, attrs) {
   return e;
 }
 
-// CSS-Prozentangaben (width/height:100%) verlassen sich darauf, dass der
-// Kachel-Host dem <body> zuverlässig seine tatsächliche Pixelgröße
-// durchreicht - das ist in der IP-Symcon-Kachel-Ansicht nicht immer der
-// Fall, besonders bei kleinen Widget-Größen, wodurch preserveAspectRatio
-// gegen eine falsche (zu große) Fläche skalierte und Inhalt am Rand
-// abgeschnitten wurde. Die tatsächliche Größe wird daher aktiv gemessen und
-// als explizite Pixel-Attribute auf dem <svg> gesetzt.
-function syncSvgSize() {
+// Benötigter Radius um das Zentrum: die Knoten reichen konstruktionsbedingt
+// bis exakt R_MAX, dazu etwas Luft für die Corona.
+const R_CONTENT = R_MAX + 26;
+
+// Die viewBox wird an das TATSÄCHLICHE Seitenverhältnis der gerenderten
+// SVG-Box angepasst, statt fest zu sein. Eine feste viewBox hinterlässt bei
+// abweichendem Seitenverhältnis Leerraum (Letterboxing) - und da der Inhalt
+// darin nicht exakt mittig saß, wurde er nach unten gedrückt und konnte unten
+// abgeschnitten werden. Jetzt liegt das Zentrum immer exakt in der Mitte der
+// Box und der Inhalt nutzt die kürzere Seite voll aus.
+function fitViewBox() {
   const svg = document.getElementById('svg');
-  const w = window.innerWidth || document.documentElement.clientWidth || 1;
-  const h = window.innerHeight || document.documentElement.clientHeight || 1;
-  svg.setAttribute('width', w);
-  svg.setAttribute('height', h);
+  const r = svg.getBoundingClientRect();
+  const w = Math.max(1, r.width);
+  const h = Math.max(1, r.height);
+  const aspect = w / h;
+  let vbW, vbH;
+  if (aspect >= 1) { vbH = 2 * R_CONTENT; vbW = vbH * aspect; }
+  else             { vbW = 2 * R_CONTENT; vbH = vbW / aspect; }
+  svg.setAttribute('viewBox',
+    (CX - vbW / 2).toFixed(2) + ' ' + (CY - vbH / 2).toFixed(2) + ' ' +
+    vbW.toFixed(2) + ' ' + vbH.toFixed(2));
 }
-window.addEventListener('resize', syncSvgSize);
+window.addEventListener('resize', fitViewBox);
 if (window.ResizeObserver) {
-  new ResizeObserver(syncSvgSize).observe(document.documentElement);
+  new ResizeObserver(fitViewBox).observe(document.documentElement);
 }
-syncSvgSize();
+fitViewBox();
 
 // --- Münz-/Schlaglicht-Ebenen (nur für aktive Knoten) ---
 // Dunkle Bodenschattierung leicht nach unten versetzt - die Münze schwebt.
@@ -407,16 +414,89 @@ const ICONS = {
       g.appendChild(el('line', { x1: 0, y1: 0, x2: x, y2: y, 'stroke-linecap': 'round' }));
     });
   },
-  // Wallbox: Wandladestation mit Blitz und abgehendem Ladekabel.
+  // Wallbox: Ladesäule mit Blitz, herabhängendem Kabel und Stecker - das
+  // gängige, erkennbare Motiv (eine reine Box mit Blitz liest sich nicht).
   wallbox(g) {
-    g.appendChild(el('rect', { x: -11, y: -13, width: 19, height: 26, rx: 3, 'data-hollow': '1' }));
+    g.appendChild(el('rect', { x: -15, y: -14, width: 16, height: 28, rx: 2.5, 'data-hollow': '1' }));
     g.appendChild(el('polygon', {
-      points: '0,-9 -4.5,-1 -1.2,-1 -2.4,7 2.4,-1.5 -0.9,-1.5',
+      points: '-5,-9.5 -11,0.5 -7.6,0.5 -9,8.5 -3,-1.5 -6.4,-1.5',
       'data-hollow': '1', 'stroke-linejoin': 'round',
     }));
+    // Ladekabel von der Säule zum Stecker
     g.appendChild(el('path', {
-      d: 'M8,7 C13,7 13,11 10.5,13.5', 'data-hollow': '1', 'stroke-linecap': 'round',
+      d: 'M1,-6 C9,-6 12,-1.5 12,3.5 C12,6.5 13,8 14.5,9',
+      'data-hollow': '1', 'stroke-linecap': 'round',
     }));
+    // Stecker am Kabelende
+    g.appendChild(el('rect', { x: 10.5, y: 9, width: 7, height: 5.5, rx: 1.5, stroke: 'none' }));
+  },
+  // Klimaanlage: Innengerät (Split) mit austretendem Luftstrom.
+  ac(g) {
+    g.appendChild(el('rect', { x: -15, y: -12, width: 30, height: 13, rx: 2.5, 'data-hollow': '1' }));
+    g.appendChild(el('line', { x1: -11, y1: -6, x2: 11, y2: -6 }));
+    [-7.5, 0, 7.5].forEach(x => g.appendChild(el('path', {
+      d: `M${x},4 q3.2,4 0,8.5`, 'data-hollow': '1', 'stroke-linecap': 'round',
+    })));
+  },
+  // Pool-Wärmepumpe: Wärme über Wasserwellen.
+  poolheat(g) {
+    g.appendChild(el('path', {
+      d: 'M0,-14 C3.8,-9 3.8,-5.6 0,-2.8 C1.1,-5.6 -1.1,-6.4 -1.1,-4.5 C-2.2,-6.8 -3.3,-9.5 0,-14 Z',
+      'stroke-linejoin': 'round',
+    }));
+    [2.5, 9].forEach(y => g.appendChild(el('path', {
+      d: `M-13,${y} q4.3,-4 8.7,0 q4.3,4 8.7,0`,
+      'data-hollow': '1', 'stroke-linecap': 'round',
+    })));
+  },
+  // Pool-Pumpe: Pumpengehäuse mit Saugstutzen und Sockel.
+  poolpump(g) {
+    g.appendChild(el('circle', { cx: -1, cy: -1, r: 8.5, 'data-hollow': '1' }));
+    g.appendChild(el('circle', { cx: -1, cy: -1, r: 2.2, stroke: 'none' }));
+    g.appendChild(el('path', {
+      d: 'M-1,-9.5 L-1,-13.5 L6.5,-13.5',
+      'data-hollow': '1', 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+    }));
+    g.appendChild(el('rect', { x: -13, y: 8, width: 24, height: 4.5, rx: 1.5, stroke: 'none' }));
+  },
+  // Sauna: Ofen mit Steinen und aufsteigender Wärme.
+  sauna(g) {
+    g.appendChild(el('rect', { x: -10, y: -2.5, width: 20, height: 15, rx: 2, 'data-hollow': '1' }));
+    [[-5, -4.2], [0, -5.2], [5, -4.2]].forEach(([x, y]) =>
+      g.appendChild(el('circle', { cx: x, cy: y, r: 2.2, stroke: 'none' })));
+    [-6, 0, 6].forEach(x => g.appendChild(el('path', {
+      d: `M${x},-13.5 q2.6,3 0,6`, 'data-hollow': '1', 'stroke-linecap': 'round',
+    })));
+  },
+  // Warmwasser: Speicher mit Wassertropfen.
+  boiler(g) {
+    g.appendChild(el('rect', { x: -8.5, y: -13, width: 17, height: 22, rx: 4, 'data-hollow': '1' }));
+    g.appendChild(el('line', { x1: -8.5, y1: -6.5, x2: 8.5, y2: -6.5 }));
+    g.appendChild(el('path', {
+      d: 'M0,-3 C3.2,0.8 3.2,3.4 0,5.2 C-3.2,3.4 -3.2,0.8 0,-3 Z',
+      'stroke-linejoin': 'round',
+    }));
+    [-4.5, 4.5].forEach(x => g.appendChild(el('line', {
+      x1: x, y1: 9, x2: x, y2: 13.5, 'stroke-linecap': 'round',
+    })));
+  },
+  // Trockner: Gerät mit Trommel und Bedienfeld.
+  dryer(g) {
+    g.appendChild(el('rect', { x: -12, y: -13, width: 24, height: 26, rx: 2.5, 'data-hollow': '1' }));
+    g.appendChild(el('line', { x1: -12, y1: -7, x2: 12, y2: -7 }));
+    g.appendChild(el('circle', { cx: 0, cy: 3.5, r: 7, 'data-hollow': '1' }));
+    g.appendChild(el('circle', { cx: -8, cy: -10, r: 1.4, stroke: 'none' }));
+  },
+  // Sonstiger Verbraucher: Netzstecker.
+  other(g) {
+    g.appendChild(el('path', {
+      d: 'M-7.5,-11 L-7.5,-3 C-7.5,1.6 -4.1,5 0,5 C4.1,5 7.5,1.6 7.5,-3 L7.5,-11',
+      'data-hollow': '1', 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+    }));
+    [-3.8, 3.8].forEach(x => g.appendChild(el('line', {
+      x1: x, y1: -14, x2: x, y2: -8, 'stroke-linecap': 'round',
+    })));
+    g.appendChild(el('line', { x1: 0, y1: 5, x2: 0, y2: 13.5, 'stroke-linecap': 'round' }));
   },
 };
 
@@ -576,7 +656,7 @@ function updateOuterNode(refs, item, d) {
 }
 
 function handleMessage(raw) {
-  syncSvgSize();
+  fitViewBox();
   const d = typeof raw === 'string' ? JSON.parse(raw) : raw;
 
   if (d.font) document.documentElement.style.setProperty('--font', d.font);

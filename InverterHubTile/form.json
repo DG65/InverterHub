@@ -63,30 +63,45 @@
       "items": [
         {
           "type": "Label",
-          "caption": "Zusätzliche Verbraucher werden als eigene Kreise dargestellt. Sie stammen nicht aus dem Wechselrichter, sondern aus vorhandenen Leistungs-Variablen (Watt). Die Anordnung verteilt alle Kreise automatisch radial und passt Größe und Abstand an ihre Anzahl an."
-        },
-        {
-          "type": "SelectVariable",
-          "name": "HeatPumpID",
-          "caption": "Wärmepumpe (Leistung in W)"
+          "caption": "Beliebig viele zusätzliche Verbraucher, die als eigene Kreise dargestellt werden. Sie stammen nicht aus dem Wechselrichter, sondern aus vorhandenen Leistungs-Variablen (Watt) – z. B. mehrere Wallboxen, Wärmepumpe, Klimaanlage, Pool oder Sauna. Die Art bestimmt das Icon, die Bezeichnung den Text unter dem Kreis (leer = Vorgabe der Art). Die Anordnung verteilt alle Kreise automatisch radial und passt Größe und Abstand an ihre Anzahl an."
         },
         {
           "type": "List",
-          "name": "Wallboxes",
-          "caption": "Wallboxen (Leistung in W)",
-          "rowCount": 3,
+          "name": "Consumers",
+          "caption": "Verbraucher",
+          "rowCount": 6,
           "add": true,
           "delete": true,
           "columns": [
             {
-              "caption": "Bezeichnung",
-              "name": "Name",
+              "caption": "Art",
+              "name": "Type",
               "width": "200px",
-              "add": "Wallbox",
+              "add": "wallbox",
+              "edit": {
+                "type": "Select",
+                "options": [
+                  { "caption": "Wallbox",         "value": "wallbox" },
+                  { "caption": "Wärmepumpe",      "value": "heatpump" },
+                  { "caption": "Klimaanlage",     "value": "ac" },
+                  { "caption": "Pool-Wärmepumpe", "value": "poolheat" },
+                  { "caption": "Pool-Pumpe",      "value": "poolpump" },
+                  { "caption": "Sauna",           "value": "sauna" },
+                  { "caption": "Warmwasser",      "value": "boiler" },
+                  { "caption": "Trockner",        "value": "dryer" },
+                  { "caption": "Sonstiger Verbraucher", "value": "other" }
+                ]
+              }
+            },
+            {
+              "caption": "Bezeichnung (leer = Vorgabe)",
+              "name": "Name",
+              "width": "220px",
+              "add": "",
               "edit": { "type": "ValidationTextBox" }
             },
             {
-              "caption": "Leistungs-Variable",
+              "caption": "Leistungs-Variable (W)",
               "name": "VariableID",
               "width": "auto",
               "add": 0,
