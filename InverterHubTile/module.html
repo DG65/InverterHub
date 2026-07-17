@@ -138,6 +138,19 @@
     100% { opacity: 0; }
   }
 
+  /* Teslaspulen-Blitze um die Kreise: Zickzack-Bögen entlang der Münzkante,
+     in der Knotenfarbe, mit demselben Flacker-Rhythmus wie an den Leitungen.
+     Nur bei aktiven Knoten sichtbar. */
+  .node-bolt {
+    fill: none; stroke: var(--nc, var(--grey));
+    stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round;
+    opacity: 0; filter: blur(1.1px);
+    animation-name: boltFlicker;
+    animation-timing-function: steps(1, end);
+    animation-iteration-count: infinite;
+  }
+  .node.inactive .node-bolt { display: none; }
+
   /* Kollektor-Ring: bewusst kräftiger als die dünnen Speichen, damit er als
      eigenständiges Gestaltungselement erkennbar bleibt. */
   .ring-decor { fill: none; stroke: var(--ring-decor); stroke-width: 3.5; stroke-dasharray: 2 6; }
@@ -667,6 +680,9 @@ function createOuterNode(item, angleDeg, layout) {
   g.appendChild(makeBevel(DESIGN_R));
   g.appendChild(makeHighlight(DESIGN_R));
   g.appendChild(makeSpecular(DESIGN_R));
+  // Teslaspulen-Blitze um die Münzkante; der Winkel liefert je Knoten ein
+  // stabiles, aber unterschiedliches Muster.
+  addNodeBolts(g, DESIGN_R, Math.round(angleDeg + 360));
 
   const iconG = el('g', {
     class: 'node-icon', transform: 'translate(0,-30)',
@@ -713,6 +729,49 @@ function jagPath(p1, p2, amp, seg, seed) {
   return d + ' L' + p2[0].toFixed(1) + ',' + p2[1].toFixed(1);
 }
 
+// Zickzack entlang eines Kreisbogens - Teslaspulen-Blitze um die Münzkante.
+// Radialer Jitter statt Normalen-Jitter, sonst wie jagPath.
+function jagArc(r, startDeg, endDeg, amp, seg, seed) {
+  const pt = (deg, jitter) => {
+    const rad = deg * Math.PI / 180;
+    const rr = r + jitter;
+    return (rr * Math.cos(rad)).toFixed(1) + ',' + (rr * Math.sin(rad)).toFixed(1);
+  };
+  let d = 'M' + pt(startDeg, 0);
+  for (let i = 1; i < seg; i++) {
+    const deg = startDeg + (endDeg - startDeg) * i / seg;
+    const off = Math.sin(seed * 12.9898 + i * 4.1414) * amp * (i % 2 ? 1 : -1);
+    d += ' L' + pt(deg, off);
+  }
+  return d + ' L' + pt(endDeg, 0);
+}
+
+// Hängt die Kreis-Blitze an eine Knoten-Gruppe: drei Bögen an zufällig
+// wirkenden, aber stabilen Positionen rund um die Kante, zeitlich versetzt
+// flackernd. seedBase macht die Muster je Knoten unterschiedlich.
+function addNodeBolts(g, r, seedBase) {
+  for (let i = 0; i < BOLT_COUNT; i++) {
+    const start = (seedBase * 47 + i * 120) % 360;
+    const span  = 55 + ((seedBase + i) % 3) * 20;   // 55/75/95 Grad
+    const b = el('path', {
+      class: 'node-bolt',
+      d: jagArc(r, start, start + span, 3.2, 8, seedBase * 3 + i + 1),
+    });
+    b.style.animationDuration = (1.15 + ((seedBase + i * 2) % 5) * 0.11).toFixed(2) + 's';
+    b.style.animationDelay = (((seedBase * 7 + i * 13) % 17) / 10).toFixed(2) + 's';
+    g.appendChild(b);
+  }
+}
+
+// Kreis-Blitze auch am (statisch aufgebauten) Hauslast-Kreis: unterhalb von
+// Icon/Text eingehängt, damit sie die Beschriftung nicht überlagern.
+(function () {
+  const c = document.getElementById('node-center');
+  const holder = el('g', {});
+  addNodeBolts(holder, DESIGN_R, 5);
+  c.insertBefore(holder, document.getElementById('center-icon'));
+})();
+
 // Speiche zwischen Hauslast-Kreis und äußerem Knoten. Beide Flussrichtungen
 // werden als Bahn vorbereitet; welche gerade gilt, entscheidet updateSpoke.
 function createSpoke(angleDeg, layout, layer) {
@@ -753,9 +812,14 @@ function createSpoke(angleDeg, layout, layer) {
   };
 }
 
+// Referenzleistung für das Fluss-Tempo, aus der Instanzkonfiguration
+// (FlowRefW). Bei dieser Leistung läuft die Animation mit Höchsttempo -
+// ein kleinerer Wert spreizt die sichtbaren Unterschiede im Alltagsbereich.
+let FLOW_REF_W = 10000;
+
 // Zustand einer Speiche: Farbe, Flussrichtung und Tempo. Das Tempo folgt der
-// Leistung (gleiche Wurzel-Kennlinie wie die Corona), damit man auf einen
-// Blick sieht, wo viel fließt.
+// Leistung (Wurzel-Kennlinie), damit man auf einen Blick sieht, wo viel
+// fließt - die Spreizung ist über FLOW_REF_W einstellbar.
 function updateSpoke(sp, color, magnitude, active, dir) {
   const col = rgb(color);
   const d = (dir === 'in') ? sp.dIn : sp.dOut;
@@ -763,8 +827,8 @@ function updateSpoke(sp, color, magnitude, active, dir) {
   sp.core.style.stroke = col;
   sp.core.style.opacity = active ? '0.5' : '0';
 
-  const k = Math.sqrt(Math.max(0, Math.min(1, magnitude / GLOW_MAX_W)));
-  const dur = 2.2 - 1.7 * k;   // 2,2 s bei wenig Leistung ... 0,5 s bei 40 kW
+  const k = Math.sqrt(Math.max(0, Math.min(1, magnitude / FLOW_REF_W)));
+  const dur = 3.0 - 2.6 * k;   // 3,0 s bei wenig Leistung ... 0,4 s am Referenzwert
 
   sp.tris.forEach((t, i) => {
     t.style.display = active ? '' : 'none';
@@ -858,6 +922,7 @@ function handleMessage(raw) {
   if (d.transMs !== undefined && d.transMs !== null) {
     document.documentElement.style.setProperty('--trans', (+d.transMs || 0) + 'ms');
   }
+  if (d.flowRefW) { FLOW_REF_W = Math.max(500, +d.flowRefW); }
 
   const dot = document.getElementById('dot');
   dot.setAttribute('class', 'status-dot' + (d.ok ? ' ok pulse' : ''));

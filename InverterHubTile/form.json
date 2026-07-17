@@ -256,6 +256,18 @@
           "minimum": 0,
           "maximum": 5000,
           "suffix": "ms"
+        },
+        {
+          "type": "NumberSpinner",
+          "name": "FlowRefW",
+          "caption": "Fluss-Tempo: Leistung für Höchsttempo",
+          "minimum": 500,
+          "maximum": 100000,
+          "suffix": "W"
+        },
+        {
+          "type": "Label",
+          "caption": "Das Tempo der laufenden Dreiecke folgt der Leistung. Bei diesem Wert (und darüber) laufen sie mit Höchsttempo — je kleiner der Wert, desto deutlicher unterscheiden sich typische Alltagsleistungen (z. B. 1 vs. 5 kW) sichtbar im Tempo. Vorgabe: 10000 W."
         }
       ]
     }

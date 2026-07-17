@@ -29,6 +29,7 @@ class InverterHubTile extends IPSModule
     private const DEF_FONT       = 'system';
     private const DEF_TRANSITION = 800;
     private const DEF_TOLERANCE  = 300;
+    private const DEF_FLOWREF    = 10000;
 
     // Auswählbare Verbraucher-Arten. Der Schlüssel steht in der Konfiguration,
     // 'label' dient als Vorgabe-Bezeichnung (wenn der Nutzer keine eigene
@@ -56,6 +57,10 @@ class InverterHubTile extends IPSModule
         $this->RegisterPropertyInteger('ColorBackground', self::DEF_BACKGROUND);
         $this->RegisterPropertyString('FontFamily',       self::DEF_FONT);
         $this->RegisterPropertyInteger('TransitionMs',    self::DEF_TRANSITION);
+        // Referenzleistung fürs Fluss-Tempo: bei dieser Leistung laufen die
+        // Dreiecke mit Höchsttempo. Kleinerer Wert = Unterschiede im
+        // Alltagsbereich (1-10 kW) deutlicher sichtbar.
+        $this->RegisterPropertyInteger('FlowRefW', self::DEF_FLOWREF);
         // Zusätzliche Verbraucher, die nicht aus dem Wechselrichter kommen,
         // sondern als vorhandene Leistungs-Variablen ausgewählt werden.
         // Frei erweiterbare Tabelle: je Zeile Art, Bezeichnung und Variable.
@@ -384,6 +389,7 @@ class InverterHubTile extends IPSModule
         IPS_SetProperty($id, 'ColorBackground', self::DEF_BACKGROUND);
         IPS_SetProperty($id, 'FontFamily',      self::DEF_FONT);
         IPS_SetProperty($id, 'TransitionMs',    self::DEF_TRANSITION);
+        IPS_SetProperty($id, 'FlowRefW',        self::DEF_FLOWREF);
         IPS_ApplyChanges($id);
         $this->ReloadForm();
     }
@@ -404,7 +410,8 @@ class InverterHubTile extends IPSModule
         $style = [
             'bg'      => $this->ColorOrEmpty($this->ReadPropertyInteger('ColorBackground')),
             'font'    => $this->FontStack($this->ReadPropertyString('FontFamily')),
-            'transMs' => $this->TransitionValue(),
+            'transMs'  => $this->TransitionValue(),
+            'flowRefW' => $this->FlowRefValue(),
         ];
 
         $src = $this->ResolveSource();
@@ -557,6 +564,12 @@ class InverterHubTile extends IPSModule
             return '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
         }
         return $family;
+    }
+
+    private function FlowRefValue()
+    {
+        $v = (int)$this->ReadPropertyInteger('FlowRefW');
+        return ($v >= 500 && $v <= 100000) ? $v : self::DEF_FLOWREF;
     }
 
     private function TransitionValue()

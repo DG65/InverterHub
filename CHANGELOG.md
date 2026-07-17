@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.26.0-beta.1 (2026-07-17)
+
+- **Teslaspulen-Blitze jetzt auch um die Kreise**: aktive Knoten (inkl. Hauslast) bekommen
+  wabernde Zickzack-Bögen entlang der Münzkante, in der jeweiligen Knotenfarbe und mit
+  demselben Flacker-Rhythmus wie an den Leitungen. Jeder Knoten hat ein eigenes, stabiles
+  Muster (Position/Timing aus dem Knotenwinkel abgeleitet); bei inaktiven Knoten sind die
+  Blitze aus.
+- **Fluss-Tempo einstellbar**: neuer Regler „Fluss-Tempo: Leistung für Höchsttempo"
+  (Vorgabe 10000 W statt bisher fest 40 kW). Bei diesem Wert laufen die Dreiecke mit
+  Höchsttempo — je kleiner, desto deutlicher unterscheiden sich Alltagsleistungen sichtbar.
+  Tempo-Spanne zugleich von 2,2-0,5 s auf 3,0-0,4 s je Umlauf gespreizt. Beispiel mit der
+  Vorgabe: 8,3 kW → 0,63 s, 1,8 kW → 1,9 s, 0,22 kW → 2,6 s.
+
 ## 0.25.0-beta.1 (2026-07-17)
 
 - **Neu: Invers-Schalter für die Meter-Leistung** (alle Hersteller, im Datenpunkte-Panel):

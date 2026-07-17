@@ -136,9 +136,9 @@ Anteil aus Netzbezug vs. PV/Batterie. Zusätzliche Verbraucher haben je Art eine
 auch frei einfärben.
 
 **Energiefluss:** Zwischen Hauslast und jedem Knoten läuft eine Speiche mit glimmendem Leiter,
-darauf wandern Dreiecke in Flussrichtung, begleitet von wabernden Blitzen. Die Richtung folgt
+darauf wandern Dreiecke in Flussrichtung, begleitet von wabernden Teslaspulen-Blitzen an Leitungen und Kreiskanten. Die Richtung folgt
 dem Vorzeichen (Netz: Bezug zum Haus / Einspeisung nach außen; Batterie: Laden nach außen /
-Entladen zum Haus), das Tempo der Leistung.
+Entladen zum Haus), das Tempo der Leistung — die Leistung, ab der Höchsttempo erreicht wird, ist einstellbar.
 
 Kreise mit nennenswertem Leistungsfluss erscheinen groß, farbig und plastisch (Münz-Optik mit
 Wölbung, Kantenanschliff, Glanzlicht und geprägten Icons/Werten) samt Corona, deren Stärke mit
