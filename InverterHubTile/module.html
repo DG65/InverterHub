@@ -85,7 +85,9 @@
      nutzt dieselbe Farbe (--nc) statt einer eigenen, gedämpften Farbe. */
   .node-value-unit { font-size: 0.52em; font-weight: 600; fill: var(--nc, var(--grey)); }
   .node-label { font-size: 12.5px; fill: var(--textmuted); }
-  .node-sub { font-size: 10px; font-weight: 700; }
+  /* Zusatzzeile unter der Beschriftung (z. B. erkanntes Fahrzeug an einer
+     Wallbox) - bewusst kleiner und gedämpfter als die Beschriftung. */
+  .node-sub { font-size: 10px; font-weight: 700; fill: var(--nc, var(--grey)); opacity: 0.75; }
 
   .wire { fill: none; stroke: var(--wire); stroke-width: 2.5; stroke-linecap: round; }
   .wire-flow {
@@ -574,6 +576,8 @@ function buildItems(d, consumerColor) {
     // Wallboxen liefern den Ladestand des Fahrzeugs, das gerade an ihnen
     // steht (vom Modul ermittelt); alle anderen Verbraucher haben keinen.
     soc: c.socHave ? c.soc : null,
+    // Name des erkannten Fahrzeugs (nur Wallboxen)
+    sub: c.sub || '',
     color: () => consumerColor,
     dir: () => 'out',
   }));
@@ -634,7 +638,12 @@ function createOuterNode(item, angleDeg, layout) {
   labelText.textContent = item.label;
   g.appendChild(labelText);
 
-  return { g, glow, iconG, valText, cx, cy, baseScale: layout.outerR / DESIGN_R };
+  // Zusatzzeile, z. B. das an einer Wallbox erkannte Fahrzeug - macht die
+  // automatische Zuordnung nachvollziehbar.
+  const subText = el('text', { x: 0, y: 45, 'text-anchor': 'middle', class: 'node-sub' });
+  g.appendChild(subText);
+
+  return { g, glow, iconG, valText, subText, cx, cy, baseScale: layout.outerR / DESIGN_R };
 }
 
 // Baut die Knoten nur dann (neu) auf, wenn sich die Menge der darzustellenden
@@ -691,6 +700,7 @@ function updateOuterNode(refs, item, d) {
   refs.iconG.textContent = '';
   ICONS[item.icon](refs.iconG, item.soc ?? null, item.key);
   setValueText(refs.valText, magnitude);
+  refs.subText.textContent = item.sub || '';
 }
 
 function handleMessage(raw) {

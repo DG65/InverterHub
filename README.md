@@ -101,18 +101,27 @@ zurück.
 
 **Wallboxen mit Fahrzeug-Ladestand:** Eine Wallbox wird als **Auto** dargestellt, das – wie das
 Batteriesymbol – den Ladestand des gerade angeschlossenen Fahrzeugs als Füllung samt
-Prozentwert zeigt; ohne Fahrzeug bleibt nur der Umriss. Dafür gibt es die Tabelle
-**Fahrzeuge** (Bezeichnung, Kennung, Ladestand-Variable) sowie je Wallbox-Zeile zwei optionale
-Spalten:
+Prozentwert zeigt; ohne Fahrzeug bleibt nur der Umriss. Der Name des erkannten Fahrzeugs steht
+als Zusatzzeile im Kreis.
 
-- *Fahrzeug angeschlossen* — boolesche Variable der Wallbox.
-- *Fahrzeug-Zuordnung* — Variable, deren **Wert** das angeschlossene Fahrzeug benennt.
+Dafür gibt es die Tabelle **Fahrzeuge** (Bezeichnung, Ladestand-Variable, Verbunden-Bedingung)
+sowie je Wallbox-Zeile eine eigene Verbunden-Bedingung. Eine Bedingung besteht aus **Variable +
+Vergleich + Wert**, weil jede Quelle das Einstecken anders meldet:
 
-Damit lässt sich auch bei **mehreren Wallboxen und mehreren Autos** bestimmen, welches Auto
-gerade wo steht: Der Wert der Zuordnungs-Variable wird mit der **Kennung** der Fahrzeuge
-verglichen (Groß-/Kleinschreibung egal; leere Kennung = Bezeichnung). Bei genau einem Fahrzeug
-darf die Zuordnung leer bleiben — dann ist es eindeutig. Bei mehreren Fahrzeugen ohne
-Zuordnung wird bewusst **kein** Ladestand angezeigt, statt eine Zuordnung zu raten.
+| Beispiel | Typ | Bedingung |
+|---|---|---|
+| „Ladeportklappe offen" (Fahrzeug) | Boolean | ist gesetzt |
+| „Ladekabeltyp" (Fahrzeug) | Text, leer = kein Kabel | ist gesetzt |
+| „Kabel-Leistungsfähigkeit" (go-e) | Integer, 0 = kein Kabel | ist gesetzt |
+
+**Welches Auto steht an welcher Wallbox?** Das ermittelt das Modul selbst — ein Datenpunkt, der
+das benennt, wird *nicht* benötigt (die wenigsten Anlagen haben so etwas). Beim Einstecken
+wechseln Wallbox und Fahrzeug jedes für sich auf „verbunden", und zwar praktisch gleichzeitig.
+Das Modul vergleicht dafür die Zeitpunkte der letzten **Wertänderung** (IP-Symcon führt die
+ohnehin mit) und ordnet die zeitlich am besten passenden Paare eindeutig zu. Bei zwei Autos an
+zwei Wallboxen landet damit jedes dort, wo es tatsächlich eingesteckt wurde. Das Zeitfenster
+ist einstellbar (Vorgabe 300 s; 0 = ohne Begrenzung). Bei genau einer Wallbox und genau einem
+Fahrzeug ist die Lage ohnehin eindeutig — dort darf die Verbunden-Bedingung auch fehlen.
 
 Die Farben sind semantisch fest vergeben: Solar = Sonnengelb, Netz = Grün bei Einspeisung/Rot
 bei Bezug, Batterie = Blau, Verluste = Grau, Hauslast = weicher Grün-Rot-Verlauf je nach

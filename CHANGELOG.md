@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.21.0-beta.1 (2026-07-17)
+
+- **Automatische Zuordnung Fahrzeug ↔ Wallbox, ohne eigenen Datenpunkt.** Der bisherige Ansatz
+  (eine Variable, die das angeschlossene Fahrzeug benennt) setzte etwas voraus, das die
+  wenigsten Anlagen liefern. Stattdessen wird jetzt die Gleichzeitigkeit ausgewertet: Beim
+  Einstecken wechseln Wallbox und Fahrzeug jedes für sich auf „verbunden". Als Zeitpunkt dient
+  der von IP-Symcon ohnehin geführte Zeitstempel der letzten **Wertänderung**
+  (`VariableChanged`, ändert sich nur bei echtem Wertwechsel). Die Paare werden nach zeitlicher
+  Nähe sortiert und eindeutig (1:1) vergeben — bei zwei Autos an zwei Wallboxen landet so jedes
+  dort, wo es eingesteckt wurde. Das Zeitfenster ist einstellbar (Vorgabe 300 s, 0 = ohne
+  Begrenzung).
+- **Frei konfigurierbare „verbunden"-Bedingung** je Wallbox und je Fahrzeug, da jede Quelle das
+  anders meldet: Variable + Bedingung (ist gesetzt / gleich / ungleich / größer / kleiner …) +
+  Vergleichswert. Damit lassen sich Boolean (z. B. „Ladeportklappe offen"), Text (z. B.
+  „Ladekabeltyp", leer = kein Kabel) und Integer (z. B. go-e „Kabel-Leistungsfähigkeit",
+  0 = kein Kabel) gleichermaßen auswerten.
+- Das an einer Wallbox erkannte Fahrzeug wird als Zusatzzeile im Kreis angezeigt, damit die
+  automatische Zuordnung nachvollziehbar bleibt.
+- Ersetzt die Spalten „Fahrzeug-Zuordnung" und „Kennung" aus 0.20.0.
+
 ## 0.20.0-beta.1 (2026-07-16)
 
 - **Wallboxen zeigen jetzt ein Auto mit Ladestand** statt der Ladesäule: Das Auto-Symbol füllt

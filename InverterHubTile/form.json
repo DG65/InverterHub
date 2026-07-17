@@ -67,7 +67,7 @@
         },
         {
           "type": "Label",
-          "caption": "Die beiden letzten Spalten gelten nur für die Art „Wallbox“ und dürfen sonst leer bleiben: „Fahrzeug angeschlossen“ ist eine boolesche Variable der Wallbox, „Fahrzeug-Zuordnung“ eine Variable, deren Wert das aktuell angeschlossene Fahrzeug benennt (siehe Fahrzeug-Tabelle weiter unten)."
+          "caption": "Die letzten drei Spalten gelten nur für die Art „Wallbox“ und dürfen sonst leer bleiben. Sie beschreiben, woran die Wallbox erkennt, dass ein Fahrzeug eingesteckt ist: Variable, Bedingung und Vergleichswert. Beispiel go-e: Variable „Kabel-Leistungsfähigkeit“, Bedingung „ist gesetzt (wahr / ≠ 0 / nicht leer)“ – denn dort bedeutet 0 „Kein Kabel“."
         },
         {
           "type": "List",
@@ -112,18 +112,36 @@
               "edit": { "type": "SelectVariable" }
             },
             {
-              "caption": "Nur Wallbox: Fahrzeug angeschlossen",
-              "name": "CarPluggedID",
-              "width": "260px",
+              "caption": "Nur Wallbox: Verbunden-Variable",
+              "name": "PlugID",
+              "width": "240px",
               "add": 0,
               "edit": { "type": "SelectVariable" }
             },
             {
-              "caption": "Nur Wallbox: Fahrzeug-Zuordnung",
-              "name": "CarKeyID",
+              "caption": "Bedingung",
+              "name": "PlugOp",
+              "width": "230px",
+              "add": "truthy",
+              "edit": {
+                "type": "Select",
+                "options": [
+                  { "caption": "ist gesetzt (wahr / ≠ 0 / nicht leer)", "value": "truthy" },
+                  { "caption": "gleich Wert",   "value": "eq" },
+                  { "caption": "ungleich Wert", "value": "ne" },
+                  { "caption": "größer Wert",   "value": "gt" },
+                  { "caption": "größer/gleich Wert", "value": "ge" },
+                  { "caption": "kleiner Wert",  "value": "lt" },
+                  { "caption": "kleiner/gleich Wert", "value": "le" }
+                ]
+              }
+            },
+            {
+              "caption": "Vergleichswert",
+              "name": "PlugVal",
               "width": "auto",
-              "add": 0,
-              "edit": { "type": "SelectVariable" }
+              "add": "",
+              "edit": { "type": "ValidationTextBox" }
             }
           ]
         },
@@ -133,7 +151,19 @@
         },
         {
           "type": "Label",
-          "caption": "Eine Wallbox zeigt ein Auto-Symbol, das – wie das Batteriesymbol – den Ladestand des Fahrzeugs anzeigt, das gerade an ihr steht. Dafür hier die Fahrzeuge eintragen. Welches Fahrzeug an welcher Wallbox steht, ermittelt die Spalte „Fahrzeug-Zuordnung“ der Wallbox: Der Wert dieser Variable wird mit der „Kennung“ des Fahrzeugs verglichen (Groß-/Kleinschreibung egal). Ist die Kennung leer, gilt die Bezeichnung. Bei nur einem Fahrzeug darf die Zuordnung leer bleiben – dann ist es eindeutig; bei mehreren Fahrzeugen ohne Zuordnung wird bewusst kein Ladestand angezeigt, statt zu raten."
+          "caption": "Eine Wallbox zeigt ein Auto-Symbol, das – wie das Batteriesymbol – den Ladestand des Fahrzeugs anzeigt, das gerade an ihr steht. Dafür hier die Fahrzeuge eintragen, jeweils mit der Bedingung, woran das FAHRZEUG erkennt, dass es eingesteckt ist. Beispiele: „Ladekabeltyp“ (Text, leer = kein Kabel) oder „Ladeportklappe offen“ (Boolean) – beides mit Bedingung „ist gesetzt“."
+        },
+        {
+          "type": "Label",
+          "caption": "Zuordnung: Welches Auto an welcher Wallbox steht, wird automatisch über die Zeit ermittelt – beim Einstecken wechseln Wallbox und Fahrzeug praktisch gleichzeitig auf „verbunden“. Das Modul vergleicht dafür die Zeitpunkte der letzten Wertänderung und ordnet die zeitlich am besten passenden Paare eindeutig zu. Ein eigener Datenpunkt dafür ist also nicht nötig. Nur bei genau einer Wallbox und genau einem Fahrzeug ist die Lage ohnehin eindeutig – dort darf die Verbunden-Bedingung auch fehlen."
+        },
+        {
+          "type": "NumberSpinner",
+          "name": "MatchToleranceSec",
+          "caption": "Zeitfenster für die Zuordnung (0 = ohne Begrenzung)",
+          "minimum": 0,
+          "maximum": 86400,
+          "suffix": "s"
         },
         {
           "type": "List",
@@ -146,23 +176,48 @@
             {
               "caption": "Bezeichnung",
               "name": "Name",
-              "width": "200px",
-              "add": "",
-              "edit": { "type": "ValidationTextBox" }
-            },
-            {
-              "caption": "Kennung (leer = Bezeichnung)",
-              "name": "Key",
-              "width": "220px",
+              "width": "180px",
               "add": "",
               "edit": { "type": "ValidationTextBox" }
             },
             {
               "caption": "Ladestand-Variable (%)",
               "name": "SocID",
-              "width": "auto",
+              "width": "240px",
               "add": 0,
               "edit": { "type": "SelectVariable" }
+            },
+            {
+              "caption": "Verbunden-Variable",
+              "name": "PlugID",
+              "width": "240px",
+              "add": 0,
+              "edit": { "type": "SelectVariable" }
+            },
+            {
+              "caption": "Bedingung",
+              "name": "PlugOp",
+              "width": "230px",
+              "add": "truthy",
+              "edit": {
+                "type": "Select",
+                "options": [
+                  { "caption": "ist gesetzt (wahr / ≠ 0 / nicht leer)", "value": "truthy" },
+                  { "caption": "gleich Wert",   "value": "eq" },
+                  { "caption": "ungleich Wert", "value": "ne" },
+                  { "caption": "größer Wert",   "value": "gt" },
+                  { "caption": "größer/gleich Wert", "value": "ge" },
+                  { "caption": "kleiner Wert",  "value": "lt" },
+                  { "caption": "kleiner/gleich Wert", "value": "le" }
+                ]
+              }
+            },
+            {
+              "caption": "Vergleichswert",
+              "name": "PlugVal",
+              "width": "auto",
+              "add": "",
+              "edit": { "type": "ValidationTextBox" }
             }
           ]
         }
