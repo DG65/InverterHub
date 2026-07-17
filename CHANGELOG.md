@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.25.0-beta.1 (2026-07-17)
+
+- **Neu: Invers-Schalter für die Meter-Leistung** (alle Hersteller, im Datenpunkte-Panel):
+  „Netz-Leistung (Meter) invertieren". Die Zählrichtung hängt vom Einbauort und der
+  Verdrahtung des Zählers ab und ist daher je Anlage verschieden — statt je Hersteller zu
+  raten, legt der Nutzer die Richtung selbst fest. Wirkt zentral auf `meter_total` und damit
+  automatisch auch auf Netz-Farbe/Flussrichtung in der Kachel.
+
 ## 0.24.0-beta.1 (2026-07-17)
 
 Fronius-Überarbeitung nach Beta-Test an einem Symo GEN24 12.0 Plus SC:

@@ -2932,6 +2932,7 @@ class InverterHub extends IPSModule
 
         $this->RegisterPropertyBoolean('Active', true);
         $this->RegisterPropertyString('Manufacturer', 'goodwe');
+        $this->RegisterPropertyBoolean('MeterInvert', false);
         $this->RegisterPropertyInteger('HouseLoadMeterID', 0);
         $this->RegisterPropertyString('Host', '');
         $this->RegisterPropertyInteger('Port', 502);
@@ -3072,6 +3073,14 @@ class InverterHub extends IPSModule
                 'caption' => $group['caption'],
             ];
         }
+        // Invers-Schalter für die Meter-Leistung: die Zählrichtung hängt vom
+        // Einbauort/der Verdrahtung des Zählers ab und ist daher je Anlage
+        // verschieden - der Nutzer legt die Richtung selbst fest.
+        $groupItems[] = [
+            'type'    => 'CheckBox',
+            'name'    => 'MeterInvert',
+            'caption' => 'Netz-Leistung (Meter) invertieren — falls Einspeisung/Bezug vertauscht angezeigt werden',
+        ];
 
         $form = [
             'elements' => [
@@ -3331,6 +3340,12 @@ class InverterHub extends IPSModule
 
     public function SetVarFloat(string $ident, float $value)
     {
+        // Zentraler Invers-Schalter für die Meter-Leistung: Je nach Einbauort/
+        // Verdrahtung des Zählers melden Anlagen die Richtung genau umgekehrt -
+        // der Nutzer entscheidet selbst, statt dass wir je Hersteller raten.
+        if ($ident === 'meter_total' && $this->ReadPropertyBoolean('MeterInvert')) {
+            $value = -$value;
+        }
         $vid = $this->FindVarByIdent($ident);
         if ($vid) {
             SetValueFloat($vid, $value);
