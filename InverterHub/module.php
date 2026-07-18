@@ -2211,12 +2211,21 @@ class SolarEdgeDriver implements InverterDriverInterface
             'GroupMeter' => ['caption' => 'Smart Meter (Leistung)', 'vars' => [
                 ['meter_total', 'Netz Leistung (Meter)', 'F', 'SLE.Watt', true, 'meter', 'SunSpec Meter Model 201/203'],
             ]],
+            'GroupMeterEnergy' => ['caption' => 'Zähler-Energie (Bezug / Einspeisung)', 'vars' => [
+                ['meter_imp', 'Bezug Gesamt',       'F', '~Electricity', true, 'meter', 'SunSpec Meter TotWhImp (Offset 44)'],
+                ['meter_exp', 'Einspeisung Gesamt', 'F', '~Electricity', true, 'meter', 'SunSpec Meter TotWhExp (Offset 36)'],
+            ]],
             'GroupBattery' => ['caption' => 'Batterie (StorEdge)', 'vars' => [
-                ['bat_soc',   'Bat. SOC',        'I', '~Battery.100', true,  'bat', 'SE 0xE184 (Float32, LE)'],
-                ['bat_power', 'Bat. Leistung',   'F', 'SLE.Watt',     true,  'bat', 'SE 0xE174 (Float32, LE)'],
-                ['bat_volt',  'Bat. Spannung',   'F', 'SLE.Volt',     false, 'bat', 'SE 0xE170 (Float32, LE)'],
-                ['bat_curr',  'Bat. Strom',      'F', 'SLE.Ampere',   false, 'bat', 'SE 0xE172 (Float32, LE)'],
-                ['bat_temp',  'Bat. Temperatur', 'F', '~Temperature', false, 'bat', 'SE 0xE16C (Float32, LE)'],
+                ['bat_soc',    'Bat. SOC',        'I', '~Battery.100', true,  'bat', 'SE 0xE184 (Float32, LE)'],
+                ['bat_power',  'Bat. Leistung',   'F', 'SLE.Watt',     true,  'bat', 'SE 0xE174 (Float32, LE)'],
+                ['bat_volt',   'Bat. Spannung',   'F', 'SLE.Volt',     false, 'bat', 'SE 0xE170 (Float32, LE)'],
+                ['bat_curr',   'Bat. Strom',      'F', 'SLE.Ampere',   false, 'bat', 'SE 0xE172 (Float32, LE)'],
+                ['bat_temp',   'Bat. Temperatur', 'F', '~Temperature', false, 'bat', 'SE 0xE16C (Float32, LE)'],
+                ['bat_soh',    'Bat. SOH',        'I', '~Battery.100', true,  'bat', 'SE 0xF582 (Float32, LE)'],
+                ['bat_status', 'Bat. Zustand',    'I', 'SLE.BatState', true,  'bat', 'SE 0xE186'],
+            ]],
+            'GroupPvReal' => ['caption' => 'PV-Erzeugung berechnet (StorEdge; benötigt Batteriegruppe)', 'vars' => [
+                ['pv_real', 'PV-Erzeugung (berechnet)', 'F', 'SLE.Watt', true, 'pv', 'PV-Gesamt + Batterieleistung, ≥ 0'],
             ]],
             'GroupDevice' => ['caption' => 'Geräteinformation', 'vars' => [
                 ['dev_model', 'Modell', 'S', '', false, 'device', 'SunSpec Common Block'],
@@ -2246,7 +2255,14 @@ class SolarEdgeDriver implements InverterDriverInterface
         foreach (self::STATUS as $k => $label) {
             $status[$k] = [$label, 0x7A8A99];
         }
-        return ['SLE.Status' => $status];
+        // SolarEdge StorEdge Speicherstatus (Reg 0xE186).
+        $batState = [
+            1 => ['Aus',        0x7A8A99],
+            3 => ['Laden',      0x3BA55D],
+            4 => ['Entladen',   0xE08A2B],
+            6 => ['Ruhemodus',  0x7A8A99],
+        ];
+        return ['SLE.Status' => $status, 'SLE.BatState' => $batState];
     }
 
     public function readFast($mb, $hub)
@@ -2270,12 +2286,18 @@ class SolarEdgeDriver implements InverterDriverInterface
             return false;
         }
 
+        // Für die berechnete PV-Erzeugung (StorEdge-Eigenart, s. u.) merken wir
+        // uns PV-Gesamtleistung und Batterieleistung.
+        $pvTotalVal = 0.0;
+        $batPowerVal = 0.0;
+
         // Offsets siehe FroniusDriver/SmaDriver (identische SunSpec-Modelle),
         // zusätzlich gegen eine reale SolarEdge-Registertabelle verifiziert.
         if ($isFloat) {
             $hub->SetVarFloat('ac_power', $mb->readFloat32($blk, 20));
             $hub->SetVarInt('status', $mb->u16($blk, 46));
-            $hub->SetVarFloat('pv_total', $mb->readFloat32($blk, 36));
+            $pvTotalVal = $mb->readFloat32($blk, 36);
+            $hub->SetVarFloat('pv_total', $pvTotalVal);
             if ($hub->GetPropBool('GroupGrid')) {
                 $hub->SetVarFloat('grid_curr', $mb->readFloat32($blk, 0));
                 $hub->SetVarFloat('grid_volt', $mb->readFloat32($blk, 14));
@@ -2294,7 +2316,8 @@ class SolarEdgeDriver implements InverterDriverInterface
             // sie um Faktor 10 zu groß (225 V -> 2250 V, 28,9 A -> 289 A).
             $hub->SetVarFloat('ac_power', $mb->s16($blk, 12) * $this->sf($mb, $blk, 13));
             $hub->SetVarInt('status', $mb->u16($blk, 36));
-            $hub->SetVarFloat('pv_total', $mb->s16($blk, 29) * $this->sf($mb, $blk, 30));
+            $pvTotalVal = $mb->s16($blk, 29) * $this->sf($mb, $blk, 30);
+            $hub->SetVarFloat('pv_total', $pvTotalVal);
             if ($hub->GetPropBool('GroupGrid')) {
                 $hub->SetVarFloat('grid_curr', $mb->u16($blk, 0) * $this->sf($mb, $blk, 4));
                 $hub->SetVarFloat('grid_volt', $mb->u16($blk, 8) * $this->sf($mb, $blk, 11));
@@ -2312,10 +2335,17 @@ class SolarEdgeDriver implements InverterDriverInterface
             $meter = $this->findModel($mb, 201) ?: $this->findModel($mb, 203) ?: $this->findModel($mb, 211) ?: $this->findModel($mb, 213);
             if ($meter !== null) {
                 [$mtbase, $mtlen] = $meter;
-                $mtblk = $mb->readHolding($mtbase, min($mtlen, 30));
+                $mtblk = $mb->readHolding($mtbase, min($mtlen, 54));
                 if ($mtblk !== null) {
                     // Zähler-Modell 20x: W (gesamt) bei Offset 16, W_SF bei 20.
                     $hub->SetVarFloat('meter_total', $mb->s16($mtblk, 16) * $this->sf($mb, $mtblk, 20));
+                    // Energie-Zähler: TotWhExp bei Offset 36, TotWhImp bei 44,
+                    // gemeinsamer TotWh_SF bei 52 (uint32, in Wh -> kWh /1000).
+                    if ($hub->GetPropBool('GroupMeterEnergy')) {
+                        $whsf = $this->sf($mb, $mtblk, 52);
+                        $hub->SetVarFloat('meter_exp', $mb->u32($mtblk, 36) * $whsf / 1000.0);
+                        $hub->SetVarFloat('meter_imp', $mb->u32($mtblk, 44) * $whsf / 1000.0);
+                    }
                 }
             }
         }
@@ -2326,7 +2356,7 @@ class SolarEdgeDriver implements InverterDriverInterface
             // anders als der SunSpec-Inverter-Block (ABCD) - little-endian
             // (CDAB, Wort-Swap). Daher hier gezielt umschalten.
             $mb->setFloatWordSwap(true);
-            $bat = $mb->readHolding(57708, 26); // 0xE16C .. 0xE185
+            $bat = $mb->readHolding(57708, 28); // 0xE16C .. 0xE187 (inkl. Status)
             if ($bat !== null) {
                 $hub->SetVarFloat('bat_temp', $mb->readFloat32($bat, 0));   // 0xE16C
                 $hub->SetVarFloat('bat_volt', $mb->readFloat32($bat, 4));   // 0xE170
@@ -2335,8 +2365,26 @@ class SolarEdgeDriver implements InverterDriverInterface
                 // Batterieleistung bereits in Modul-Konvention (+ Entladen /
                 // − Laden). Wer die umgekehrte Konvention will, nutzt den
                 // Schalter „Batterie-Leistung invertieren".
-                $hub->SetVarFloat('bat_power', $mb->readFloat32($bat, 8));   // 0xE174
+                $batPowerVal = $mb->readFloat32($bat, 8);                   // 0xE174
+                $hub->SetVarFloat('bat_power', $batPowerVal);
                 $hub->SetVarInt('bat_soc', (int)round($mb->readFloat32($bat, 24))); // 0xE184
+                // Speicherstatus (0xE186, uint32): Wert 1-6 liegt im niederw.
+                // Wort, das bei CDAB zuerst kommt -> u16 am Offset 26.
+                $hub->SetVarInt('bat_status', $mb->u16($bat, 26));          // 0xE186
+
+                // Berechnete PV-Erzeugung (optional). StorEdge-Eigenart: Das
+                // DC-Leistungsregister spiegelt bei Batteriebetrieb nicht die
+                // reine PV-Erzeugung wider. Formel des Testers (am realen Gerät
+                // bewährt): PV-Erzeugung = PV-Gesamtleistung + Batterieleistung,
+                // nie negativ. Benötigt daher die aktive Batteriegruppe.
+                if ($hub->GetPropBool('GroupPvReal')) {
+                    $hub->SetVarFloat('pv_real', max(0.0, $pvTotalVal + $batPowerVal));
+                }
+            }
+            // SOH liegt in einem separaten Block (0xF582 = 62850), Float32 CDAB.
+            $soh = $mb->readHolding(62850, 2);
+            if ($soh !== null) {
+                $hub->SetVarInt('bat_soh', (int)round($mb->readFloat32($soh, 0)));
             }
             $mb->setFloatWordSwap(false);
         }

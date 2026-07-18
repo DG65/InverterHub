@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.29.1-beta.1 (2026-07-18)
+
+Nach weiterem SolarEdge-Beta-Test:
+
+- **SolarEdge: Zähler-Energie neu** — optionale Gruppe „Zähler-Energie (Bezug / Einspeisung)"
+  liest die kWh-Zählerstände aus dem SunSpec-Meter-Modell (TotWhImp/TotWhExp mit gemeinsamem
+  Skalierungsfaktor).
+- **SolarEdge: Batterie SOH + Speicherstatus neu** — die Batteriegruppe liefert jetzt auch
+  State of Health (0xF582) und den Speicherstatus (0xE186: Aus/Laden/Entladen/Ruhemodus).
+  Alle Batterie-Register gegen die vom Tester exportierte StorEdge-Vorlage gegengeprüft.
+- **SolarEdge: PV-Erzeugung berechnet neu** — optionale Gruppe „PV-Erzeugung berechnet". Auf
+  StorEdge-Anlagen spiegelt das DC-Leistungsregister bei Batteriebetrieb nicht die reine PV-
+  Erzeugung wider; die neue Variable rechnet nach der am Gerät bewährten Formel PV-Gesamt +
+  Batterieleistung (nie negativ). Benötigt die aktive Batteriegruppe.
+
 ## 0.29.0-beta.1 (2026-07-18)
 
 - **Neuer Hersteller: Victron GX (Cerbo / Venus OS)**. Liest den aggregierten Systemdienst
