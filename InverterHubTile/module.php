@@ -450,6 +450,13 @@ class InverterHubTile extends IPSModule
         $pvW   = $pvHave ? (float)$pv : 0.0;
         $gridW = $gridHave ? (float)$grid : 0.0;
         $batW  = $batHave ? (float)$bat : 0.0;
+        // Hat die Quell-Instanz die Batterie invertiert (Nutzer-Konvention),
+        // rechnet die Kachel intern wieder auf ihre kanonische Konvention
+        // zurück (+ = Entladen), damit die Flussrichtung stimmt. Der angezeigte
+        // Betrag ist ohnehin identisch (|value|).
+        if ($batHave && (bool)@IPS_GetProperty($src, 'BatInvert')) {
+            $batW = -$batW;
+        }
 
         // Last (Hausverbrauch) per Bilanz. Bevorzugt über die AC-Wirkleistung:
         //   Hauslast = AC-Leistung − Netzeinspeisung   (gridW: + = Einspeisung)

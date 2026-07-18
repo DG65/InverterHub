@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.28.0-beta.1 (2026-07-17)
+
+Nach Fronius-Beta-Test (Symo GEN24, Batterie + Smart Meter):
+
+- **Kritischer Bugfix Datenpunkte beim Herstellerwechsel**: Eine neu angelegte Instanz zeigte
+  immer die GoodWe-Ordner (der Default-Hersteller), auch wenn vor dem Übernehmen „Fronius"
+  gewählt war — man musste die Ordner erst löschen und neu wählen. Beim Registrieren werden
+  jetzt alle Variablen/Kategorien entfernt, die nicht zum aktuell gewählten Treiber gehören
+  (Reste eines anderen Herstellers oder deaktivierter Gruppen).
+- **Fronius: Smart-Meter-Adresse konfigurierbar**. Der Fronius Smart Meter ist ein eigenes
+  Modbus-Gerät auf derselben IP mit eigener Unit-ID (Vorgabe 200, je nach Konfiguration z. B.
+  240). Bisher fest 200 verdrahtet, dadurch fand das Modul den Zähler bei abweichender Adresse
+  nicht → keine Netzleistung. Jetzt Feld „Smart-Meter-Adresse" (nur bei Fronius). Die
+  Register-Offsets für die Gesamtwirkleistung waren bereits korrekt (Direktwert, nicht
+  Spannung×Strom).
+- **Batterie-Ordner heißt jetzt „Batterie"** statt „bat" (fehlendes Kategorie-Label bei
+  Fronius ergänzt).
+- **Neu: Schalter „Batterie-Leistung invertieren"**. Der bisherige Invers-Schalter galt nur
+  fürs Smart Meter. Modul-Standard bleibt + = Entladen / − = Laden; wer die umgekehrte
+  Konvention möchte, aktiviert den Schalter. Die Kachel rechnet intern automatisch auf ihre
+  kanonische Konvention zurück, sodass die Flussrichtung der Batterie korrekt bleibt.
+
 ## 0.27.1-beta.1 (2026-07-17)
 
 - **Bugfix Einheit bei Verbrauchern**: Fremdquellen (z. B. Wallboxen) liefern ihre Leistung

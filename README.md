@@ -27,7 +27,7 @@ Register melden.
 | **Solplanet / AISWEI** | PV (3 Strings), Batterie, Temperatur, Energie | ASW-Gen-Serie |
 | **Kostal** | PV (3 DC-Eingänge), Netz, Batterie, Meter, Hausverbrauch nach Quelle, Energie | Nur PLENTICORE plus Generation 1 getestet — andere Generationen/Leistungsklassen ungeprüft. **Wichtig:** Kostal nutzt standardmäßig Port **1502**, nicht 502 — beim Anlegen der Instanz ggf. manuell eintragen. |
 | **SMA** | PV Gesamtleistung, Netz, Meter, Energie, Temperatur, Status, Gerätename/Seriennummer | Reine SunSpec-Implementierung mit Laufzeit-Discovery, wie von OpenEMS für SMA Sunny Tripower verwendet |
-| **Fronius** | PV (MPPT), Netz, Meter, Energie, Batterie (GEN24-Hybrid: SOC + Leistung), Status, Gerätename/Seriennummer | Reine SunSpec-Implementierung mit Laufzeit-Discovery (keine festen Registeradressen, siehe unten). Der Smart Meter wird über seine eigene Unit-ID gelesen („Zähleradresse", werksseitig 200). Im Wechselrichter muss der Modbus-Server (TCP) aktiviert sein; „Steuerung erlauben" ist nicht nötig, das Modul liest nur. |
+| **Fronius** | PV (MPPT), Netz, Meter, Energie, Batterie (GEN24-Hybrid: SOC + Leistung), Status, Gerätename/Seriennummer | Reine SunSpec-Implementierung mit Laufzeit-Discovery (keine festen Registeradressen, siehe unten). Der Smart Meter ist ein eigenes Modbus-Gerät mit eigener Unit-ID („Smart-Meter-Adresse", Vorgabe 200, je nach Konfiguration z. B. 240 — im Datenpunkte-Panel einstellbar). Im Wechselrichter muss der Modbus-Server (TCP) aktiviert sein; „Steuerung erlauben" ist nicht nötig, das Modul liest nur. |
 
 Registeradressen stehen im **Beschreibungsfeld** jeder Variable (Objekt-Manager, Spalte
 „Beschreibung") — praktisch zum Abgleich mit dem Herstellerhandbuch oder für eigene Skripte.

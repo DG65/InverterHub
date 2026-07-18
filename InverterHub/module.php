@@ -2051,9 +2051,10 @@ class FroniusDriver implements InverterDriverInterface
         if ($hub->GetPropBool('GroupMeter')) {
             // Fronius meldet den Smart Meter NICHT in der SunSpec-Kette des
             // Wechselrichters, sondern unter einer eigenen Unit-ID (die
-            // "Zähleradresse", werksseitig 200). Erst dort suchen, zur
+            // "Zähleradresse"). Deren Vorgabe ist 200, je nach Konfiguration
+            // aber z. B. 240 - daher konfigurierbar. Erst dort suchen, zur
             // Sicherheit als Rückfall auch in der eigenen Kette.
-            $meterVal = $this->readMeterTotal(new ModbusTcpClient($mb->host, $mb->port, 200));
+            $meterVal = $this->readMeterTotal(new ModbusTcpClient($mb->host, $mb->port, $hub->GetMeterUnitId()));
             if ($meterVal === null) {
                 $meterVal = $this->readMeterTotal($mb);
             }
@@ -2933,6 +2934,11 @@ class InverterHub extends IPSModule
         $this->RegisterPropertyBoolean('Active', true);
         $this->RegisterPropertyString('Manufacturer', 'goodwe');
         $this->RegisterPropertyBoolean('MeterInvert', false);
+        $this->RegisterPropertyBoolean('BatInvert', false);
+        // Modbus-Unit-ID des Smart Meters (SunSpec-Hersteller wie Fronius/SMA/
+        // SolarEdge: der Zähler ist ein eigenes Modbus-Gerät, Adresse ab 200,
+        // je nach Konfiguration z. B. auch 240).
+        $this->RegisterPropertyInteger('MeterUnitId', 200);
         $this->RegisterPropertyInteger('HouseLoadMeterID', 0);
         $this->RegisterPropertyString('Host', '');
         $this->RegisterPropertyInteger('Port', 502);
@@ -3073,14 +3079,32 @@ class InverterHub extends IPSModule
                 'caption' => $group['caption'],
             ];
         }
-        // Invers-Schalter für die Meter-Leistung: die Zählrichtung hängt vom
-        // Einbauort/der Verdrahtung des Zählers ab und ist daher je Anlage
-        // verschieden - der Nutzer legt die Richtung selbst fest.
+        // Invers-Schalter: die Vorzeichen von Netz- und Batterieleistung hängen
+        // von Einbauort/Verdrahtung bzw. der gewünschten Konvention ab und sind
+        // je Anlage verschieden - der Nutzer legt die Richtung selbst fest.
         $groupItems[] = [
             'type'    => 'CheckBox',
             'name'    => 'MeterInvert',
             'caption' => 'Netz-Leistung (Meter) invertieren — falls Einspeisung/Bezug vertauscht angezeigt werden',
         ];
+        $groupItems[] = [
+            'type'    => 'CheckBox',
+            'name'    => 'BatInvert',
+            'caption' => 'Batterie-Leistung invertieren — Standard ist + Entladen / − Laden',
+        ];
+
+        // Meter-Adresse nur bei Fronius relevant: Dort ist der Smart Meter ein
+        // eigenständiges Modbus-Gerät auf derselben IP mit eigener Unit-ID
+        // (SMA/SolarEdge liefern den Zähler in der eigenen SunSpec-Kette).
+        if ($this->ReadPropertyString('Manufacturer') === 'fronius') {
+            $groupItems[] = [
+                'type'    => 'NumberSpinner',
+                'name'    => 'MeterUnitId',
+                'caption' => 'Smart-Meter-Adresse (Modbus Unit-ID, Vorgabe 200; je nach Fronius-Konfiguration z. B. 240)',
+                'minimum' => 1,
+                'maximum' => 247,
+            ];
+        }
 
         $form = [
             'elements' => [
@@ -3200,6 +3224,14 @@ class InverterHub extends IPSModule
         return $this->driver;
     }
 
+    // Modbus-Unit-ID des Smart Meters (für SunSpec-Hersteller, deren Zähler
+    // ein eigenständiges Modbus-Gerät auf derselben IP/Port ist).
+    public function GetMeterUnitId(): int
+    {
+        $v = (int)$this->ReadPropertyInteger('MeterUnitId');
+        return ($v >= 1 && $v <= 247) ? $v : 200;
+    }
+
     private function GetModbusClient(): ModbusTcpClient
     {
         return new ModbusTcpClient(
@@ -3216,20 +3248,80 @@ class InverterHub extends IPSModule
     private function RegisterVariables()
     {
         $driver = $this->GetDriver();
-        $pos = 0;
 
+        // Menge der gültigen Idents des AKTUELL gewählten Treibers (Basis +
+        // aktivierte optionale Gruppen). Alles andere unter der Instanz ist
+        // ein Überbleibsel eines anderen Herstellers oder einer deaktivierten
+        // Gruppe und wird entfernt - sonst blieben beim Herstellerwechsel
+        // (z. B. GoodWe -> Fronius) die Ordner/Variablen des vorigen Treibers
+        // stehen (real gemeldet: neu angelegte Fronius-Instanz zeigte die
+        // GoodWe-Datenpunkte).
+        $valid = [];
+        foreach ($driver->getBaseVars() as $v) {
+            $valid[$v[0]] = true;
+        }
+        foreach ($driver->getOptionalGroups() as $propName => $group) {
+            if ($this->ReadPropertyBoolean($propName)) {
+                foreach ($group['vars'] as $v) {
+                    $valid[$v[0]] = true;
+                }
+            }
+        }
+        $this->PruneForeignObjects($valid);
+
+        $pos = 0;
         foreach ($driver->getBaseVars() as $v) {
             $this->RegisterVar($v, $pos++);
         }
-
         foreach ($driver->getOptionalGroups() as $propName => $group) {
-            $enabled = $this->ReadPropertyBoolean($propName);
-            foreach ($group['vars'] as $v) {
-                if ($enabled) {
+            if ($this->ReadPropertyBoolean($propName)) {
+                foreach ($group['vars'] as $v) {
                     $this->RegisterVar($v, $pos++);
-                } else {
-                    $this->UnregVarIfExists($v[0]);
                 }
+            }
+        }
+    }
+
+    // Entfernt unter der Instanz alle Variablen mit einem Ident, das nicht in
+    // $validIdents steht (Reste eines anderen Treibers / deaktivierter Gruppe),
+    // und räumt danach leere Modul-Kategorien (cat_*) ab.
+    private function PruneForeignObjects(array $validIdents)
+    {
+        $all = [];
+        $collect = function ($pid) use (&$collect, &$all) {
+            foreach (IPS_GetChildrenIDs($pid) as $cid) {
+                $all[] = $cid;
+                if (IPS_GetObject($cid)['ObjectType'] === 0) {
+                    $collect($cid);
+                }
+            }
+        };
+        $collect($this->InstanceID);
+
+        // 1) Variablen (ObjectType 2) mit ungültigem Ident löschen.
+        foreach ($all as $cid) {
+            if (!IPS_ObjectExists($cid)) {
+                continue;
+            }
+            $obj = IPS_GetObject($cid);
+            if ($obj['ObjectType'] !== 2 || $obj['ObjectIdent'] === '') {
+                continue;
+            }
+            if (!isset($validIdents[$obj['ObjectIdent']])) {
+                @IPS_DeleteVariable($cid);
+            }
+        }
+
+        // 2) Leere Modul-Kategorien (cat_*) entfernen.
+        foreach ($all as $cid) {
+            if (!IPS_ObjectExists($cid)) {
+                continue;
+            }
+            $obj = IPS_GetObject($cid);
+            if ($obj['ObjectType'] === 0
+                && strpos($obj['ObjectIdent'], 'cat_') === 0
+                && count(IPS_GetChildrenIDs($cid)) === 0) {
+                @IPS_DeleteCategory($cid);
             }
         }
     }
@@ -3279,6 +3371,7 @@ class InverterHub extends IPSModule
 
     private const CATEGORY_LABELS = [
         'pv'        => 'PV / MPPT',
+        'bat'       => 'Batterie',
         'bat1'      => 'Batterie 1',
         'bat2'      => 'Batterie 2',
         'batcommon' => 'Batterie (gemeinsam)',
@@ -3344,6 +3437,12 @@ class InverterHub extends IPSModule
         // Verdrahtung des Zählers melden Anlagen die Richtung genau umgekehrt -
         // der Nutzer entscheidet selbst, statt dass wir je Hersteller raten.
         if ($ident === 'meter_total' && $this->ReadPropertyBoolean('MeterInvert')) {
+            $value = -$value;
+        }
+        // Analog für die Batterieleistung (Vorzeichen je nach gewünschter
+        // Konvention). Modul-Standard ist + = Entladen, − = Laden.
+        if (in_array($ident, ['bat_total_pwr', 'bat_power', 'bat1_pwr', 'bat2_pwr'], true)
+            && $this->ReadPropertyBoolean('BatInvert')) {
             $value = -$value;
         }
         $vid = $this->FindVarByIdent($ident);
