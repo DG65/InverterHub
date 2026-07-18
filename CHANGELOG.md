@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.28.1-beta.1 (2026-07-18)
+
+Nach Kostal-Plenticore-Beta-Test:
+
+- **Kostal: Byte-/Wortreihenfolge (CDAB/ABCD) wählbar**. Ursache der unbrauchbaren Werte
+  (riesige/negative Zahlen, z. B. Spannung 1,4·10¹³ V): Der Plenticore ist ab Werk auf
+  „little-endian (CDAB) Standard Modbus" gestellt, das Modul decodierte Float32 aber fest
+  big-endian (ABCD/SunSpec). Neu: Auswahl „Byte-Reihenfolge" (nur bei Kostal), Vorgabe CDAB
+  passend zur Werkseinstellung. Muss mit der Einstellung im Plenticore-Webinterface
+  (Einstellungen → Modbus/Sunspec) übereinstimmen.
+- **Robustheit gegen NaN/INF**: Liefert ein Gerät an einer Register-Adresse keinen
+  gültigen Float32 (andere Byte-/Wort-Reihenfolge, kein Float an dieser Adresse), lehnte
+  IP-Symcon das Setzen mit wiederholter Warnung ab („NaN/INF Werte werden nicht
+  unterstützt"). Solche Werte werden jetzt zentral in `SetVarFloat` auf 0.0 gefiltert –
+  keine Log-Flut mehr. (Die eigentliche Kostal-Decodierung wird nach Auswertung der
+  Roh-Register des Testers separat korrigiert.)
+
 ## 0.28.0-beta.1 (2026-07-17)
 
 Nach Fronius-Beta-Test (Symo GEN24, Batterie + Smart Meter):

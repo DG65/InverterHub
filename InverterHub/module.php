@@ -17,11 +17,21 @@ class ModbusTcpClient
     public $port;
     public $unitId;
 
+    // Float32-Wortreihenfolge: false = ABCD (big-endian, SunSpec-Konvention),
+    // true = CDAB (Wort-Swap, „Standard Modbus little-endian"). Kostal-Geräte
+    // sind ab Werk auf CDAB gestellt und liefern sonst Datenmüll.
+    public $floatWordSwap = false;
+
     public function __construct($host, $port, $unitId)
     {
         $this->host   = $host;
         $this->port   = $port;
         $this->unitId = $unitId;
+    }
+
+    public function setFloatWordSwap(bool $swap)
+    {
+        $this->floatWordSwap = $swap;
     }
 
     public function readHolding($startReg, $count)
@@ -202,11 +212,16 @@ class ModbusTcpClient
         return rtrim($s, "\x00 ");
     }
 
-    // IEEE-754 Float32 über 2 Register, Big-Endian (SunSpec-Konvention).
+    // IEEE-754 Float32 über 2 Register. Standard Big-Endian (SunSpec, ABCD);
+    // bei $floatWordSwap = true wird die Wortreihenfolge getauscht (CDAB), wie
+    // sie z. B. Kostal im „Standard Modbus (little-endian)"-Modus liefert.
     public function readFloat32($regs, $offset)
     {
         $hi  = $this->u16($regs, $offset);
         $lo  = $this->u16($regs, $offset + 1);
+        if ($this->floatWordSwap) {
+            $tmp = $hi; $hi = $lo; $lo = $tmp;
+        }
         $raw = pack('nn', $hi, $lo);
         $val = unpack('G', $raw);
         return (float)($val[1] ?? 0.0);
@@ -2780,6 +2795,7 @@ class KostalDriver implements InverterDriverInterface
 
     public function readFast($mb, $hub)
     {
+        $mb->setFloatWordSwap($hub->GetKostalWordSwap());
         $pv  = $mb->readHolding(100, 2);
         $ac  = $mb->readHolding(172, 2);
 
@@ -2872,6 +2888,7 @@ class KostalDriver implements InverterDriverInterface
 
     public function readSlow($mb, $hub)
     {
+        $mb->setFloatWordSwap($hub->GetKostalWordSwap());
         if (!$hub->GetPropBool('GroupEnergy')) {
             return;
         }
@@ -2890,6 +2907,7 @@ class KostalDriver implements InverterDriverInterface
 
     public function readDeviceInfo($mb, $hub)
     {
+        $mb->setFloatWordSwap($hub->GetKostalWordSwap());
         $name = $mb->readHolding(768, 16);
         if ($name !== null) {
             $hub->SetVarStr('dev_name', $mb->readStr($name, 0, 16));
@@ -2939,6 +2957,10 @@ class InverterHub extends IPSModule
         // SolarEdge: der Zähler ist ein eigenes Modbus-Gerät, Adresse ab 200,
         // je nach Konfiguration z. B. auch 240).
         $this->RegisterPropertyInteger('MeterUnitId', 200);
+        // Float32-Wortreihenfolge bei Kostal. 0 = CDAB (little-endian „Standard
+        // Modbus", Werkseinstellung Plenticore), 1 = ABCD (big-endian/SunSpec).
+        // Falsche Wahl liefert unbrauchbare Werte (riesige/negative Zahlen).
+        $this->RegisterPropertyInteger('KostalByteOrder', 0);
         $this->RegisterPropertyInteger('HouseLoadMeterID', 0);
         $this->RegisterPropertyString('Host', '');
         $this->RegisterPropertyInteger('Port', 502);
@@ -3106,6 +3128,23 @@ class InverterHub extends IPSModule
             ];
         }
 
+        // Byte-/Wortreihenfolge nur bei Kostal: Der Plenticore bietet im
+        // Webinterface (Einstellungen → Modbus/Sunspec) die Wahl zwischen
+        // „little-endian (CDAB) Standard Modbus" (Werkseinstellung) und
+        // „big-endian (ABCD) Sunspec". Muss hier passend gewählt werden, sonst
+        // liefert das Gerät unbrauchbare Float-Werte (riesige/negative Zahlen).
+        if ($this->ReadPropertyString('Manufacturer') === 'kostal') {
+            $groupItems[] = [
+                'type'    => 'Select',
+                'name'    => 'KostalByteOrder',
+                'caption' => 'Byte-Reihenfolge (muss zur Einstellung im Plenticore passen)',
+                'options' => [
+                    ['caption' => 'little-endian (CDAB) — Standard Modbus (Werkseinstellung)', 'value' => 0],
+                    ['caption' => 'big-endian (ABCD) — Sunspec', 'value' => 1],
+                ],
+            ];
+        }
+
         $form = [
             'elements' => [
                 [
@@ -3230,6 +3269,12 @@ class InverterHub extends IPSModule
     {
         $v = (int)$this->ReadPropertyInteger('MeterUnitId');
         return ($v >= 1 && $v <= 247) ? $v : 200;
+    }
+
+    // Float32-Wortreihenfolge bei Kostal: true = CDAB (Wort-Swap), false = ABCD.
+    public function GetKostalWordSwap(): bool
+    {
+        return (int)$this->ReadPropertyInteger('KostalByteOrder') === 0;
     }
 
     private function GetModbusClient(): ModbusTcpClient
@@ -3433,6 +3478,14 @@ class InverterHub extends IPSModule
 
     public function SetVarFloat(string $ident, float $value)
     {
+        // Robustheit: Liefert ein Register keinen gültigen Float32 (z. B. weil
+        // ein Gerät an dieser Adresse gar keinen Float ablegt oder eine andere
+        // Byte-/Wort-Reihenfolge nutzt), entstehen NaN/INF. IP-Symcon lehnt die
+        // beim Setzen mit einer Warnung ab ("NaN/INF Werte werden nicht
+        // unterstützt") - wir fangen das zentral ab und schreiben 0.0.
+        if (!is_finite($value)) {
+            $value = 0.0;
+        }
         // Zentraler Invers-Schalter für die Meter-Leistung: Je nach Einbauort/
         // Verdrahtung des Zählers melden Anlagen die Richtung genau umgekehrt -
         // der Nutzer entscheidet selbst, statt dass wir je Hersteller raten.
