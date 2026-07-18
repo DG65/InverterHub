@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.30.0-beta.1 (2026-07-18)
+
+- **Neuer Hersteller: Huawei SUN2000 (L1/M1)** inkl. DTSU666-Zähler und LUNA2000-Batterie.
+  Native Huawei-Registermap (kein SunSpec, FC 0x03, Big-Endian, int16/int32 mit Gain);
+  Register/Gain verbatim aus der Bibliothek `wlcrs/huawei-solar-lib`. Ausgelesen werden:
+  PV-Eingangsleistung (32064), AC-Wirkleistung (32080), Netz U/I/f (32069/32072/32085),
+  Innentemperatur (32087), Betriebsstatus (32089), Ertrag Gesamt/Heute (32106/32114),
+  Smart Meter DTSU666 (Leistung 37113, U/I/f), Batterie LUNA2000 (SOC 37004, Leistung 37001,
+  Spannung 37003, Strom 37021, Temperatur 37022, Zustand 37000) und der Modellname (30000).
+  Unit-ID des Wechselrichters meist 1 (je nach Konfiguration auch 0/16), Port 502. Vorzeichen
+  von Netz (+ Einspeisung) und Batterie (+ Entladen) auf Modul-Konvention gebracht. Noch nicht
+  am realen Gerät verifiziert.
+
 ## 0.29.1-beta.1 (2026-07-18)
 
 Nach weiterem SolarEdge-Beta-Test:

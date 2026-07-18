@@ -3016,6 +3016,178 @@ class KostalDriver implements InverterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
+// HuaweiDriver — Huawei SUN2000 (L1/M1) + DTSU666-Zähler + LUNA2000-Batterie.
+// Native Huawei-Registermap (FC 0x03, Big-Endian, int16/int32 mit Gain, kein
+// SunSpec). Register/Gain verbatim aus der Bibliothek wlcrs/huawei-solar-lib
+// (huawei_solar/registers.py) übernommen. Standard-Unit-ID des Wechselrichters
+// ist 1 (je nach Konfiguration auch 0/16), Port 502.
+// ---------------------------------------------------------------------------
+
+class HuaweiDriver implements InverterDriverInterface
+{
+    const STATUS = [
+        0x0000 => 'Standby: Initialisierung', 0x0001 => 'Standby: Isolationswiderstand',
+        0x0002 => 'Standby: Einstrahlung',    0x0003 => 'Standby: Netzerkennung',
+        0x0100 => 'Startet',                  0x0200 => 'Netzbetrieb',
+        0x0201 => 'Netzbetrieb: leistungsbegrenzt', 0x0202 => 'Netzbetrieb: Eigenderating',
+        0x0300 => 'Abschaltung: Fehler',      0x0301 => 'Abschaltung: Befehl',
+        0x0304 => 'Abschaltung: leistungsbegrenzt', 0x0306 => 'Abschaltung: DC-Schalter offen',
+        0x0308 => 'Abschaltung: Eingang unterversorgt', 0xA000 => 'Standby: keine Einstrahlung',
+    ];
+    const BAT_STATUS = [
+        0 => 'Offline', 1 => 'Standby', 2 => 'Läuft', 3 => 'Fehler', 4 => 'Ruhemodus',
+    ];
+
+    public function getBaseVars()
+    {
+        return [
+            ['connected', 'Verbindung',        'B', '~Alert.Reversed', false, 'errors', ''],
+            ['status',    'Betriebsstatus',    'I', 'HUA.Status',      true,  'device', 'RO 32089'],
+            ['pv_total',  'PV Gesamtleistung (DC-Eingang)', 'F', 'HUA.Watt', true, 'pv',   'RO 32064 (I32)'],
+            ['ac_power',  'AC Wirkleistung',   'F', 'HUA.Watt',        true,  'device', 'RO 32080 (I32)'],
+        ];
+    }
+
+    public function getOptionalGroups()
+    {
+        return [
+            'GroupGrid' => ['caption' => 'Netz (Spannung, Strom, Frequenz)', 'vars' => [
+                ['grid_volt', 'Netz Spannung',  'F', 'HUA.Volt',   false, 'grid', 'RO 32069 (÷10)'],
+                ['grid_curr', 'Netz Strom',     'F', 'HUA.Ampere', false, 'grid', 'RO 32072 (I32, ÷1000)'],
+                ['grid_freq', 'Netzfrequenz',   'F', 'HUA.Hertz',  false, 'grid', 'RO 32085 (÷100)'],
+            ]],
+            'GroupTemp' => ['caption' => 'Temperatur', 'vars' => [
+                ['temp_cab', 'Innentemperatur', 'F', '~Temperature', false, 'device', 'RO 32087 (÷10)'],
+            ]],
+            'GroupEnergy' => ['caption' => 'Energiezähler (Ertrag Gesamt/Heute)', 'vars' => [
+                ['e_total', 'Ertrag Gesamt', 'F', '~Electricity', true, 'energy', 'RO 32106 (U32, ÷100)'],
+                ['e_day',   'Ertrag Heute',  'F', '~Electricity', true, 'energy', 'RO 32114 (U32, ÷100)'],
+            ]],
+            'GroupMeter' => ['caption' => 'Smart Meter (DTSU666)', 'vars' => [
+                ['meter_total', 'Netz Leistung (Meter, + Einspeisung / − Bezug)', 'F', 'HUA.Watt', true, 'meter', 'RO 37113 (I32)'],
+                ['meter_volt',  'Meter Spannung L1', 'F', 'HUA.Volt',   false, 'meter', 'RO 37101 (I32, ÷10)'],
+                ['meter_curr',  'Meter Strom L1',    'F', 'HUA.Ampere', false, 'meter', 'RO 37107 (I32, ÷100)'],
+                ['meter_freq',  'Meter Frequenz',    'F', 'HUA.Hertz',  false, 'meter', 'RO 37118 (I16, ÷100)'],
+            ]],
+            'GroupBattery' => ['caption' => 'Batterie (LUNA2000)', 'vars' => [
+                ['bat_soc',    'Bat. SOC',        'I', '~Battery.100', true,  'bat', 'RO 37004 (÷10)'],
+                ['bat_power',  'Bat. Leistung (+ Entladen / − Laden)', 'F', 'HUA.Watt', true, 'bat', 'RO 37001 (I32)'],
+                ['bat_volt',   'Bat. Spannung',   'F', 'HUA.Volt',    false, 'bat', 'RO 37003 (÷10)'],
+                ['bat_curr',   'Bat. Strom',      'F', 'HUA.Ampere',  false, 'bat', 'RO 37021 (I16, ÷10)'],
+                ['bat_temp',   'Bat. Temperatur', 'F', '~Temperature', false, 'bat', 'RO 37022 (I16, ÷10)'],
+                ['bat_status', 'Bat. Zustand',    'I', 'HUA.BatStatus', true, 'bat', 'RO 37000'],
+            ]],
+            'GroupDevice' => ['caption' => 'Geräteinformation', 'vars' => [
+                ['dev_model', 'Modell', 'S', '', false, 'device', 'RO 30000 (String)'],
+            ]],
+        ];
+    }
+
+    public function getExtraBooleanProperties()
+    {
+        return [];
+    }
+
+    public function getProfiles()
+    {
+        return [
+            'HUA.Watt'   => [VARIABLETYPE_FLOAT, ' W',  -100000.0, 100000.0, 1.0,  0],
+            'HUA.Volt'   => [VARIABLETYPE_FLOAT, ' V',        0.0,   1000.0, 0.1,  1],
+            'HUA.Ampere' => [VARIABLETYPE_FLOAT, ' A',    -1000.0,   1000.0, 0.1,  1],
+            'HUA.Hertz'  => [VARIABLETYPE_FLOAT, ' Hz',      45.0,     65.0, 0.01, 2],
+        ];
+    }
+
+    public function getEnumProfiles()
+    {
+        $st = [];
+        foreach (self::STATUS as $k => $label) {
+            $st[$k] = [$label, 0x7A8A99];
+        }
+        $bs = [];
+        foreach (self::BAT_STATUS as $k => $label) {
+            $bs[$k] = [$label, 0x7A8A99];
+        }
+        return ['HUA.Status' => $st, 'HUA.BatStatus' => $bs];
+    }
+
+    public function readFast($mb, $hub)
+    {
+        // Block 32064..32089 (26 Register): Eingangs-/Wirkleistung, Netz, Temp, Status.
+        $a = $mb->readHolding(32064, 26);
+        $ok = ($a !== null);
+        $hub->SetVarBool('connected', $ok);
+        if (!$ok) {
+            return false;
+        }
+
+        $hub->SetVarFloat('pv_total', (float)$mb->s32($a, 0));   // 32064 Input power (DC)
+        $hub->SetVarFloat('ac_power', (float)$mb->s32($a, 16));  // 32080 Active power
+        $hub->SetVarInt('status', $mb->u16($a, 25));             // 32089 Device status
+
+        if ($hub->GetPropBool('GroupGrid')) {
+            $hub->SetVarFloat('grid_volt', $mb->u16($a, 5) / 10.0);    // 32069
+            $hub->SetVarFloat('grid_curr', $mb->s32($a, 8) / 1000.0);  // 32072
+            $hub->SetVarFloat('grid_freq', $mb->u16($a, 21) / 100.0);  // 32085
+        }
+        if ($hub->GetPropBool('GroupTemp')) {
+            $hub->SetVarFloat('temp_cab', $mb->s16($a, 23) / 10.0);    // 32087
+        }
+
+        if ($hub->GetPropBool('GroupMeter')) {
+            $m = $mb->readHolding(37100, 19); // 37100..37118
+            if ($m !== null) {
+                // Huawei-Zähler: + = Einspeisung, − = Bezug (Modul-Konvention).
+                $hub->SetVarFloat('meter_total', (float)$mb->s32($m, 13)); // 37113
+                $hub->SetVarFloat('meter_volt',  $mb->s32($m, 1) / 10.0);  // 37101
+                $hub->SetVarFloat('meter_curr',  $mb->s32($m, 7) / 100.0); // 37107
+                $hub->SetVarFloat('meter_freq',  $mb->s16($m, 18) / 100.0); // 37118
+            }
+        }
+
+        if ($hub->GetPropBool('GroupBattery')) {
+            $b = $mb->readHolding(37000, 23); // 37000..37022
+            if ($b !== null) {
+                $hub->SetVarInt('bat_status', $mb->u16($b, 0));            // 37000
+                // Huawei: + = Laden. Modul-Konvention + = Entladen -> negieren.
+                $hub->SetVarFloat('bat_power', (float)(-$mb->s32($b, 1))); // 37001
+                $hub->SetVarFloat('bat_volt', $mb->u16($b, 3) / 10.0);     // 37003
+                $hub->SetVarInt('bat_soc', (int)round($mb->u16($b, 4) / 10.0)); // 37004
+                $hub->SetVarFloat('bat_curr', -$mb->s16($b, 21) / 10.0);   // 37021
+                $hub->SetVarFloat('bat_temp', $mb->s16($b, 22) / 10.0);    // 37022
+            }
+        }
+
+        return true;
+    }
+
+    public function readSlow($mb, $hub)
+    {
+        if (!$hub->GetPropBool('GroupEnergy')) {
+            return;
+        }
+        $e = $mb->readHolding(32106, 10); // 32106..32115
+        if ($e !== null) {
+            $hub->SetVarFloat('e_total', $mb->u32($e, 0) / 100.0);  // 32106
+            $hub->SetVarFloat('e_day',   $mb->u32($e, 8) / 100.0);  // 32114
+        }
+    }
+
+    public function readDeviceInfo($mb, $hub)
+    {
+        $name = $mb->readHolding(30000, 15); // Model name (STR, 30 Zeichen)
+        if ($name !== null) {
+            $hub->SetVarStr('dev_model', $mb->readStr($name, 0, 15));
+        }
+    }
+
+    public function writeControl($mb, $hub, $ident, $value)
+    {
+        // Keine Steuerregister in der ersten Ausbaustufe.
+    }
+}
+
+// ---------------------------------------------------------------------------
 // VictronDriver — Victron GX (Cerbo/Venus OS) über Modbus TCP. Anders als bei
 // Einzel-Wechselrichtern ist die Unit-ID hier ein Geräte-Selektor: Der Dienst
 // com.victronenergy.system liegt IMMER auf Unit-ID 100 und aggregiert die
@@ -3185,6 +3357,7 @@ class InverterHub extends IPSModule
         'solplanet' => 'SolplanetDriver',
         'kostal'    => 'KostalDriver',
         'victron'   => 'VictronDriver',
+        'huawei'    => 'HuaweiDriver',
     ];
 
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-inverterhub-multi-wechselrichter-ein-modbus-tcp-modul-fuer-goodwe-sma-fronius-sungrow-solis-growatt-solax/144121';
@@ -3427,6 +3600,7 @@ class InverterHub extends IPSModule
                         ['label' => 'Solplanet / AISWEI', 'value' => 'solplanet'],
                         ['label' => 'Kostal (PLENTICORE plus Gen. 1)', 'value' => 'kostal'],
                         ['label' => 'Victron GX (Cerbo/Venus OS, Unit-ID 100)', 'value' => 'victron'],
+                        ['label' => 'Huawei SUN2000 (+ DTSU666 / LUNA2000, Unit-ID meist 1)', 'value' => 'huawei'],
                     ],
                 ],
                 [
