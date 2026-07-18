@@ -27,6 +27,8 @@ class InverterHubDiscovery extends IPSModule
         'deye'      => [1, 2],
         'solplanet' => [3, 1],
         'kostal'    => [71, 1],
+        'victron'   => [100],
+        'huawei'    => [1, 0, 16],
     ];
 
     private const VENDOR_LABELS = [
@@ -41,6 +43,8 @@ class InverterHubDiscovery extends IPSModule
         'deye'      => 'Deye',
         'solplanet' => 'Solplanet / AISWEI',
         'kostal'    => 'Kostal',
+        'victron'   => 'Victron GX',
+        'huawei'    => 'Huawei SUN2000',
     ];
 
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-inverterhub-multi-wechselrichter-ein-modbus-tcp-modul-fuer-goodwe-sma-fronius-sungrow-solis-growatt-solax/144121';
@@ -553,6 +557,24 @@ class InverterHubDiscovery extends IPSModule
                 }
                 $name = $this->readHolding($ip, $port, $unitId, 768, 16, 1.0);
                 return $this->looksLikeAsciiText($name, 4);
+
+            case 'victron':
+                // Victron GX: Systemdienst liegt fest auf Unit-ID 100. Serial
+                // (Reg 800, String[6]) muss zu ASCII-Text dekodieren - andere
+                // Geräte antworten auf Unit 100 in aller Regel gar nicht.
+                $sn = $this->readHolding($ip, $port, $unitId, 800, 6, 1.0);
+                return $this->looksLikeAsciiText($sn, 4);
+
+            case 'huawei':
+                // Huawei SUN2000: Model-ID (Reg 30070) muss > 0 sein, und der
+                // Modellname (Reg 30000, String) muss zu ASCII dekodieren
+                // (z. B. „SUN2000-4.6KTL-L1").
+                $r = $this->readHolding($ip, $port, $unitId, 30070, 1, 1.0);
+                if ($r === null || $r[0] <= 0) {
+                    return false;
+                }
+                $name = $this->readHolding($ip, $port, $unitId, 30000, 10, 1.0);
+                return $this->looksLikeAsciiText($name, 5);
         }
         return false;
     }

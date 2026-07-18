@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.30.1-beta.1 (2026-07-18)
+
+- **Discovery erkennt jetzt auch Victron GX und Huawei SUN2000.** Damit deckt der
+  Netzwerk-Scan alle unterstützten Hersteller ab. Victron wird über den Systemdienst auf
+  Unit-ID 100 (Serial-Register) erkannt, Huawei über Modell-ID/Modellname (Reg 30070/30000)
+  auf Unit-ID 1/0/16.
+
 ## 0.30.0-beta.1 (2026-07-18)
 
 - **Neuer Hersteller: Huawei SUN2000 (L1/M1)** inkl. DTSU666-Zähler und LUNA2000-Batterie.
