@@ -2281,16 +2281,23 @@ class SolarEdgeDriver implements InverterDriverInterface
                 $hub->SetVarFloat('temp_cab', $mb->readFloat32($blk, 40));
             }
         } else {
-            $hub->SetVarFloat('ac_power', (float)$mb->s16($blk, 12));
+            // SunSpec-Integer-Modell 103: Jeder Messwert ist ein int16/uint16
+            // mit separatem Skalierungsfaktor-Register (sunssf, 10^SF). SolarEdge
+            // liefert z. B. Spannung/Strom mit SF -1 - ohne Anwenden erscheinen
+            // sie um Faktor 10 zu groß (225 V -> 2250 V, 28,9 A -> 289 A).
+            $hub->SetVarFloat('ac_power', $mb->s16($blk, 12) * $this->sf($mb, $blk, 13));
             $hub->SetVarInt('status', $mb->u16($blk, 36));
-            $hub->SetVarFloat('pv_total', (float)$mb->s16($blk, 29));
+            $hub->SetVarFloat('pv_total', $mb->s16($blk, 29) * $this->sf($mb, $blk, 30));
             if ($hub->GetPropBool('GroupGrid')) {
-                $hub->SetVarFloat('grid_curr', (float)$mb->u16($blk, 0));
-                $hub->SetVarFloat('grid_volt', (float)$mb->u16($blk, 8));
-                $hub->SetVarFloat('grid_freq', $mb->u16($blk, 14) / 100.0);
+                $hub->SetVarFloat('grid_curr', $mb->u16($blk, 0) * $this->sf($mb, $blk, 4));
+                $hub->SetVarFloat('grid_volt', $mb->u16($blk, 8) * $this->sf($mb, $blk, 11));
+                $hub->SetVarFloat('grid_freq', $mb->u16($blk, 14) * $this->sf($mb, $blk, 15));
+            }
+            if ($hub->GetPropBool('GroupEnergy')) {
+                $hub->SetVarFloat('e_total', $mb->u32($blk, 22) * $this->sf($mb, $blk, 24) / 1000.0);
             }
             if ($hub->GetPropBool('GroupTemp')) {
-                $hub->SetVarFloat('temp_cab', $mb->s16($blk, 32) / 10.0);
+                $hub->SetVarFloat('temp_cab', $mb->s16($blk, 32) * $this->sf($mb, $blk, 35));
             }
         }
 
@@ -2298,14 +2305,26 @@ class SolarEdgeDriver implements InverterDriverInterface
             $meter = $this->findModel($mb, 201) ?: $this->findModel($mb, 203) ?: $this->findModel($mb, 211) ?: $this->findModel($mb, 213);
             if ($meter !== null) {
                 [$mtbase, $mtlen] = $meter;
-                $mtblk = $mb->readHolding($mtbase, min($mtlen, 20));
+                $mtblk = $mb->readHolding($mtbase, min($mtlen, 30));
                 if ($mtblk !== null) {
-                    $hub->SetVarFloat('meter_total', (float)$mb->s16($mtblk, 16));
+                    // Zähler-Modell 20x: W (gesamt) bei Offset 16, W_SF bei 20.
+                    $hub->SetVarFloat('meter_total', $mb->s16($mtblk, 16) * $this->sf($mb, $mtblk, 20));
                 }
             }
         }
 
         return true;
+    }
+
+    // 10^SF aus einem SunSpec-Skalierungsfaktor-Register. Nicht implementierte
+    // SF liefern den Sentinel 0x8000 (-32768) bzw. unplausible Werte - dann 1.0.
+    private function sf($mb, $blk, $off)
+    {
+        $e = $mb->s16($blk, $off);
+        if ($e < -10 || $e > 10) {
+            return 1.0;
+        }
+        return pow(10, $e);
     }
 
     public function readSlow($mb, $hub)

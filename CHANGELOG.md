@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.28.2-beta.1 (2026-07-18)
+
+Nach SolarEdge-Beta-Test (SE10K-RWS48BEN4):
+
+- **SolarEdge: Skalierungsfaktoren im Integer-Modell (Model 103) korrigiert**. Ursache der
+  „falschen Kommastellen": SolarEdge überträgt Spannung/Strom/Temperatur als int16 mit
+  separatem SunSpec-Skalierungsfaktor-Register (10^SF). Diese wurden für Spannung und Strom
+  gar nicht und für die Temperatur mit falschem Divisor angewendet → Werte um Faktor 10/100
+  daneben (225 V erschien als 2250 V, 28,9 A als 289 A, 37 °C als 372 °C). Jetzt wird je
+  Messwert das zugehörige SF-Register gelesen und angewendet (Spannung, Strom, Frequenz,
+  Leistung, DC-Leistung, Temperatur, Gesamtertrag sowie Zähler-Leistung).
+- **SolarEdge: Gesamtertrag** wird jetzt auch im Integer-Modell gefüllt (stand vorher auf
+  „Nie").
+- Batterie-Unterstützung (StorEdge) folgt separat, sobald die Roh-Register des Testers zur
+  Byte-Reihenfolge vorliegen.
+
 ## 0.28.1-beta.1 (2026-07-18)
 
 Nach Kostal-Plenticore-Beta-Test:
