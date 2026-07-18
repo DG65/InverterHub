@@ -2331,9 +2331,11 @@ class SolarEdgeDriver implements InverterDriverInterface
                 $hub->SetVarFloat('bat_temp', $mb->readFloat32($bat, 0));   // 0xE16C
                 $hub->SetVarFloat('bat_volt', $mb->readFloat32($bat, 4));   // 0xE170
                 $hub->SetVarFloat('bat_curr', $mb->readFloat32($bat, 6));   // 0xE172
-                // Vorzeichen: SolarEdge meldet + = Laden. Modul-Konvention ist
-                // + = Entladen / − = Laden, daher negieren.
-                $hub->SetVarFloat('bat_power', -$mb->readFloat32($bat, 8));  // 0xE174
+                // Vorzeichen am realen Gerät verifiziert: SolarEdge meldet die
+                // Batterieleistung bereits in Modul-Konvention (+ Entladen /
+                // − Laden). Wer die umgekehrte Konvention will, nutzt den
+                // Schalter „Batterie-Leistung invertieren".
+                $hub->SetVarFloat('bat_power', $mb->readFloat32($bat, 8));   // 0xE174
                 $hub->SetVarInt('bat_soc', (int)round($mb->readFloat32($bat, 24))); // 0xE184
             }
             $mb->setFloatWordSwap(false);
