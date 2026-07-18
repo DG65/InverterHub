@@ -2211,6 +2211,13 @@ class SolarEdgeDriver implements InverterDriverInterface
             'GroupMeter' => ['caption' => 'Smart Meter (Leistung)', 'vars' => [
                 ['meter_total', 'Netz Leistung (Meter)', 'F', 'SLE.Watt', true, 'meter', 'SunSpec Meter Model 201/203'],
             ]],
+            'GroupBattery' => ['caption' => 'Batterie (StorEdge)', 'vars' => [
+                ['bat_soc',   'Bat. SOC',        'I', '~Battery.100', true,  'bat', 'SE 0xE184 (Float32, LE)'],
+                ['bat_power', 'Bat. Leistung',   'F', 'SLE.Watt',     true,  'bat', 'SE 0xE174 (Float32, LE)'],
+                ['bat_volt',  'Bat. Spannung',   'F', 'SLE.Volt',     false, 'bat', 'SE 0xE170 (Float32, LE)'],
+                ['bat_curr',  'Bat. Strom',      'F', 'SLE.Ampere',   false, 'bat', 'SE 0xE172 (Float32, LE)'],
+                ['bat_temp',  'Bat. Temperatur', 'F', '~Temperature', false, 'bat', 'SE 0xE16C (Float32, LE)'],
+            ]],
             'GroupDevice' => ['caption' => 'Geräteinformation', 'vars' => [
                 ['dev_model', 'Modell', 'S', '', false, 'device', 'SunSpec Common Block'],
                 ['dev_sn',    'Seriennummer', 'S', '', false, 'device', 'SunSpec Common Block'],
@@ -2311,6 +2318,25 @@ class SolarEdgeDriver implements InverterDriverInterface
                     $hub->SetVarFloat('meter_total', $mb->s16($mtblk, 16) * $this->sf($mb, $mtblk, 20));
                 }
             }
+        }
+
+        if ($hub->GetPropBool('GroupBattery')) {
+            // SolarEdge StorEdge: Batterie-1-Block ab 0xE100 (57600). Die
+            // Float32-Momentanwerte liegen im Bereich 0xE16C..0xE184 und sind -
+            // anders als der SunSpec-Inverter-Block (ABCD) - little-endian
+            // (CDAB, Wort-Swap). Daher hier gezielt umschalten.
+            $mb->setFloatWordSwap(true);
+            $bat = $mb->readHolding(57708, 26); // 0xE16C .. 0xE185
+            if ($bat !== null) {
+                $hub->SetVarFloat('bat_temp', $mb->readFloat32($bat, 0));   // 0xE16C
+                $hub->SetVarFloat('bat_volt', $mb->readFloat32($bat, 4));   // 0xE170
+                $hub->SetVarFloat('bat_curr', $mb->readFloat32($bat, 6));   // 0xE172
+                // Vorzeichen: SolarEdge meldet + = Laden. Modul-Konvention ist
+                // + = Entladen / − = Laden, daher negieren.
+                $hub->SetVarFloat('bat_power', -$mb->readFloat32($bat, 8));  // 0xE174
+                $hub->SetVarInt('bat_soc', (int)round($mb->readFloat32($bat, 24))); // 0xE184
+            }
+            $mb->setFloatWordSwap(false);
         }
 
         return true;

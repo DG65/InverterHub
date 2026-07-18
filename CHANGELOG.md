@@ -13,8 +13,12 @@ Nach SolarEdge-Beta-Test (SE10K-RWS48BEN4):
   Leistung, DC-Leistung, Temperatur, Gesamtertrag sowie Zähler-Leistung).
 - **SolarEdge: Gesamtertrag** wird jetzt auch im Integer-Modell gefüllt (stand vorher auf
   „Nie").
-- Batterie-Unterstützung (StorEdge) folgt separat, sobald die Roh-Register des Testers zur
-  Byte-Reihenfolge vorliegen.
+- **SolarEdge: Batterie (StorEdge) neu**. Optionale Gruppe „Batterie (StorEdge)" liest den
+  SolarEdge-Batterie-1-Block ab 0xE100: SOC, Leistung, Spannung, Strom, Temperatur. Die
+  Float32-Werte dieses Blocks sind – anders als der SunSpec-Inverter-Block (ABCD) – little-
+  endian (CDAB); das Modul schaltet dafür gezielt um. Vorzeichen der Batterieleistung folgt
+  der Modul-Konvention (+ Entladen / − Laden); bei Bedarf per Schalter „Batterie-Leistung
+  invertieren" umkehrbar.
 
 ## 0.28.1-beta.1 (2026-07-18)
 
