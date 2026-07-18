@@ -3045,6 +3045,7 @@ class HuaweiDriver implements InverterDriverInterface
             ['status',    'Betriebsstatus',    'I', 'HUA.Status',      true,  'device', 'RO 32089'],
             ['pv_total',  'PV Gesamtleistung (DC-Eingang)', 'F', 'HUA.Watt', true, 'pv',   'RO 32064 (I32)'],
             ['ac_power',  'AC Wirkleistung',   'F', 'HUA.Watt',        true,  'device', 'RO 32080 (I32)'],
+            ['riso',      'Isolationswiderstand', 'F', 'HUA.MOhm',     true,  'pv',     'RO 32088 (÷1000, MΩ)'],
         ];
     }
 
@@ -3095,6 +3096,7 @@ class HuaweiDriver implements InverterDriverInterface
             'HUA.Volt'   => [VARIABLETYPE_FLOAT, ' V',        0.0,   1000.0, 0.1,  1],
             'HUA.Ampere' => [VARIABLETYPE_FLOAT, ' A',    -1000.0,   1000.0, 0.1,  1],
             'HUA.Hertz'  => [VARIABLETYPE_FLOAT, ' Hz',      45.0,     65.0, 0.01, 2],
+            'HUA.MOhm'   => [VARIABLETYPE_FLOAT, ' MΩ',       0.0,    100.0, 0.001, 3],
         ];
     }
 
@@ -3124,6 +3126,7 @@ class HuaweiDriver implements InverterDriverInterface
         $hub->SetVarFloat('pv_total', (float)$mb->s32($a, 0));   // 32064 Input power (DC)
         $hub->SetVarFloat('ac_power', (float)$mb->s32($a, 16));  // 32080 Active power
         $hub->SetVarInt('status', $mb->u16($a, 25));             // 32089 Device status
+        $hub->SetVarFloat('riso', $mb->u16($a, 24) / 1000.0);    // 32088 Isolationswiderstand (MΩ)
 
         if ($hub->GetPropBool('GroupGrid')) {
             $hub->SetVarFloat('grid_volt', $mb->u16($a, 5) / 10.0);    // 32069

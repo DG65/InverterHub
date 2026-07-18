@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.30.2-beta.1 (2026-07-18)
+
+- **Huawei: Isolationswiderstand (Riso) ergänzt** (Reg 32088, MΩ). Damit lesen jetzt GoodWe
+  und Huawei den für die PV-Sicherheit wichtigen Riso-Wert aus.
+
 ## 0.30.1-beta.1 (2026-07-18)
 
 - **Discovery erkennt jetzt auch Victron GX und Huawei SUN2000.** Damit deckt der
