@@ -170,6 +170,7 @@ class InverterHubTile extends IPSModule
                 'name'    => ($name !== '' ? $name : self::CONSUMER_TYPES[$type]['label']),
                 'icon'    => self::CONSUMER_TYPES[$type]['icon'],
                 'color'   => sprintf('#%06x', $color),
+                'unit'    => (string)($row['Unit'] ?? 'auto'),
                 // Nur für Wallboxen relevant, sonst unbenutzt.
                 'plugID'  => (int)($row['PlugID'] ?? 0),
                 'plugOp'  => (string)($row['PlugOp'] ?? 'truthy'),
@@ -484,7 +485,7 @@ class InverterHubTile extends IPSModule
         $lossW    = 0.0;
         $meterID  = (int)@IPS_GetProperty($src, 'HouseLoadMeterID');
         if ($meterID > 0 && IPS_VariableExists($meterID)) {
-            $realHouseW = (float)GetValue($meterID);
+            $realHouseW = $this->VarWatts($meterID, 'auto');
             $houseHave  = true;
             $houseW     = $realHouseW;
             if ($pvHave && $gridHave) {
@@ -529,7 +530,7 @@ class InverterHubTile extends IPSModule
                 'label' => $row['name'],
                 'icon'  => $row['icon'],
                 'color' => $row['color'],
-                'w'     => round((float)GetValue($row['id'])),
+                'w'     => round($this->VarWatts($row['id'], $row['unit'])),
             ];
 
             // Wallboxen: Auto-Symbol mit dem Ladestand des Fahrzeugs, das
@@ -551,6 +552,54 @@ class InverterHubTile extends IPSModule
             $out[] = $entry;
         }
         return $out;
+    }
+
+    // Liest eine Leistungs-Variable und rechnet sie einheitlich in Watt um.
+    // $unit: 'w' | 'kw' | 'mw' erzwingt die Einheit, 'auto' (Vorgabe) errät sie
+    // aus dem Profil-Suffix der Variable. So werden Fremdquellen, die z. B.
+    // Kilowatt liefern (viele Wallboxen), korrekt behandelt - intern rechnet
+    // die Kachel durchgängig in Watt.
+    private function VarWatts($vid, $unit = 'auto')
+    {
+        if ($vid <= 0 || !IPS_VariableExists($vid)) {
+            return 0.0;
+        }
+        $v = (float)GetValue($vid);
+        switch (strtolower(trim((string)$unit))) {
+            case 'kw': return $v * 1000.0;
+            case 'mw': return $v * 1000000.0;
+            case 'w':  return $v;
+            default:   return $v * $this->UnitFactorFromProfile($vid);
+        }
+    }
+
+    // Einheiten-Faktor (auf Watt) aus dem Profil-Suffix einer Variable: " kW"
+    // -> 1000, " MW" -> 1e6, sonst 1 (W oder unbekannt). Berücksichtigt ein
+    // etwaiges eigenes Profil (VariableCustomProfile) vorrangig.
+    private function UnitFactorFromProfile($vid)
+    {
+        $var = @IPS_GetVariable($vid);
+        if (!is_array($var)) {
+            return 1.0;
+        }
+        $prof = ($var['VariableCustomProfile'] ?? '') !== ''
+            ? $var['VariableCustomProfile']
+            : ($var['VariableProfile'] ?? '');
+        if ($prof === '') {
+            return 1.0;
+        }
+        $p = @IPS_GetVariableProfile($prof);
+        if (!is_array($p)) {
+            return 1.0;
+        }
+        $suffix = strtolower(trim((string)($p['Suffix'] ?? '')));
+        if (strpos($suffix, 'kw') !== false) {
+            return 1000.0;
+        }
+        if (strpos($suffix, 'mw') !== false) {
+            return 1000000.0;
+        }
+        return 1.0;
     }
 
     // -----------------------------------------------------------------------

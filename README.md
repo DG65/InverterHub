@@ -97,13 +97,15 @@ hinterlassen. Kreisgröße und -abstand werden aus der Knotenzahl berechnet, sod
 bei vielen Verbrauchern nie Kreise überlappen und die Kachel ihre Größe behält.
 
 **Weitere Verbraucher (optional):** Im Panel „Weitere Verbraucher" lassen sich **beliebig
-viele** zusätzliche Verbraucher als Tabelle pflegen — je Zeile **Art**, **Bezeichnung** und
-**Leistungs-Variable** (Watt). Sie kommen nicht aus dem Wechselrichter, sondern werden aus
-vorhandenen Variablen gespeist und erscheinen als eigene Kreise. Verfügbare Arten (bestimmen
+viele** zusätzliche Verbraucher als Tabelle pflegen — je Zeile **Art**, **Bezeichnung**,
+**Leistungs-Variable** und **Einheit**. Sie kommen nicht aus dem Wechselrichter, sondern werden
+aus vorhandenen Variablen gespeist und erscheinen als eigene Kreise. Verfügbare Arten (bestimmen
 das Icon): Wallbox, Wärmepumpe, Klimaanlage, Pool-Wärmepumpe, Pool-Pumpe, Sauna, Warmwasser,
 Trockner, Sonstiger Verbraucher. Mehrere Zeilen derselben Art sind möglich (z. B. zwei
 Wallboxen „Garage" und „Carport"); eine leere Bezeichnung fällt auf die Vorgabe der Art
-zurück.
+zurück. Die **Einheit** steht auf „Automatisch" (erkennt W/kW/MW am Profil-Suffix der Variable)
+und lässt sich bei fehlendem Profil manuell setzen — intern rechnet die Kachel alles in Watt um,
+sodass Quellen in kW (viele Wallboxen) korrekt dargestellt werden.
 
 **Wallboxen mit Fahrzeug-Ladestand:** Eine Wallbox wird als **Auto** dargestellt, das – wie das
 Batteriesymbol – den Ladestand des gerade angeschlossenen Fahrzeugs als Füllung samt

@@ -63,7 +63,7 @@
       "items": [
         {
           "type": "Label",
-          "caption": "Beliebig viele zusätzliche Verbraucher, die als eigene Kreise dargestellt werden. Sie stammen nicht aus dem Wechselrichter, sondern aus vorhandenen Leistungs-Variablen (Watt) – z. B. mehrere Wallboxen, Wärmepumpe, Klimaanlage, Pool oder Sauna. Die Art bestimmt das Icon, die Bezeichnung den Text unter dem Kreis (leer = Vorgabe der Art). Die Anordnung verteilt alle Kreise automatisch radial und passt Größe und Abstand an ihre Anzahl an."
+          "caption": "Beliebig viele zusätzliche Verbraucher, die als eigene Kreise dargestellt werden. Sie stammen nicht aus dem Wechselrichter, sondern aus vorhandenen Leistungs-Variablen – z. B. mehrere Wallboxen, Wärmepumpe, Klimaanlage, Pool oder Sauna. Die Art bestimmt das Icon, die Bezeichnung den Text unter dem Kreis (leer = Vorgabe der Art). Die Spalte „Einheit“ steht standardmäßig auf „Automatisch“ und erkennt anhand des Variablenprofils, ob die Quelle in W oder kW liefert – nur falls das Profil fehlt oder unpassend ist, hier manuell W bzw. kW wählen. Die Anordnung verteilt alle Kreise automatisch radial und passt Größe und Abstand an ihre Anzahl an."
         },
         {
           "type": "Label",
@@ -105,11 +105,26 @@
               "edit": { "type": "ValidationTextBox" }
             },
             {
-              "caption": "Leistungs-Variable (W)",
+              "caption": "Leistungs-Variable",
               "name": "VariableID",
-              "width": "260px",
+              "width": "240px",
               "add": 0,
               "edit": { "type": "SelectVariable" }
+            },
+            {
+              "caption": "Einheit",
+              "name": "Unit",
+              "width": "150px",
+              "add": "auto",
+              "edit": {
+                "type": "Select",
+                "options": [
+                  { "caption": "Automatisch (aus Profil)", "value": "auto" },
+                  { "caption": "Watt (W)",       "value": "w" },
+                  { "caption": "Kilowatt (kW)",  "value": "kw" },
+                  { "caption": "Megawatt (MW)",  "value": "mw" }
+                ]
+              }
             },
             {
               "caption": "Farbe (leer = Vorgabe der Art)",

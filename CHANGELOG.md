@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.27.1-beta.1 (2026-07-17)
+
+- **Bugfix Einheit bei Verbrauchern**: Fremdquellen (z. B. Wallboxen) liefern ihre Leistung
+  teils in kW statt W, wodurch der Kreis den Wert um Faktor 1000 falsch anzeigte. Die Kachel
+  rechnet jetzt jede Verbraucher-Leistung einheitlich in Watt um. Neue Spalte „Einheit" je
+  Verbraucher-Zeile: „Automatisch" (Vorgabe) erkennt W/kW/MW am Profil-Suffix der Variable,
+  bei fehlendem/unpassendem Profil lässt sich W/kW/MW manuell wählen. Der optionale
+  Hauslastzähler wird ebenso automatisch anhand seines Profils umgerechnet.
+
 ## 0.27.0-beta.1 (2026-07-17)
 
 - **Bugfix Hauslast**: Die Bilanz nutzt jetzt die AC-Wirkleistung des Wechselrichters
