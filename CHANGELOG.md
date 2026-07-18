@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.29.0-beta.1 (2026-07-18)
+
+- **Neuer Hersteller: Victron GX (Cerbo / Venus OS)**. Liest den aggregierten Systemdienst
+  `com.victronenergy.system` per Modbus TCP: PV-Gesamtleistung (DC- + AC-gekoppelt),
+  Netzleistung, Batterie (SOC, Leistung, Spannung, Strom, Zustand), Hausverbrauch und aktive
+  Netz-Quelle. Register verbatim aus Victrons offizieller `attributes.csv`. Besonderheit: Bei
+  Victron ist die Unit-ID ein Geräte-Selektor — der Systemdienst liegt fest auf 100, das
+  Modul spricht diese automatisch an (Port 502). Vorzeichen von Netz (+ Einspeisung) und
+  Batterie (+ Entladen) auf Modul-Konvention gebracht. Noch nicht am realen Gerät verifiziert.
+
 ## 0.28.2-beta.1 (2026-07-18)
 
 Nach SolarEdge-Beta-Test (SE10K-RWS48BEN4):

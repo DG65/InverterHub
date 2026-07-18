@@ -2968,6 +2968,157 @@ class KostalDriver implements InverterDriverInterface
 }
 
 // ---------------------------------------------------------------------------
+// VictronDriver — Victron GX (Cerbo/Venus OS) über Modbus TCP. Anders als bei
+// Einzel-Wechselrichtern ist die Unit-ID hier ein Geräte-Selektor: Der Dienst
+// com.victronenergy.system liegt IMMER auf Unit-ID 100 und aggregiert die
+// Anlagenwerte (PV, Netz, Batterie, Verbrauch). Wir sprechen daher fest Unit
+// 100 an, unabhängig von der im Formular gesetzten Unit-ID. Register verbatim
+// aus Victrons offizieller attributes.csv (dbus_modbustcp), Big-Endian.
+// ---------------------------------------------------------------------------
+
+class VictronDriver implements InverterDriverInterface
+{
+    const UNIT_SYSTEM = 100;
+
+    const BAT_STATE = [
+        0 => 'Ruhe', 1 => 'Laden', 2 => 'Entladen',
+    ];
+    const GRID_SOURCE = [
+        0 => 'Nicht verfügbar', 1 => 'Netz', 2 => 'Generator',
+        3 => 'Landstrom', 240 => 'Nicht verbunden',
+    ];
+
+    public function getBaseVars()
+    {
+        return [
+            ['connected', 'Verbindung',        'B', '~Alert.Reversed', false, 'errors', ''],
+            ['pv_total',  'PV Gesamtleistung', 'F', 'VIC.Watt',        true,  'pv',     'DC-PV 850 + AC-PV 808..816'],
+            ['ac_power',  'AC Verbrauch (Haus)', 'F', 'VIC.Watt',      true,  'device', 'Σ AC Consumption 817..819'],
+        ];
+    }
+
+    public function getOptionalGroups()
+    {
+        return [
+            'GroupGrid' => ['caption' => 'Netz (Leistung, Quelle)', 'vars' => [
+                ['meter_total', 'Netz Leistung (+ Einspeisung / − Bezug)', 'F', 'VIC.Watt', true, 'grid', 'Σ Grid 820..822 (int16)'],
+                ['grid_source', 'Aktive Netz-Quelle', 'I', 'VIC.GridSrc', true, 'grid', 'Reg 826'],
+            ]],
+            'GroupBattery' => ['caption' => 'Batterie', 'vars' => [
+                ['bat_soc',   'Bat. SOC',        'I', '~Battery.100', true,  'bat', 'Reg 843'],
+                ['bat_power', 'Bat. Leistung (+ Entladen / − Laden)', 'F', 'VIC.Watt', true, 'bat', 'Reg 842 (int16)'],
+                ['bat_volt',  'Bat. Spannung',   'F', 'VIC.Volt',    false, 'bat', 'Reg 840 (÷10)'],
+                ['bat_curr',  'Bat. Strom',      'F', 'VIC.Ampere',  false, 'bat', 'Reg 841 (int16, ÷10)'],
+                ['bat_state', 'Bat. Zustand',    'I', 'VIC.BatState', true,  'bat', 'Reg 844'],
+            ]],
+            'GroupPvDetail' => ['caption' => 'PV-Details (DC / AC-gekoppelt)', 'vars' => [
+                ['pv_dc',  'PV DC-gekoppelt (MPPT)',  'F', 'VIC.Watt', true, 'pv', 'Reg 850'],
+                ['pv_ac',  'PV AC-gekoppelt (Σ)',     'F', 'VIC.Watt', true, 'pv', 'Σ 808..816'],
+            ]],
+        ];
+    }
+
+    public function getExtraBooleanProperties()
+    {
+        return [];
+    }
+
+    public function getProfiles()
+    {
+        return [
+            'VIC.Watt'   => [VARIABLETYPE_FLOAT, ' W',  -100000.0, 100000.0, 1.0, 0],
+            'VIC.Volt'   => [VARIABLETYPE_FLOAT, ' V',        0.0,   1000.0, 0.1, 1],
+            'VIC.Ampere' => [VARIABLETYPE_FLOAT, ' A',    -1000.0,   1000.0, 0.1, 1],
+        ];
+    }
+
+    public function getEnumProfiles()
+    {
+        $bat = [];
+        foreach (self::BAT_STATE as $k => $label) {
+            $bat[$k] = [$label, 0x7A8A99];
+        }
+        $src = [];
+        foreach (self::GRID_SOURCE as $k => $label) {
+            $src[$k] = [$label, 0x7A8A99];
+        }
+        return ['VIC.BatState' => $bat, 'VIC.GridSrc' => $src];
+    }
+
+    public function readFast($mb, $hub)
+    {
+        // Victron: Systemdienst ist immer Unit-ID 100 (Geräte-Selektor).
+        $mb->unitId = self::UNIT_SYSTEM;
+
+        // AC-Block 808..826 (19 Register) in einem Zug.
+        $ac = $mb->readHolding(808, 19);
+        $ok = ($ac !== null);
+        $hub->SetVarBool('connected', $ok);
+        if (!$ok) {
+            return false;
+        }
+
+        // AC-gekoppelte PV (Output/Grid/Genset L1..L3), alle uint16 W.
+        $pvAc = 0.0;
+        for ($o = 0; $o <= 8; $o++) {
+            $pvAc += $mb->u16($ac, $o);
+        }
+        // Hausverbrauch = Σ AC Consumption L1..L3 (Offsets 9..11).
+        $cons = $mb->u16($ac, 9) + $mb->u16($ac, 10) + $mb->u16($ac, 11);
+        // Netzleistung = Σ Grid L1..L3 (Offsets 12..14, int16). Victron: + =
+        // Bezug. Modul-Konvention Meter: + = Einspeisung -> negieren.
+        $grid = $mb->s16($ac, 12) + $mb->s16($ac, 13) + $mb->s16($ac, 14);
+
+        $hub->SetVarFloat('ac_power', (float)$cons);
+
+        // Batterie-/DC-PV-Block 840..850 (11 Register).
+        $bat = $mb->readHolding(840, 11);
+        $pvDc = 0.0;
+        if ($bat !== null) {
+            $pvDc = (float)$mb->u16($bat, 10); // Reg 850 DC-PV Power
+        }
+        $hub->SetVarFloat('pv_total', $pvAc + $pvDc);
+
+        if ($hub->GetPropBool('GroupPvDetail')) {
+            $hub->SetVarFloat('pv_dc', $pvDc);
+            $hub->SetVarFloat('pv_ac', $pvAc);
+        }
+
+        if ($hub->GetPropBool('GroupGrid')) {
+            $hub->SetVarFloat('meter_total', (float)(-$grid));
+            $hub->SetVarInt('grid_source', $mb->s16($ac, 18)); // Reg 826
+        }
+
+        if ($hub->GetPropBool('GroupBattery') && $bat !== null) {
+            $hub->SetVarFloat('bat_volt', $mb->u16($bat, 0) / 10.0);  // 840
+            // Strom wie Leistung auf Modul-Konvention (+ = Entladen) negieren.
+            $hub->SetVarFloat('bat_curr', -$mb->s16($bat, 1) / 10.0); // 841
+            // Reg 842: Victron + = Laden. Modul-Konvention + = Entladen -> negieren.
+            $hub->SetVarFloat('bat_power', (float)(-$mb->s16($bat, 2))); // 842
+            $hub->SetVarInt('bat_soc', $mb->u16($bat, 3));            // 843
+            $hub->SetVarInt('bat_state', $mb->u16($bat, 4));         // 844
+        }
+
+        return true;
+    }
+
+    public function readSlow($mb, $hub)
+    {
+        // Keine separaten Zählerstände im Systemdienst - alles in readFast().
+    }
+
+    public function readDeviceInfo($mb, $hub)
+    {
+        // Seriennummer/Modell optional - Systemdienst hat keinen Klarnamen.
+    }
+
+    public function writeControl($mb, $hub, $ident, $value)
+    {
+        // Keine Steuerregister in der ersten Ausbaustufe.
+    }
+}
+
+// ---------------------------------------------------------------------------
 // InverterHub — Hauptmodul, lädt den Treiber laut Manufacturer-Property
 // ---------------------------------------------------------------------------
 
@@ -2985,6 +3136,7 @@ class InverterHub extends IPSModule
         'deye'      => 'DeyeDriver',
         'solplanet' => 'SolplanetDriver',
         'kostal'    => 'KostalDriver',
+        'victron'   => 'VictronDriver',
     ];
 
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-inverterhub-multi-wechselrichter-ein-modbus-tcp-modul-fuer-goodwe-sma-fronius-sungrow-solis-growatt-solax/144121';
@@ -3226,6 +3378,7 @@ class InverterHub extends IPSModule
                         ['label' => 'Deye', 'value' => 'deye'],
                         ['label' => 'Solplanet / AISWEI', 'value' => 'solplanet'],
                         ['label' => 'Kostal (PLENTICORE plus Gen. 1)', 'value' => 'kostal'],
+                        ['label' => 'Victron GX (Cerbo/Venus OS, Unit-ID 100)', 'value' => 'victron'],
                     ],
                 ],
                 [

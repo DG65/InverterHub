@@ -9,7 +9,7 @@ geprüft (aktuell GoodWe live verifiziert) sowie gegen unabhängige Quellen gege
 Referenzimplementierung [OpenEMS](https://github.com/OpenEMS/openems) für Register-/
 Feldoffsets (GoodWe, Fronius, SMA) und von echten Nutzern im
 [IP-Symcon-Forum](https://community.symcon.de/c/symcon/vorlagen-modbus/86) geteilte
-Modbus-Vorlagen (GoodWe, SolaX, SolarEdge, Deye, Solplanet, Kostal). Rückmeldungen zu
+Modbus-Vorlagen (GoodWe, SolaX, SolarEdge, Deye, Solplanet, Kostal, Victron). Rückmeldungen zu
 falschen/fehlenden Werten sind willkommen — bitte mit Hersteller, Modell und betroffenem
 Register melden.
 
@@ -28,6 +28,7 @@ Register melden.
 | **Kostal** | PV (3 DC-Eingänge), Netz, Batterie, Meter, Hausverbrauch nach Quelle, Energie | Nur PLENTICORE plus Generation 1 getestet — andere Generationen/Leistungsklassen ungeprüft. **Wichtig:** Kostal nutzt standardmäßig Port **1502**, nicht 502 — beim Anlegen der Instanz ggf. manuell eintragen. |
 | **SMA** | PV Gesamtleistung, Netz, Meter, Energie, Temperatur, Status, Gerätename/Seriennummer | Reine SunSpec-Implementierung mit Laufzeit-Discovery, wie von OpenEMS für SMA Sunny Tripower verwendet |
 | **Fronius** | PV (MPPT), Netz, Meter, Energie, Batterie (GEN24-Hybrid: SOC + Leistung), Status, Gerätename/Seriennummer | Reine SunSpec-Implementierung mit Laufzeit-Discovery (keine festen Registeradressen, siehe unten). Der Smart Meter ist ein eigenes Modbus-Gerät mit eigener Unit-ID („Smart-Meter-Adresse", Vorgabe 200, je nach Konfiguration z. B. 240 — im Datenpunkte-Panel einstellbar). Im Wechselrichter muss der Modbus-Server (TCP) aktiviert sein; „Steuerung erlauben" ist nicht nötig, das Modul liest nur. |
+| **Victron GX** | PV (DC + AC-gekoppelt), Netz, Batterie (SOC/Leistung/Spannung/Strom/Zustand), Hausverbrauch, Netz-Quelle | Liest den aggregierten Systemdienst `com.victronenergy.system` (Cerbo GX / Venus OS). **Wichtig:** Unit-ID ist bei Victron ein Geräte-Selektor — der Systemdienst liegt fest auf **100**, das Modul spricht diese automatisch an (die im Formular gesetzte Unit-ID wird bei Victron ignoriert). Port **502**. Im GX unter Einstellungen → Services → Modbus TCP aktivieren. Noch nicht am realen Gerät verifiziert — Vorzeichen von Netz/Batterie ggf. per Invers-Schalter anpassen. |
 
 Registeradressen stehen im **Beschreibungsfeld** jeder Variable (Objekt-Manager, Spalte
 „Beschreibung") — praktisch zum Abgleich mit dem Herstellerhandbuch oder für eigene Skripte.
