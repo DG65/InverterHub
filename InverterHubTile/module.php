@@ -450,20 +450,29 @@ class InverterHubTile extends IPSModule
         $gridW = $gridHave ? (float)$grid : 0.0;
         $batW  = $batHave ? (float)$bat : 0.0;
 
-        // Last (Hausverbrauch) per Bilanz: PV + Batterie-Entladung - Netzeinspeisung.
-        // Vorzeichenkonvention Batterie (bat_total_pwr/bat_power, alle Treiber):
-        // positiv = Entladung (Leistung wird ans System abgegeben), negativ =
-        // Ladung (Leistung wird aufgenommen) - daher ADDITION, nicht Subtraktion.
-        // Nur berechenbar, wenn mindestens PV und Netz bekannt sind; sonst als
-        // Notlösung AC-Wirkleistung zeigen (ungenau bei vorhandener Batterie),
-        // andernfalls Kreis ausgrauen statt falsche Werte zu zeigen.
-        $houseHave = $pvHave && $gridHave;
+        // Last (Hausverbrauch) per Bilanz. Bevorzugt über die AC-Wirkleistung:
+        //   Hauslast = AC-Leistung − Netzeinspeisung   (gridW: + = Einspeisung)
+        // Die AC-Wirkleistung ist bereits das, was der Wechselrichter NACH der
+        // Batterie ans Hausnetz abgibt - dadurch braucht diese Bilanz keine
+        // Batteriedaten und ist auch dann korrekt, wenn die Batterie gerade
+        // lädt (z. B. PV 8 kW, Ladung 7 kW -> AC 1 kW -> Hauslast 1 kW). Die
+        // frühere PV-basierte Formel überschätzte die Last um die Ladeleistung,
+        // sobald die Batteriedaten fehlten oder die Batterie-Gruppe aus war.
+        //
+        // Rückfall auf die DC-Bilanz (PV + Batterie-Entladung − Einspeisung)
+        // nur, wenn keine AC-Wirkleistung vorliegt. Vorzeichen Batterie:
+        // positiv = Entladung, negativ = Ladung.
+        $houseHave = false;
         $houseBalanceW = 0.0;
-        if ($houseHave) {
-            $houseBalanceW = max(0.0, $pvW - $gridW + $batW);
-        } elseif ($pvHave && $ac !== null) {
+        if ($ac !== null && $gridHave) {
             $houseHave     = true;
-            $houseBalanceW = (float)$ac;
+            $houseBalanceW = max(0.0, (float)$ac - $gridW);
+        } elseif ($pvHave && $gridHave) {
+            $houseHave     = true;
+            $houseBalanceW = max(0.0, $pvW - $gridW + $batW);
+        } elseif ($ac !== null) {
+            $houseHave     = true;
+            $houseBalanceW = max(0.0, (float)$ac);
         }
         $houseW = $houseBalanceW;
 

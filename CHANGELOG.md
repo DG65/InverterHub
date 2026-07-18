@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.27.0-beta.1 (2026-07-17)
+
+- **Bugfix Hauslast**: Die Bilanz nutzt jetzt die AC-Wirkleistung des Wechselrichters
+  (`Hauslast = AC-Leistung − Netzeinspeisung`) statt der PV-Leistung. Die AC-Leistung ist
+  bereits das, was der Wechselrichter NACH der Batterie ans Hausnetz abgibt — dadurch stimmt
+  die Last auch beim Laden (PV 8 kW, Ladung 7 kW → Hauslast 1 kW statt fälschlich 8 kW) und
+  braucht keine Batteriedaten mehr. Die frühere PV-basierte Formel überschätzte die Last um die
+  Ladeleistung, sobald Batteriedaten fehlten oder die Batterie-Gruppe aus war. Fällt keine
+  AC-Leistung vor, greift weiterhin die DC-Bilanz (PV + Batterie-Entladung − Einspeisung).
+  Gegen fünf Szenarien verifiziert, u. a. die frühere Live-Messung (1824 W).
+- **Knoten-Blitze jetzt sichtbar und leistungsabhängig**: Die Teslaspulen-Blitze rund um die
+  Kreise werden mit der Leistung heller (waren vorher kaum zu sehen). Zusätzlich wachsen
+  „Reichweiten"-Blitze von der Kreiskante Richtung Nachbarknoten — ihre Länge folgt der
+  Leistung und erreicht bei 25 kW den Nachbarn. Bei geringer Leistung nur ein kurzes Zucken an
+  der Kante.
+
 ## 0.26.0-beta.1 (2026-07-17)
 
 - **Teslaspulen-Blitze jetzt auch um die Kreise**: aktive Knoten (inkl. Hauslast) bekommen
