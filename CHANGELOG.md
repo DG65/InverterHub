@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.31.4-beta.1 (2026-07-18)
+
+- **Kachel: negativen Hauslastzähler abfangen.** Wird als „Hauslastzähler" versehentlich eine
+  Variable gewählt, die negativ werden kann (z. B. ein Netz-/Einspeisezähler statt eines
+  echten Hausverbrauchszählers), zeigte die Kachel eine negative Hauslast und daraus absurde
+  „Wandlungsverluste". Ein Hausverbrauch ist nie negativ — solche Werte werden jetzt ignoriert
+  und die Kachel bleibt bei der berechneten Bilanz-Hauslast (keine Verluste-Anzeige).
+
 ## 0.31.3-beta.1 (2026-07-18)
 
 Nach Victron-Beta-Test:

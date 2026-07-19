@@ -495,11 +495,18 @@ class InverterHubTile extends IPSModule
         $meterID  = (int)@IPS_GetProperty($src, 'HouseLoadMeterID');
         if ($meterID > 0 && IPS_VariableExists($meterID)) {
             $realHouseW = $this->VarWatts($meterID, 'auto');
-            $houseHave  = true;
-            $houseW     = $realHouseW;
-            if ($pvHave && $gridHave) {
-                $lossHave = true;
-                $lossW    = max(0.0, $houseBalanceW - $realHouseW);
+            // Ein Hausverbrauch ist nie negativ. Liefert die gewählte Variable
+            // einen negativen Wert, ist es kein Hausverbrauchszähler, sondern
+            // z. B. ein Netz-/Einspeisezähler (negativ = Einspeisung) - dann
+            // ignorieren wir sie und bleiben bei der berechneten Bilanz-Hauslast
+            // (sonst erschiene eine negative Hauslast und absurde "Verluste").
+            if ($realHouseW >= 0.0) {
+                $houseHave  = true;
+                $houseW     = $realHouseW;
+                if ($pvHave && $gridHave) {
+                    $lossHave = true;
+                    $lossW    = max(0.0, $houseBalanceW - $realHouseW);
+                }
             }
         }
 
