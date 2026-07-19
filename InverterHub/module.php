@@ -3336,13 +3336,18 @@ class VictronDriver implements InverterDriverInterface
 
         $hub->SetVarFloat('ac_power', (float)$cons);
 
-        // Batterie-/DC-PV-Block 840..850 (11 Register).
-        $bat = $mb->readHolding(840, 11);
-        $pvDc = 0.0;
-        if ($bat !== null) {
-            $pvDc = (float)$mb->u16($bat, 10); // Reg 850 DC-PV Power
-        }
+        // DC-gekoppelte PV (Reg 850) und den Batterieblock (840..844) GETRENNT
+        // lesen: Zwischen 844 und 850 liegen reservierte Register (845..849),
+        // und manche GX-Firmwares quittieren einen Block, der reservierte oder
+        // nicht belegte Register überspannt, mit einer Modbus-Exception - dann
+        // scheiterte bisher der gesamte Batterie-/PV-Block (real gemeldet:
+        // nur Netz kam an, PV/Batterie blieben leer).
+        $pvDcBlk = $mb->readHolding(850, 1);
+        $pvDc = ($pvDcBlk !== null) ? (float)$mb->u16($pvDcBlk, 0) : 0.0;
         $hub->SetVarFloat('pv_total', $pvAc + $pvDc);
+
+        // Batterieblock 840..844 (V, A, W, SOC, State) - ohne reservierte Register.
+        $bat = $mb->readHolding(840, 5);
 
         if ($hub->GetPropBool('GroupPvDetail')) {
             $hub->SetVarFloat('pv_dc', $pvDc);

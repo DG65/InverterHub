@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.31.3-beta.1 (2026-07-18)
+
+Nach Victron-Beta-Test:
+
+- **Victron: PV und Batterie kamen nicht an** (nur Netz/Verbrauch). Ursache: Der Batterie-/
+  DC-PV-Block wurde in einem Rutsch von Reg 840 bis 850 gelesen — dieser Bereich überspannt
+  die reservierten Register 845–849, was manche GX-Firmwares mit einer Modbus-Exception
+  quittieren und damit den gesamten Block scheitern lassen. Jetzt werden die DC-PV-Leistung
+  (Reg 850) und der Batterieblock (840–844) getrennt gelesen; PV-Gesamtleistung, SOC,
+  Batterieleistung/-spannung/-strom und -zustand kommen damit an.
+
 ## 0.31.2-beta.1 (2026-07-18)
 
 Nach SolarEdge-Kachel-Rückmeldung:
