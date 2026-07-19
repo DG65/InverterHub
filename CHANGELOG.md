@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.32.1-beta.1 (2026-07-18)
+
+- **Kachel: Schalter „Netz-Leistung invertieren" wird jetzt berücksichtigt.** Wer die
+  Meter-Leistung im Wechselrichter-Modul umdreht (z. B. für die Konvention Einspeisung =
+  negativ), bekam bisher in der Kachel eine falsche Netz-Flussrichtung und eine überhöhte
+  Hauslast. Die Kachel rechnet den Invers-Schalter nun intern wieder auf ihre kanonische
+  Konvention (+ = Einspeisung) zurück — analog zum bereits vorhandenen Batterie-Invers-
+  Schalter. Datenpunkt-Vorzeichen und Kachel stimmen damit unabhängig voneinander.
+
 ## 0.32.0-beta.1 (2026-07-18)
 
 Nach Fronius-Beta-Wünschen (zusätzliche Messwerte):

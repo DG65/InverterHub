@@ -459,6 +459,14 @@ class InverterHubTile extends IPSModule
         if ($batHave && (bool)@IPS_GetProperty($src, 'BatInvert')) {
             $batW = -$batW;
         }
+        // Analog fürs Netz: Dreht der Nutzer die Meter-Leistung um (Schalter
+        // „Netz-Leistung invertieren", z. B. für die Konvention Einspeisung
+        // negativ), rechnet die Kachel intern wieder auf ihre kanonische
+        // Konvention (+ = Einspeisung) zurück, sonst zeigt der Netz-Kreis die
+        // Flussrichtung verkehrt und die Hauslast-Bilanz wird falsch.
+        if ($gridHave && (bool)@IPS_GetProperty($src, 'MeterInvert')) {
+            $gridW = -$gridW;
+        }
 
         // Last (Hausverbrauch) per Bilanz. Bevorzugt über die AC-Wirkleistung:
         //   Hauslast = AC-Leistung − Netzeinspeisung   (gridW: + = Einspeisung)
