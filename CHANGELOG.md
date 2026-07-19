@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.34.0-beta.1 (2026-07-18)
+
+- **Kachel: manueller Datenpunkt-Modus (ohne InverterHub-Instanz).** Ist im Panel „Datenquelle"
+  keine InverterHub-Instanz gewählt, speist sich die Kachel aus dem neuen Panel „Manuelle
+  Datenpunkte": einzeln zuweisbare Variablen für PV-Leistung, AC-Wirkleistung,
+  Netz-/Zählerleistung, Batterie-Leistung, SOC und optional einen externen Hauslastzähler.
+  Je Leistungswert ist die Einheit wählbar (Automatisch/W/kW/MW); Netz und Batterie haben je
+  einen eigenen Invers-Schalter. Damit ist die Energiefluss-Kachel auch mit Werten anderer
+  Module/Zähler nutzbar. Alle bisherigen Funktionen (Hauslast-Bilanz, Verluste, berechnete
+  Hauslast-Variable, Verbraucher, Fahrzeuge) gelten im manuellen Modus gleichermaßen.
+
 ## 0.33.1-beta.1 (2026-07-18)
 
 - **Fronius: Vorzeichen der Smart-Meter-Leistung je Phase korrigiert.** Die Phasen-Leistung

@@ -56,6 +56,20 @@ class InverterHubTile extends IPSModule
         parent::Create();
 
         $this->RegisterPropertyInteger('SourceInstance', 0);
+        // Manueller Modus (ohne InverterHub-Instanz): einzelne Variablen direkt
+        // zuweisen. Wird verwendet, wenn keine InverterHub-Instanz gewählt ist.
+        $this->RegisterPropertyInteger('ManualPvID', 0);
+        $this->RegisterPropertyString('ManualPvUnit', 'auto');
+        $this->RegisterPropertyInteger('ManualAcID', 0);
+        $this->RegisterPropertyString('ManualAcUnit', 'auto');
+        $this->RegisterPropertyInteger('ManualGridID', 0);
+        $this->RegisterPropertyString('ManualGridUnit', 'auto');
+        $this->RegisterPropertyBoolean('ManualGridInvert', false);
+        $this->RegisterPropertyInteger('ManualBatID', 0);
+        $this->RegisterPropertyString('ManualBatUnit', 'auto');
+        $this->RegisterPropertyBoolean('ManualBatInvert', false);
+        $this->RegisterPropertyInteger('ManualSocID', 0);
+        $this->RegisterPropertyInteger('ManualHouseID', 0);
         $this->RegisterPropertyInteger('ColorBackground', self::DEF_BACKGROUND);
         $this->RegisterPropertyString('FontFamily',       self::DEF_FONT);
         $this->RegisterPropertyInteger('TransitionMs',    self::DEF_TRANSITION);
@@ -110,7 +124,24 @@ class InverterHubTile extends IPSModule
             }
             $this->SetStatus(102);
         } else {
-            $this->SetStatus(201);
+            // Manueller Modus: die direkt zugewiesenen Variablen abonnieren.
+            $manualIDs = [
+                $this->ReadPropertyInteger('ManualPvID'),
+                $this->ReadPropertyInteger('ManualAcID'),
+                $this->ReadPropertyInteger('ManualGridID'),
+                $this->ReadPropertyInteger('ManualBatID'),
+                $this->ReadPropertyInteger('ManualSocID'),
+                $this->ReadPropertyInteger('ManualHouseID'),
+            ];
+            $any = false;
+            foreach (array_unique($manualIDs) as $vid) {
+                if ($vid > 0 && IPS_VariableExists($vid)) {
+                    $this->RegisterReference($vid);
+                    $this->RegisterMessage($vid, VM_UPDATE);
+                    $any = true;
+                }
+            }
+            $this->SetStatus($any ? 102 : 201);
         }
 
         // Zusätzliche Verbraucher (Wärmepumpe/Wallboxen) liegen außerhalb der
@@ -430,31 +461,61 @@ class InverterHubTile extends IPSModule
         ];
 
         $src = $this->ResolveSource();
-        if ($src <= 0 || !IPS_InstanceExists($src)) {
-            return json_encode(array_merge($style, [
-                'ok'        => false,
-                'stateLabel'=> 'Keine Datenquelle',
-            ]));
-        }
+        $useInstance = ($src > 0 && IPS_InstanceExists($src));
 
-        $find = function (array $idents) use ($src) {
-            foreach ($idents as $ident) {
-                $vid = $this->FindIdentRecursive($src, $ident);
-                if ($vid && $vid > 0) {
-                    return GetValue($vid);
+        $connected    = true;
+        $gridInvert   = false;
+        $batInvert    = false;
+        $houseMeterID = 0;
+
+        if ($useInstance) {
+            $find = function (array $idents) use ($src) {
+                foreach ($idents as $ident) {
+                    $vid = $this->FindIdentRecursive($src, $ident);
+                    if ($vid && $vid > 0) {
+                        return GetValue($vid);
+                    }
                 }
+                return null;
+            };
+            $conn = $find(self::IDENT_CONN);
+            $connected = ($conn === null) ? true : (bool)$conn; // Treiber ohne 'connected' gelten als verbunden
+            $pv   = $find(self::IDENT_PV);
+            $ac   = $find(self::IDENT_AC);
+            $grid = $find(self::IDENT_GRID);
+            $bat  = $find(self::IDENT_BATPWR);
+            $soc  = $find(self::IDENT_SOC);
+            $gridInvert   = (bool)@IPS_GetProperty($src, 'MeterInvert');
+            $batInvert    = (bool)@IPS_GetProperty($src, 'BatInvert');
+            $houseMeterID = (int)@IPS_GetProperty($src, 'HouseLoadMeterID');
+        } else {
+            // Manueller Modus: einzelne Variablen direkt zuweisen (Leistungen in
+            // Watt umgerechnet, SOC als Rohwert). So funktioniert die Kachel auch
+            // ohne InverterHub-Instanz, z. B. mit Werten anderer Module/Zähler.
+            $man = function (string $idProp, string $unitProp) {
+                $id = $this->ReadPropertyInteger($idProp);
+                if ($id > 0 && IPS_VariableExists($id)) {
+                    return $this->VarWatts($id, $this->ReadPropertyString($unitProp));
+                }
+                return null;
+            };
+            $pv   = $man('ManualPvID',   'ManualPvUnit');
+            $ac   = $man('ManualAcID',   'ManualAcUnit');
+            $grid = $man('ManualGridID', 'ManualGridUnit');
+            $bat  = $man('ManualBatID',  'ManualBatUnit');
+            $socID = $this->ReadPropertyInteger('ManualSocID');
+            $soc  = ($socID > 0 && IPS_VariableExists($socID)) ? GetValue($socID) : null;
+            $gridInvert   = $this->ReadPropertyBoolean('ManualGridInvert');
+            $batInvert    = $this->ReadPropertyBoolean('ManualBatInvert');
+            $houseMeterID = $this->ReadPropertyInteger('ManualHouseID');
+
+            if ($pv === null && $ac === null && $grid === null && $bat === null && $soc === null) {
+                return json_encode(array_merge($style, [
+                    'ok'         => false,
+                    'stateLabel' => 'Keine Datenquelle',
+                ]));
             }
-            return null;
-        };
-
-        $connected = $find(self::IDENT_CONN);
-        $connected = ($connected === null) ? true : (bool)$connected; // Treiber ohne 'connected' gelten als verbunden
-
-        $pv    = $find(self::IDENT_PV);
-        $ac    = $find(self::IDENT_AC);
-        $grid  = $find(self::IDENT_GRID);
-        $bat   = $find(self::IDENT_BATPWR);
-        $soc   = $find(self::IDENT_SOC);
+        }
 
         $pvHave   = ($pv !== null);
         $gridHave = ($grid !== null);
@@ -464,19 +525,14 @@ class InverterHubTile extends IPSModule
         $pvW   = $pvHave ? (float)$pv : 0.0;
         $gridW = $gridHave ? (float)$grid : 0.0;
         $batW  = $batHave ? (float)$bat : 0.0;
-        // Hat die Quell-Instanz die Batterie invertiert (Nutzer-Konvention),
+        // Ist die Batterie-Leistung in der gewählten Konvention invertiert,
         // rechnet die Kachel intern wieder auf ihre kanonische Konvention
-        // zurück (+ = Entladen), damit die Flussrichtung stimmt. Der angezeigte
-        // Betrag ist ohnehin identisch (|value|).
-        if ($batHave && (bool)@IPS_GetProperty($src, 'BatInvert')) {
+        // zurück (+ = Entladen), damit die Flussrichtung stimmt.
+        if ($batHave && $batInvert) {
             $batW = -$batW;
         }
-        // Analog fürs Netz: Dreht der Nutzer die Meter-Leistung um (Schalter
-        // „Netz-Leistung invertieren", z. B. für die Konvention Einspeisung
-        // negativ), rechnet die Kachel intern wieder auf ihre kanonische
-        // Konvention (+ = Einspeisung) zurück, sonst zeigt der Netz-Kreis die
-        // Flussrichtung verkehrt und die Hauslast-Bilanz wird falsch.
-        if ($gridHave && (bool)@IPS_GetProperty($src, 'MeterInvert')) {
+        // Analog fürs Netz (kanonisch + = Einspeisung).
+        if ($gridHave && $gridInvert) {
             $gridW = -$gridW;
         }
 
@@ -512,7 +568,7 @@ class InverterHubTile extends IPSModule
         // (Wechselrichter-Eigenverbrauch, Leitungsverluste, Messtoleranzen).
         $lossHave = false;
         $lossW    = 0.0;
-        $meterID  = (int)@IPS_GetProperty($src, 'HouseLoadMeterID');
+        $meterID  = $houseMeterID;
         if ($meterID > 0 && IPS_VariableExists($meterID)) {
             $realHouseW = $this->VarWatts($meterID, 'auto');
             // Ein Hausverbrauch ist nie negativ. Liefert die gewählte Variable

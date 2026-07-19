@@ -120,6 +120,15 @@ Schalter **„Berechnete Hauslast zusätzlich in eine Variable schreiben"** (Pan
 legt die Kachel die Variable **„Hauslast (berechnet)"** an und aktualisiert sie live — nutzbar
 für Automationen, Charts usw.
 
+**Ohne InverterHub-Instanz (manuelle Datenpunkte):** Die Kachel funktioniert auch ganz ohne
+InverterHub. Wird oben keine InverterHub-Instanz gewählt, speist sie sich aus dem Panel
+**„Manuelle Datenpunkte"** — dort lassen sich einzelne Variablen für PV-Leistung, AC-Leistung,
+Netz-/Zählerleistung, Batterie-Leistung, SOC und optional einen externen Hauslastzähler direkt
+zuweisen (z. B. von einem anderen Wechselrichter-Modul oder Zählern). Je Leistungswert ist die
+Einheit wählbar (Automatisch/W/kW/MW), und Netz sowie Batterie haben einen eigenen
+Invers-Schalter. Alle Werte sind optional; je mehr zugewiesen ist, desto vollständiger die
+Darstellung.
+
 **Weitere Verbraucher (optional):** Im Panel „Weitere Verbraucher" lassen sich **beliebig
 viele** zusätzliche Verbraucher als Tabelle pflegen — je Zeile **Art**, **Bezeichnung**,
 **Leistungs-Variable** und **Einheit**. Sie kommen nicht aus dem Wechselrichter, sondern werden

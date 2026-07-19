@@ -63,6 +63,33 @@
     },
     {
       "type": "ExpansionPanel",
+      "caption": "Manuelle Datenpunkte (ohne InverterHub-Instanz)",
+      "expanded": false,
+      "items": [
+        {
+          "type": "Label",
+          "caption": "Nur nötig, wenn oben KEINE InverterHub-Instanz gewählt ist. Dann speist sich die Kachel aus den hier zugewiesenen Variablen — z. B. von einem anderen Wechselrichter-Modul oder einzelnen Zählern. Alle Werte sind optional; je mehr zugewiesen ist, desto vollständiger die Darstellung. Leistungen: „Einheit“ auf Automatisch lassen (erkennt W/kW/MW am Profil) oder manuell wählen. Vorzeichen-Konvention: Netz + = Einspeisung, Batterie + = Entladen — stimmt die Richtung nicht, den passenden Schalter setzen."
+        },
+        { "type": "SelectVariable", "name": "ManualPvID", "caption": "PV-Leistung" },
+        { "type": "Select", "name": "ManualPvUnit", "caption": "Einheit PV", "options": [
+          { "caption": "Automatisch", "value": "auto" }, { "caption": "W", "value": "w" }, { "caption": "kW", "value": "kw" }, { "caption": "MW", "value": "mw" } ] },
+        { "type": "SelectVariable", "name": "ManualAcID", "caption": "AC-Wirkleistung (für die Hauslast-Bilanz)" },
+        { "type": "Select", "name": "ManualAcUnit", "caption": "Einheit AC", "options": [
+          { "caption": "Automatisch", "value": "auto" }, { "caption": "W", "value": "w" }, { "caption": "kW", "value": "kw" }, { "caption": "MW", "value": "mw" } ] },
+        { "type": "SelectVariable", "name": "ManualGridID", "caption": "Netz-/Zählerleistung (+ Einspeisung / − Bezug)" },
+        { "type": "Select", "name": "ManualGridUnit", "caption": "Einheit Netz", "options": [
+          { "caption": "Automatisch", "value": "auto" }, { "caption": "W", "value": "w" }, { "caption": "kW", "value": "kw" }, { "caption": "MW", "value": "mw" } ] },
+        { "type": "CheckBox", "name": "ManualGridInvert", "caption": "Netz-Leistung invertieren" },
+        { "type": "SelectVariable", "name": "ManualBatID", "caption": "Batterie-Leistung (+ Entladen / − Laden)" },
+        { "type": "Select", "name": "ManualBatUnit", "caption": "Einheit Batterie", "options": [
+          { "caption": "Automatisch", "value": "auto" }, { "caption": "W", "value": "w" }, { "caption": "kW", "value": "kw" }, { "caption": "MW", "value": "mw" } ] },
+        { "type": "CheckBox", "name": "ManualBatInvert", "caption": "Batterie-Leistung invertieren" },
+        { "type": "SelectVariable", "name": "ManualSocID", "caption": "Batterie-Ladestand (SOC, %)" },
+        { "type": "SelectVariable", "name": "ManualHouseID", "caption": "Externer Hauslastzähler (optional, echter Verbrauch, immer positiv)" }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
       "caption": "Weitere Verbraucher (optional)",
       "expanded": false,
       "items": [
