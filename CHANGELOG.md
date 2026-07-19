@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.37.0-beta.1 (2026-07-19)
+
+- **Energiefluss: Zeitraum-Navigation in der Kachel.** Neben der Typ-Auswahl (Tag/Woche/Monat/
+  Jahr/Gesamt) gibt es jetzt **Vor/Zurück (◄ ►)** um jeweils einen Schritt sowie eine
+  **gezielte Auswahl** eines konkreten Tages/einer Woche/eines Monats/eines Jahres. Navigierbar
+  sind die letzten ~31 Tage, 26 Wochen, 24 Monate und 6 Jahre. Die Perioden werden
+  serverseitig vorab berechnet (mit Boundary-Cache für die Archiv-Zugriffe); das Umschalten und
+  Blättern erfolgt ohne Server-Rückfrage. Neuberechnung nur alle 2 Minuten (historische Werte
+  ändern sich nicht).
+
 ## 0.36.3-beta.1 (2026-07-19)
 
 - **Energiefluss: Archiv-Auswertung korrigiert (kritisch).** Die Perioden-Energie wurde über

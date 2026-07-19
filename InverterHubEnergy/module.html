@@ -8,10 +8,11 @@
      ein - ohne diesen Abstand überlagert er unsere Kopfzeile (und fängt
      Klicks auf das Zeitraum-Dropdown ab). */
   .wrap { box-sizing: border-box; height: 100vh; display: flex; flex-direction: column; padding: 52px 12px 10px; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  #bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  #period { font: inherit; font-size: 13px; font-weight: 600; padding: 4px 26px 4px 10px; border-radius: 8px; border: 1px solid rgba(127,135,145,.35); background: rgba(127,135,145,.12); color: inherit; cursor: pointer; -webkit-appearance: none; appearance: none;
+  #bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  select.sel { font: inherit; font-size: 13px; font-weight: 600; padding: 4px 26px 4px 10px; border-radius: 8px; border: 1px solid rgba(127,135,145,.35); background: rgba(127,135,145,.12); color: inherit; cursor: pointer; -webkit-appearance: none; appearance: none;
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%239aa4b0'/></svg>"); background-repeat: no-repeat; background-position: right 9px center; }
-  #range { font-size: 13px; white-space: nowrap; }
+  button.nav { font: inherit; font-size: 14px; line-height: 1; width: 30px; height: 30px; border-radius: 8px; border: 1px solid rgba(127,135,145,.35); background: rgba(127,135,145,.12); color: inherit; cursor: pointer; }
+  button.nav:disabled { opacity: .35; cursor: default; }
   #cols { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; margin: 6px 2px 2px; }
   #chart { width: 100%; flex: 1 1 auto; min-height: 160px; }
   .empty { font-size: 13px; padding: 28px 10px; text-align: center; }
@@ -19,14 +20,20 @@
 </head>
 <body>
   <div class="wrap">
-    <div id="bar"><select id="period"></select><span id="range"></span></div>
+    <div id="bar">
+      <select id="type" class="sel"></select>
+      <button id="prev" class="nav" title="Zurück">&#9664;</button>
+      <select id="period" class="sel"></select>
+      <button id="next" class="nav" title="Vor">&#9654;</button>
+    </div>
     <div id="cols"><span>Energiequelle</span><span>Energieverbraucher</span></div>
     <div id="chart"></div>
   </div>
 
   <script>
-    var lastData = null, CUR = null, curKey = null, chart = null, chartEngine = null, libs = { hc: 0, ec: 0 };
+    var lastData = null, CUR = null, curType = null, curIdx = 0, chart = null, chartEngine = null, libs = { hc: 0, ec: 0 };
     var ORDER = ['day', 'week', 'month', 'year', 'all', 'custom'];
+    var TYPENAME = { day: 'Tag', week: 'Woche', month: 'Monat', year: 'Jahr', all: 'Gesamt', custom: 'Angepasst' };
 
     function handleMessage(payload) {
       var data = (typeof payload === 'string') ? JSON.parse(payload) : payload;
@@ -36,31 +43,54 @@
       document.documentElement.style.background = data.bg ? data.bg : 'transparent';
       applyTheme(data);
 
-      if (!data.ok || !data.periods) {
+      var showCtl = ['type', 'prev', 'period', 'next'];
+      if (!data.ok || !data.series) {
         destroyChart();
-        document.getElementById('period').style.display = 'none';
+        showCtl.forEach(function (id) { document.getElementById(id).style.display = 'none'; });
         document.getElementById('chart').innerHTML = '<div class="empty">' + (data.stateLabel || 'Keine Datenquelle') + '</div>';
         return;
       }
-      buildSelect(data);
-      if (!curKey || !data.periods[curKey]) { curKey = data.defaultPeriod || 'day'; }
-      document.getElementById('period').value = curKey;
+      showCtl.forEach(function (id) { document.getElementById(id).style.display = ''; });
+      buildTypeSelect(data);
+      if (!curType || !data.series[curType]) { curType = data.defaultType || 'day'; curIdx = 0; }
+      if (curIdx >= data.series[curType].length) { curIdx = 0; }
+      document.getElementById('type').value = curType;
+      buildPeriodSelect();
       renderCurrent();
     }
 
-    function buildSelect(data) {
-      var sel = document.getElementById('period'); sel.style.display = '';
-      var html = '';
-      ORDER.forEach(function (k) { if (data.periods[k]) { html += '<option value="' + k + '">' + data.periods[k].label + '</option>'; } });
+    function buildTypeSelect(data) {
+      var sel = document.getElementById('type'), html = '';
+      ORDER.forEach(function (t) { if (data.series[t] && data.series[t].length) { html += '<option value="' + t + '">' + (TYPENAME[t] || t) + '</option>'; } });
       sel.innerHTML = html;
-      sel.onchange = function () { curKey = this.value; renderCurrent(); };
+      sel.onchange = function () { curType = this.value; curIdx = 0; buildPeriodSelect(); renderCurrent(); };
+    }
+
+    function buildPeriodSelect() {
+      var arr = lastData.series[curType] || [], sel = document.getElementById('period'), html = '';
+      for (var i = 0; i < arr.length; i++) { html += '<option value="' + i + '">' + (arr[i].range || '') + '</option>'; }
+      sel.innerHTML = html;
+      sel.value = curIdx;
+      sel.onchange = function () { curIdx = +this.value; renderCurrent(); };
+      var single = arr.length <= 1;
+      document.getElementById('prev').style.display = single ? 'none' : '';
+      document.getElementById('next').style.display = single ? 'none' : '';
+      document.getElementById('prev').onclick = function () { if (curIdx < arr.length - 1) { curIdx++; syncNav(); renderCurrent(); } };
+      document.getElementById('next').onclick = function () { if (curIdx > 0) { curIdx--; syncNav(); renderCurrent(); } };
+    }
+
+    function syncNav() {
+      var arr = lastData.series[curType] || [];
+      document.getElementById('period').value = curIdx;
+      document.getElementById('prev').disabled = (curIdx >= arr.length - 1);
+      document.getElementById('next').disabled = (curIdx <= 0);
     }
 
     function renderCurrent() {
-      var p = lastData.periods[curKey]; if (!p) { return; }
+      var arr = lastData.series[curType] || [], p = arr[curIdx]; if (!p) { return; }
+      syncNav();
       CUR = { engine: lastData.engine, bg: lastData.bg, font: lastData.font, unit: lastData.unit || 'kWh',
         hasData: p.hasData, totalIn: p.totalIn, nodes: p.nodes, links: p.links };
-      document.getElementById('range').textContent = p.range || '';
       sizeChart();
       var el = document.getElementById('chart');
       if (!p.hasData || !p.links || !p.links.length) {
@@ -98,8 +128,7 @@
     }
     function applyTheme(data) {
       var dark = themeDark(data), fg = dark ? '#e8edf2' : '#1b2430', muted = dark ? '#9fb0c0' : '#5c6b7a';
-      document.getElementById('period').style.color = fg;
-      document.getElementById('range').style.color = muted;
+      ['type', 'period', 'prev', 'next'].forEach(function (id) { var e = document.getElementById(id); if (e) { e.style.color = fg; } });
       document.getElementById('cols').style.color = muted;
       if (data && data.font) { document.querySelector('.wrap').style.fontFamily = data.font; }
     }

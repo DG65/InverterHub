@@ -25,6 +25,9 @@ class InverterHubEnergy extends IPSModule
         'other'    => ['label' => 'Verbraucher',     'color' => 0x90A4AE],
     ];
 
+    // Request-lokaler Cache für Archiv-Grenzwerte (Perioden teilen sich Grenzen).
+    private $valCache = [];
+
     // Semantische Farben der festen Knoten.
     private const COL_SOLAR = '#F2C230';
     private const COL_BAT   = '#5FCB6B';
@@ -79,8 +82,9 @@ class InverterHubEnergy extends IPSModule
         }
         $this->SetStatus($any ? 102 : 201);
 
-        // Alle 60 s neu auswerten (nur wenn Datenpunkte zugewiesen sind).
-        $this->SetTimerInterval('Refresh', $any ? 60000 : 0);
+        // Alle 2 min neu auswerten (nur wenn Datenpunkte zugewiesen sind).
+        // Historische Perioden ändern sich nicht; nur der aktuelle Zeitraum läuft.
+        $this->SetTimerInterval('Refresh', $any ? 120000 : 0);
 
         $this->UpdateVisualizationValue($this->BuildPayload());
     }
@@ -120,30 +124,76 @@ class InverterHubEnergy extends IPSModule
             return json_encode(array_merge($style, ['ok' => false, 'stateLabel' => 'Keine Datenquelle']));
         }
 
-        // Alle Standard-Zeiträume vorab berechnen, damit die Umschaltung im
-        // Webfront ohne Server-Rückfrage funktioniert.
-        $keys = ['day', 'week', 'month', 'year', 'all'];
-        if ($this->ReadPropertyString('Period') === 'custom' || $this->ReadPropertyInteger('CustomStart') > 0) {
-            $keys[] = 'custom';
+        // Navigations-Fenster je Typ vorab berechnen (Index 0 = aktuell, höhere
+        // Indizes = weiter zurück). So funktionieren Vor/Zurück UND die gezielte
+        // Auswahl im Webfront ohne Server-Rückfrage. Der Boundary-Cache hält die
+        // Archiv-Zugriffe gering (jeder Perioden-Grenzwert wird nur einmal
+        // gelesen). Historische Perioden ändern sich nicht - die Neuberechnung
+        // läuft per Timer nur alle 2 Minuten.
+        $this->valCache = [];
+        $win = ['day' => 31, 'week' => 26, 'month' => 24, 'year' => 6];
+
+        $series = [];
+        foreach ($win as $type => $count) {
+            $arr = [];
+            foreach ($this->PeriodDefs($type, $count) as $def) {
+                [$s, $e, $plabel, $rlabel] = $def;
+                $arr[] = array_merge($this->ComputeFlow($s, $e), ['label' => $plabel, 'range' => $rlabel]);
+            }
+            $series[$type] = $arr;
         }
+        [$s, $e, $pl, $rl] = $this->ResolveRange('all');
+        $series['all'] = [array_merge($this->ComputeFlow($s, $e), ['label' => $pl, 'range' => $rl])];
+        if ($this->ReadPropertyString('Period') === 'custom' || $this->ReadPropertyInteger('CustomStart') > 0) {
+            [$s, $e, $pl, $rl] = $this->ResolveRange('custom');
+            $series['custom'] = [array_merge($this->ComputeFlow($s, $e), ['label' => $pl, 'range' => $rl])];
+        }
+
         $default = $this->ReadPropertyString('Period');
-        if (!in_array($default, $keys, true)) {
+        if (!isset($series[$default])) {
             $default = 'day';
         }
 
-        $periods = [];
-        foreach ($keys as $k) {
-            [$s, $e, $plabel, $rlabel] = $this->ResolveRange($k);
-            $periods[$k] = array_merge($this->ComputeFlow($s, $e), [
-                'key' => $k, 'label' => $plabel, 'range' => $rlabel,
-            ]);
-        }
-
         return json_encode(array_merge($style, [
-            'ok'            => true,
-            'defaultPeriod' => $default,
-            'periods'       => $periods,
+            'ok'          => true,
+            'defaultType' => $default,
+            'series'      => $series,
         ]));
+    }
+
+    // Perioden-Definitionen eines Typs (Index 0 = aktuell, dann rückwärts).
+    // Rückgabe je Eintrag: [start, end, typLabel, bereichLabel].
+    private function PeriodDefs(string $type, int $count): array
+    {
+        $now = time();
+        $out = [];
+        $mBase = strtotime(date('Y-m-01 00:00:00'));
+        $yBase = strtotime(date('Y-01-01 00:00:00'));
+        for ($k = 0; $k < $count; $k++) {
+            switch ($type) {
+                case 'week':
+                    $s = strtotime("monday this week -{$k} weeks 00:00:00");
+                    $eN = ($k === 0) ? $now : strtotime('monday this week -' . ($k - 1) . ' weeks 00:00:00');
+                    $out[] = [$s, min($now, $eN), 'Woche', 'KW ' . date('W', $s) . ' / ' . date('Y', $s)];
+                    break;
+                case 'month':
+                    $s = strtotime("-{$k} months", $mBase);
+                    $eN = ($k === 0) ? $now : strtotime('-' . ($k - 1) . ' months', $mBase);
+                    $out[] = [$s, min($now, $eN), 'Monat', $this->MonthName((int)date('n', $s)) . ' ' . date('Y', $s)];
+                    break;
+                case 'year':
+                    $s = strtotime("-{$k} years", $yBase);
+                    $eN = ($k === 0) ? $now : strtotime('-' . ($k - 1) . ' years', $yBase);
+                    $out[] = [$s, min($now, $eN), 'Jahr', date('Y', $s)];
+                    break;
+                case 'day':
+                default:
+                    $s = strtotime("today -{$k} days 00:00:00");
+                    $out[] = [$s, min($now, $s + 86400), 'Tag', date('d.m.Y', $s)];
+                    break;
+            }
+        }
+        return $out;
     }
 
     // Berechnet Knoten/Links des Sankeys für einen Zeitraum aus dem Archiv.
@@ -273,14 +323,20 @@ class InverterHubEnergy extends IPSModule
         return ($delta >= 0) ? $delta : null;
     }
 
-    // Jüngster geloggter Wert bei/vor Zeitpunkt $t.
+    // Jüngster geloggter Wert bei/vor Zeitpunkt $t (mit Request-Cache, da sich
+    // aufeinanderfolgende Perioden ihre Grenzwerte teilen).
     private function ArchiveValueAt(int $aid, int $vid, int $t): ?float
     {
         if ($t <= 0) {
             return null;
         }
+        $key = $vid . '|' . $t;
+        if (array_key_exists($key, $this->valCache)) {
+            return $this->valCache[$key];
+        }
         $r = @AC_GetLoggedValues($aid, $vid, 0, $t, 1);
-        return (is_array($r) && count($r)) ? (float)$r[0]['Value'] : null;
+        $v = (is_array($r) && count($r)) ? (float)$r[0]['Value'] : null;
+        return $this->valCache[$key] = $v;
     }
 
     // Ältester geloggter Wert (für „Gesamt"/Zeitraum ohne Wert vor Beginn).
