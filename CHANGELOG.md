@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.36.3-beta.1 (2026-07-19)
+
+- **Energiefluss: Archiv-Auswertung korrigiert (kritisch).** Die Perioden-Energie wurde über
+  aggregierte Mittelwerte (`Avg`) summiert — das stimmt nur für Variablen mit Archiv-
+  Aggregation „Zähler". Bei „Standard"-Aggregation (wie z. B. bei den PV-/Batterie-Zählern des
+  Testers) lieferte das völlig falsche Werte (Durchschnittswert × Buckets statt Energie, z. B.
+  253.000 statt 33,7 kWh Tagesertrag). Die Auswertung nutzt jetzt die **Zähler-Differenz**
+  (Stand am Periodenende − Stand am Periodenanfang, aus den Archiv-Roh-/Loggwerten). Das
+  funktioniert unabhängig von der Aggregationsart und wurde live gegen reale Zähler
+  gegengeprüft (Tag/Woche/Monat/Jahr korrekt). „Gesamt" reicht so weit zurück, wie Roh-
+  Messwerte vorgehalten werden.
+
 ## 0.36.2-beta.1 (2026-07-19)
 
 Energiefluss-Kachel nach Webfront-Test:

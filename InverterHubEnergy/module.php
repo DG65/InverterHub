@@ -236,9 +236,12 @@ class InverterHubEnergy extends IPSModule
         ];
     }
 
-    // Energie einer Zähler-Variable im Zeitraum aus dem Archiv (Summe der
-    // Bucket-Differenzen; für Counter-Aggregation steht die Differenz im Feld
-    // 'Avg'). null, wenn keine Variable/kein Logging vorhanden.
+    // Energie einer Zähler-Variable im Zeitraum. Robust über die ZÄHLER-
+    // DIFFERENZ (Wert am Periodenende − Wert am Periodenanfang) statt über
+    // aggregierte Mittelwerte: Das funktioniert unabhängig von der Archiv-
+    // Aggregationsart (Zähler ODER Standard). Aggregierte 'Avg'-Werte sind bei
+    // Standard-Variablen der Durchschnittswert und als Energiesumme unbrauchbar.
+    // null, wenn keine Variable/kein Logging vorhanden.
     private function PeriodEnergy(int $vid, int $start, int $end): ?float
     {
         if ($vid <= 0 || !IPS_VariableExists($vid)) {
@@ -248,26 +251,43 @@ class InverterHubEnergy extends IPSModule
         if ($aid <= 0 || !@AC_GetLoggingStatus($aid, $vid)) {
             return null;
         }
-        // Aggregationsstufe je Periodenlänge (0=Stunde,1=Tag,3=Monat,4=Jahr).
-        $span = $this->AggregationSpan($start, $end);
-        $data = @AC_GetAggregatedValues($aid, $vid, $span, $start, $end, 0);
-        if (!is_array($data)) {
+
+        // Endwert: bei laufendem Zeitraum der aktuelle Wert, sonst aus dem Archiv.
+        $endVal = ($end >= time() - 5) ? (float)GetValue($vid) : $this->ArchiveValueAt($aid, $vid, $end);
+        if ($endVal === null) {
             return null;
         }
-        $sum = 0.0;
-        foreach ($data as $row) {
-            $sum += (float)($row['Avg'] ?? 0.0);
+        // Startwert: jüngster geloggter Wert bei/vor Periodenbeginn.
+        $startVal = $this->ArchiveValueAt($aid, $vid, $start);
+        if ($startVal === null) {
+            // Kein Wert vor Periodenbeginn (z. B. „Gesamt" ab 0) -> ältesten
+            // geloggten Wert als Basis nehmen.
+            $startVal = $this->ArchiveEarliest($aid, $vid, $end);
         }
-        return $sum;
+        if ($startVal === null) {
+            return null;
+        }
+
+        $delta = $endVal - $startVal;
+        // Negative Differenz = Zählerrücksetzung/Ausreißer -> nicht auswerten.
+        return ($delta >= 0) ? $delta : null;
     }
 
-    private function AggregationSpan(int $start, int $end): int
+    // Jüngster geloggter Wert bei/vor Zeitpunkt $t.
+    private function ArchiveValueAt(int $aid, int $vid, int $t): ?float
     {
-        $days = max(1, (int)ceil(($end - $start) / 86400));
-        if ($days <= 2)   { return 0; } // stündlich
-        if ($days <= 62)  { return 1; } // täglich
-        if ($days <= 400) { return 3; } // monatlich
-        return 4;                        // jährlich
+        if ($t <= 0) {
+            return null;
+        }
+        $r = @AC_GetLoggedValues($aid, $vid, 0, $t, 1);
+        return (is_array($r) && count($r)) ? (float)$r[0]['Value'] : null;
+    }
+
+    // Ältester geloggter Wert (für „Gesamt"/Zeitraum ohne Wert vor Beginn).
+    private function ArchiveEarliest(int $aid, int $vid, int $end): ?float
+    {
+        $r = @AC_GetLoggedValues($aid, $vid, 0, $end, 0);
+        return (is_array($r) && count($r)) ? (float)$r[count($r) - 1]['Value'] : null;
     }
 
     private function ArchiveID(): int
