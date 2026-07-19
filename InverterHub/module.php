@@ -2151,8 +2151,9 @@ class FroniusDriver implements InverterDriverInterface
         return true;
     }
 
-    // Liest die Phasenwerte (U/I/P je Phase) eines SunSpec-Meters. Vorzeichen
-    // der Leistung wie beim Gesamtwert gedreht (positiv = Einspeisung).
+    // Liest die Phasenwerte (U/I/P je Phase) eines SunSpec-Meters. Strom und
+    // Leistung je Phase werden im Roh-Vorzeichen des Zählers geführt (P und I
+    // damit zueinander konsistent, P = U·I); nur der Gesamtwert wird gedreht.
     // Rückgabe true, wenn ein Meter-Model gefunden wurde.
     private function readMeterPhases($client, $hub)
     {
@@ -2177,7 +2178,11 @@ class FroniusDriver implements InverterDriverInterface
                     $hub->SetVarFloat('meter_' . $p . '_curr', $client->s16($blk, $ai) * $aSf);
                 }
                 if ($client->s16($blk, $wi) !== -32768) {
-                    $hub->SetVarFloat('meter_' . $p . '_pwr', -($client->s16($blk, $wi) * $wSf));
+                    // Phasen-Leistung NICHT drehen: Der Zähler liefert sie mit
+                    // demselben Vorzeichen wie den Phasenstrom (P = U·I). Der
+                    // Gesamtwert (meter_total) wird separat gedreht - Phasenwert
+                    // und Strom bleiben dagegen konsistent zueinander.
+                    $hub->SetVarFloat('meter_' . $p . '_pwr', $client->s16($blk, $wi) * $wSf);
                 }
             }
             return true;
@@ -2197,7 +2202,7 @@ class FroniusDriver implements InverterDriverInterface
             foreach ($ph as [$p, $ai, $vi, $wi]) {
                 $hub->SetVarFloat('meter_' . $p . '_volt', $client->readFloat32($blk, $vi));
                 $hub->SetVarFloat('meter_' . $p . '_curr', $client->readFloat32($blk, $ai));
-                $hub->SetVarFloat('meter_' . $p . '_pwr', -$client->readFloat32($blk, $wi));
+                $hub->SetVarFloat('meter_' . $p . '_pwr', $client->readFloat32($blk, $wi));
             }
             return true;
         }

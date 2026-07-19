@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.33.1-beta.1 (2026-07-18)
+
+- **Fronius: Vorzeichen der Smart-Meter-Leistung je Phase korrigiert.** Die Phasen-Leistung
+  wurde fälschlich gedreht und stand dadurch entgegengesetzt zum (korrekten) Phasenstrom
+  (physikalisch unmöglich bei P = U·I). Sie wird jetzt im Roh-Vorzeichen des Zählers geführt –
+  konsistent zum Phasenstrom und passend zur Fronius-Anzeige. Der Gesamtwert
+  („Netz Leistung (Meter)") war korrekt und bleibt unverändert.
+
 ## 0.33.0-beta.1 (2026-07-18)
 
 - **Neu: Energie-Ausgabe wahlweise in Wh statt kWh.** Schalter „Energie in Wh statt kWh
