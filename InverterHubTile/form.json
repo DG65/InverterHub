@@ -11,7 +11,7 @@
         },
         {
           "type": "Label",
-          "caption": "Zeigt die Werte einer InverterHub-Instanz (beliebiger Hersteller) als animierte Energiefluss-Kachel in Diamant-Anordnung: Solar oben, Netz links, Last rechts, Batterie unten."
+          "caption": "Zeigt Energiewerte als animierte Energiefluss-Kachel: die Hauslast im Zentrum, Solar/Batterie/Netz und beliebige weitere Verbraucher radial darum. Quelle wahlweise eine InverterHub-Instanz (beliebiger Hersteller) ODER — ganz ohne InverterHub — manuell zugewiesene Variablen."
         },
         {
           "type": "Label",
@@ -27,7 +27,15 @@
         },
         {
           "type": "Label",
-          "caption": "Unter „Datenquelle“ die InverterHub-Instanz auswählen, aus der die Werte kommen sollen. Status oben zeigt „Kachel aktiv“, sobald eine gültige Quelle gewählt ist."
+          "caption": "Variante A — mit InverterHub: Unter „Datenquelle“ die InverterHub-Instanz auswählen. Die Kachel übernimmt dann auch deren Invers-Schalter (Netz/Batterie) automatisch, sodass die Flussrichtung immer stimmt."
+        },
+        {
+          "type": "Label",
+          "caption": "Variante B — ohne InverterHub (manuell): „Datenquelle“ leer lassen und im Panel „Manuelle Datenpunkte“ einzelne Variablen für PV-, AC-, Netz-, Batterie-Leistung, SOC und optional einen externen Hauslastzähler zuweisen (z. B. von einem anderen Wechselrichter-Modul oder Zählern). Je Leistungswert ist die Einheit wählbar (Automatisch/W/kW/MW); Netz und Batterie haben je einen eigenen Invers-Schalter. Alle Werte optional — je mehr zugewiesen, desto vollständiger. Status oben zeigt „Kachel aktiv“, sobald mindestens eine gültige Quelle vorhanden ist."
+        },
+        {
+          "type": "Label",
+          "caption": "Hauslast: Fehlt ein direkter Hausverbrauchswert, berechnet die Kachel ihn aus der Bilanz (bevorzugt AC-Leistung − Netzeinspeisung). Ein optionaler externer Hauslastzähler (echter Verbrauch, immer positiv) zeigt zusätzlich die Differenz als „Wandlungsverluste“. Mit dem Schalter „Berechnete Hauslast … in eine Variable schreiben“ (Panel „Datenquelle“) wird der berechnete Wert zusätzlich als Variable „Hauslast (berechnet)“ ausgegeben."
         },
         {
           "type": "Label",

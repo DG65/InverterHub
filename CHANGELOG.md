@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.34.1-beta.1 (2026-07-18)
+
+- **Kachel-Hilfe aktualisiert.** Das Panel „Dokumentation & Hilfe" der Kachel beschreibt jetzt
+  beide Datenquellen-Varianten (InverterHub-Instanz bzw. manuelle Datenpunkte), die
+  Hauslast-Bilanz/Verluste, die Ausgabe „Hauslast (berechnet)" und die automatische
+  Rückrechnung der Invers-Schalter. Veraltete Angaben (feste „Diamant-Anordnung") korrigiert.
+
 ## 0.34.0-beta.1 (2026-07-18)
 
 - **Kachel: manueller Datenpunkt-Modus (ohne InverterHub-Instanz).** Ist im Panel „Datenquelle"
