@@ -9,8 +9,11 @@
   - SMA: Holding 30225 aus dem proprietären SMA-Profil (uint32 in Ohm → kΩ; Sentinel
     0xFFFFFFFF „nicht verfügbar" wird übersprungen).
   - Kostal: Holding 120 (Float32 in Ohm → kΩ, mit der eingestellten Byte-Reihenfolge).
-  - Für Solis, SolaX, Deye, Solplanet und Growatt ist über die geprüften Modbus-Quellen
-    kein zuverlässiger Riso-**Messwert** dokumentiert (nur Fehlercodes/Schwellwerte);
+  - Growatt: optionale Gruppe „Isolationswiderstand (modellabhängig)" (Input-Register 200,
+    kΩ). Laut Quelle nur bei manchen Modellen belegt (z. B. MIC 600TL-X bestätigt), daher
+    opt-in und klar gekennzeichnet — bitte am eigenen Modell auf Plausibilität prüfen.
+  - Für Solis, SolaX, Deye und Solplanet ist über die geprüften Modbus-Quellen kein
+    zuverlässiger Riso-**Messwert** dokumentiert (nur Fehlercodes/Schwellwerte);
     Fronius/SolarEdge liefern ihn im reinen SunSpec-Modell nicht. Dort wird Riso bewusst
     nicht geraten.
 

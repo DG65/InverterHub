@@ -1298,6 +1298,9 @@ class GrowattDriver implements InverterDriverInterface
     public function getOptionalGroups()
     {
         return [
+            'GroupRiso' => ['caption' => 'Isolationswiderstand (modellabhängig — nur bei manchen Modellen belegt)', 'vars' => [
+                ['riso', 'Isolationswiderstand', 'F', 'GRW.KOhm', true, 'pv', 'Input 200 (kΩ, modellabhängig)'],
+            ]],
             'GroupPV' => ['caption' => 'PV-Details (String 1-3, Spannung/Strom/Leistung)', 'vars' => [
                 ['pv1_volt', 'PV1 Spannung', 'F', 'GRW.Volt',   false, 'pv', 'Input 3'],
                 ['pv1_curr', 'PV1 Strom',    'F', 'GRW.Ampere', false, 'pv', 'Input 4'],
@@ -1346,6 +1349,7 @@ class GrowattDriver implements InverterDriverInterface
             'GRW.Volt'   => [VARIABLETYPE_FLOAT, ' V',       0.0,  1000.0, 0.1,  1],
             'GRW.Ampere' => [VARIABLETYPE_FLOAT, ' A',    -200.0,   200.0, 0.1,  1],
             'GRW.Hertz'  => [VARIABLETYPE_FLOAT, ' Hz',     45.0,    65.0, 0.01, 2],
+            'GRW.KOhm'   => [VARIABLETYPE_FLOAT, ' kΩ',      0.0, 65535.0, 1.0,  0],
         ];
     }
 
@@ -1372,6 +1376,15 @@ class GrowattDriver implements InverterDriverInterface
         $hub->SetVarFloat('pv_total', $mb->u32($blk, 1) / 10.0);
         $hub->SetVarFloat('ac_power', $mb->u32($blk, 35) / 10.0);
         $hub->SetVarFloat('grid_freq', $mb->u16($blk, 37) / 100.0);
+
+        // Isolationswiderstand liegt außerhalb des 0-107-Blocks (Input 200) und
+        // ist nur bei manchen Growatt-Modellen belegt — daher optional/separat.
+        if ($hub->GetPropBool('GroupRiso')) {
+            $r = $mb->readInput(200, 1);
+            if ($r !== null) {
+                $hub->SetVarFloat('riso', (float)$mb->u16($r, 0));
+            }
+        }
 
         if ($hub->GetPropBool('GroupPV')) {
             $hub->SetVarFloat('pv1_volt',  $mb->u16($blk, 3) / 10.0);
