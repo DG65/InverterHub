@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.32.0-beta.1 (2026-07-18)
+
+Nach Fronius-Beta-Wünschen (zusätzliche Messwerte):
+
+- **Fronius: PV-Strom je String** (MPPT1/MPPT2 Strom aus Model 160 DCA) in der Gruppe
+  „PV-Details".
+- **Fronius: Batteriespannung** (aus dem DCV der Speichermodule in Model 160) in der Gruppe
+  „Batterie".
+- **Fronius: Smart Meter je Phase** — neue Gruppe „Smart Meter je Phase" mit Spannung, Strom
+  und Leistung pro Phase (L1/L2/L3), gelesen aus dem SunSpec-Meter-Model (Int-20x mit
+  Skalierungsfaktor oder Float-21x). Leistungs-Vorzeichen wie beim Gesamtwert
+  (positiv = Einspeisung).
+
 ## 0.31.4-beta.1 (2026-07-18)
 
 - **Kachel: negativen Hauslastzähler abfangen.** Wird als „Hauslastzähler" versehentlich eine

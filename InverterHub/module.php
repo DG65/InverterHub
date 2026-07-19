@@ -1911,10 +1911,12 @@ class FroniusDriver implements InverterDriverInterface
     {
         return [
             'GroupPV' => ['caption' => 'PV-Details (MPPT laut Multiple MPPT Extension Model 160)', 'vars' => [
-                ['mppt1_volt',  'MPPT1 Spannung', 'F', 'FRO.Volt',   false, 'pv', 'SunSpec Model 160'],
-                ['mppt1_power','MPPT1 Leistung',  'F', 'FRO.Watt',   true,  'pv', 'SunSpec Model 160'],
-                ['mppt2_volt',  'MPPT2 Spannung', 'F', 'FRO.Volt',   false, 'pv', 'SunSpec Model 160'],
-                ['mppt2_power','MPPT2 Leistung',  'F', 'FRO.Watt',   true,  'pv', 'SunSpec Model 160'],
+                ['mppt1_volt',  'MPPT1 Spannung', 'F', 'FRO.Volt',   false, 'pv', 'SunSpec Model 160 DCV'],
+                ['mppt1_curr',  'MPPT1 Strom',    'F', 'FRO.Ampere', false, 'pv', 'SunSpec Model 160 DCA'],
+                ['mppt1_power','MPPT1 Leistung',  'F', 'FRO.Watt',   true,  'pv', 'SunSpec Model 160 DCW'],
+                ['mppt2_volt',  'MPPT2 Spannung', 'F', 'FRO.Volt',   false, 'pv', 'SunSpec Model 160 DCV'],
+                ['mppt2_curr',  'MPPT2 Strom',    'F', 'FRO.Ampere', false, 'pv', 'SunSpec Model 160 DCA'],
+                ['mppt2_power','MPPT2 Leistung',  'F', 'FRO.Watt',   true,  'pv', 'SunSpec Model 160 DCW'],
             ]],
             'GroupGrid' => ['caption' => 'Netz (Spannung, Strom, Frequenz)', 'vars' => [
                 ['grid_volt', 'Netz Spannung',  'F', 'FRO.Volt',   false, 'grid', 'SunSpec PhVphA (Model 101/103)'],
@@ -1927,9 +1929,21 @@ class FroniusDriver implements InverterDriverInterface
             'GroupMeter' => ['caption' => 'Smart Meter (Leistung)', 'vars' => [
                 ['meter_total', 'Netz Leistung (Meter)', 'F', 'FRO.Watt', true, 'meter', 'SunSpec Meter Model 20x/21x (Unit-ID 200)'],
             ]],
-            'GroupBat' => ['caption' => 'Batterie (GEN24-Hybrid: SOC, Leistung)', 'vars' => [
+            'GroupMeterPhases' => ['caption' => 'Smart Meter je Phase (Spannung/Strom/Leistung)', 'vars' => [
+                ['meter_l1_volt', 'Meter L1 Spannung', 'F', 'FRO.Volt',   false, 'meter', 'SunSpec Meter PhVphA'],
+                ['meter_l1_curr', 'Meter L1 Strom',    'F', 'FRO.Ampere', false, 'meter', 'SunSpec Meter AphA'],
+                ['meter_l1_pwr',  'Meter L1 Leistung', 'F', 'FRO.Watt',   true,  'meter', 'SunSpec Meter WphA'],
+                ['meter_l2_volt', 'Meter L2 Spannung', 'F', 'FRO.Volt',   false, 'meter', 'SunSpec Meter PhVphB'],
+                ['meter_l2_curr', 'Meter L2 Strom',    'F', 'FRO.Ampere', false, 'meter', 'SunSpec Meter AphB'],
+                ['meter_l2_pwr',  'Meter L2 Leistung', 'F', 'FRO.Watt',   true,  'meter', 'SunSpec Meter WphB'],
+                ['meter_l3_volt', 'Meter L3 Spannung', 'F', 'FRO.Volt',   false, 'meter', 'SunSpec Meter PhVphC'],
+                ['meter_l3_curr', 'Meter L3 Strom',    'F', 'FRO.Ampere', false, 'meter', 'SunSpec Meter AphC'],
+                ['meter_l3_pwr',  'Meter L3 Leistung', 'F', 'FRO.Watt',   true,  'meter', 'SunSpec Meter WphC'],
+            ]],
+            'GroupBat' => ['caption' => 'Batterie (GEN24-Hybrid: SOC, Leistung, Spannung)', 'vars' => [
                 ['bat_soc',   'Bat. SOC', 'F', 'FRO.Soc', true, 'bat', 'SunSpec Model 124 ChaState'],
                 ['bat_power', 'Bat. Leistung (Entladen + / Laden -)', 'F', 'FRO.Watt', true, 'bat', 'SunSpec Model 160 Module 3+4'],
+                ['bat_volt',  'Bat. Spannung', 'F', 'FRO.Volt', false, 'bat', 'SunSpec Model 160 Speicher-Modul DCV'],
             ]],
             'GroupDevice' => ['caption' => 'Geräteinformation', 'vars' => [
                 ['dev_model', 'Modell', 'S', '', false, 'device', 'SunSpec Common Block'],
@@ -2045,6 +2059,7 @@ class FroniusDriver implements InverterDriverInterface
                     // ID(+0) IDStr(+1..+8, Text!) DCA(+9) DCV(+10) DCW(+11) ...
                     // Bugfix: die alten Offsets (10/12 bzw. 30/32) lasen mitten
                     // im IDStr-Textfeld - daher Fantasiewerte wie "2056,4 V".
+                    $dcaSf = $this->sfVal($mb->u16($mblk, 0));
                     $dcvSf = $this->sfVal($mb->u16($mblk, 1));
                     $dcwSf = $this->sfVal($mb->u16($mblk, 2));
                     $modVal = function ($n, $inner, $sf) use ($mb, $mblk, $readLen) {
@@ -2059,8 +2074,10 @@ class FroniusDriver implements InverterDriverInterface
                         $p1 = $modVal(0, 11, $dcwSf);
                         $p2 = $modVal(1, 11, $dcwSf);
                         $hub->SetVarFloat('mppt1_volt',  (float)($modVal(0, 10, $dcvSf) ?? 0));
+                        $hub->SetVarFloat('mppt1_curr',  (float)($modVal(0, 9, $dcaSf) ?? 0));
                         $hub->SetVarFloat('mppt1_power', (float)($p1 ?? 0));
                         $hub->SetVarFloat('mppt2_volt',  (float)($modVal(1, 10, $dcvSf) ?? 0));
+                        $hub->SetVarFloat('mppt2_curr',  (float)($modVal(1, 9, $dcaSf) ?? 0));
                         $hub->SetVarFloat('mppt2_power', (float)($p2 ?? 0));
                         $hub->SetVarFloat('pv_total', (float)(($p1 ?? 0) + ($p2 ?? 0)));
                     }
@@ -2073,6 +2090,16 @@ class FroniusDriver implements InverterDriverInterface
                         $discharge = $modVal(3, 11, $dcwSf);
                         if ($charge !== null || $discharge !== null) {
                             $hub->SetVarFloat('bat_power', (float)(($discharge ?? 0) - ($charge ?? 0)));
+                        }
+                        // Batteriespannung aus dem DCV der Speichermodule (2/3);
+                        // ist am aktiven Kanal belegt, daher den ersten gültigen
+                        // Wert nehmen.
+                        $bVolt = $modVal(2, 10, $dcvSf);
+                        if ($bVolt === null || $bVolt <= 0) {
+                            $bVolt = $modVal(3, 10, $dcvSf);
+                        }
+                        if ($bVolt !== null && $bVolt > 0) {
+                            $hub->SetVarFloat('bat_volt', (float)$bVolt);
                         }
                     }
                 }
@@ -2114,7 +2141,68 @@ class FroniusDriver implements InverterDriverInterface
             }
         }
 
+        if ($hub->GetPropBool('GroupMeterPhases')) {
+            $mc = new ModbusTcpClient($mb->host, $mb->port, $hub->GetMeterUnitId());
+            if (!$this->readMeterPhases($mc, $hub)) {
+                $this->readMeterPhases($mb, $hub);
+            }
+        }
+
         return true;
+    }
+
+    // Liest die Phasenwerte (U/I/P je Phase) eines SunSpec-Meters. Vorzeichen
+    // der Leistung wie beim Gesamtwert gedreht (positiv = Einspeisung).
+    // Rückgabe true, wenn ein Meter-Model gefunden wurde.
+    private function readMeterPhases($client, $hub)
+    {
+        // Int-Modelle 20x: Messwerte int16/uint16 mit Skalierungsfaktor.
+        $meter = $this->findModel($client, 201) ?: $this->findModel($client, 202) ?: $this->findModel($client, 203);
+        if ($meter !== null) {
+            [$base, $len] = $meter;
+            $blk = $client->readHolding($base, min($len, 24));
+            if ($blk === null || min($len, 24) < 21) {
+                return false;
+            }
+            $aSf = pow(10, $this->sfVal($client->u16($blk, 4)));   // A_SF
+            $vSf = pow(10, $this->sfVal($client->u16($blk, 13)));  // V_SF
+            $wSf = pow(10, $this->sfVal($client->u16($blk, 20)));  // W_SF
+            // Offsets: AphA/B/C = 1/2/3, PhVphA/B/C = 6/7/8, WphA/B/C = 17/18/19.
+            $ph = [['l1', 1, 6, 17], ['l2', 2, 7, 18], ['l3', 3, 8, 19]];
+            foreach ($ph as [$p, $ai, $vi, $wi]) {
+                if ($client->u16($blk, $vi) !== 0xFFFF) {
+                    $hub->SetVarFloat('meter_' . $p . '_volt', $client->u16($blk, $vi) * $vSf);
+                }
+                if ($client->s16($blk, $ai) !== -32768) {
+                    $hub->SetVarFloat('meter_' . $p . '_curr', $client->s16($blk, $ai) * $aSf);
+                }
+                if ($client->s16($blk, $wi) !== -32768) {
+                    $hub->SetVarFloat('meter_' . $p . '_pwr', -($client->s16($blk, $wi) * $wSf));
+                }
+            }
+            return true;
+        }
+
+        // Float-Modelle 21x: Messwerte als IEEE-754-Float32 (je 2 Register).
+        $meter = $this->findModel($client, 211) ?: $this->findModel($client, 212) ?: $this->findModel($client, 213);
+        if ($meter !== null) {
+            [$base, $len] = $meter;
+            $blk = $client->readHolding($base, min($len, 34));
+            if ($blk === null || min($len, 34) < 34) {
+                return false;
+            }
+            // Offsets (Float32): AphA/B/C = 2/4/6, PhVphA/B/C = 10/12/14,
+            // WphA/B/C = 28/30/32.
+            $ph = [['l1', 2, 10, 28], ['l2', 4, 12, 30], ['l3', 6, 14, 32]];
+            foreach ($ph as [$p, $ai, $vi, $wi]) {
+                $hub->SetVarFloat('meter_' . $p . '_volt', $client->readFloat32($blk, $vi));
+                $hub->SetVarFloat('meter_' . $p . '_curr', $client->readFloat32($blk, $ai));
+                $hub->SetVarFloat('meter_' . $p . '_pwr', -$client->readFloat32($blk, $wi));
+            }
+            return true;
+        }
+
+        return false;
     }
 
     // Liest die Gesamtwirkleistung eines SunSpec-Meters (Int-Modelle 20x mit
