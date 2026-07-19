@@ -4,7 +4,10 @@
 <meta charset="UTF-8">
 <style>
   html, body { margin: 0; height: 100%; background: transparent; }
-  .wrap { box-sizing: border-box; height: 100vh; display: flex; flex-direction: column; padding: 8px 12px 10px; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  /* Oben Platz lassen: IP-Symcon blendet den Instanznamen über der Kachel
+     ein - ohne diesen Abstand überlagert er unsere Kopfzeile (und fängt
+     Klicks auf das Zeitraum-Dropdown ab). */
+  .wrap { box-sizing: border-box; height: 100vh; display: flex; flex-direction: column; padding: 52px 12px 10px; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   #bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   #period { font: inherit; font-size: 13px; font-weight: 600; padding: 4px 26px 4px 10px; border-radius: 8px; border: 1px solid rgba(127,135,145,.35); background: rgba(127,135,145,.12); color: inherit; cursor: pointer; -webkit-appearance: none; appearance: none;
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%239aa4b0'/></svg>"); background-repeat: no-repeat; background-position: right 9px center; }
@@ -148,7 +151,7 @@
           pointFormatter: function () {
             return '<span style="color:' + P.colById[this.from] + '">●</span> ' + P.nameById[this.from] + ' → <b>' + P.nameById[this.to] + '</b><br>' + fmt(this.weight, 2) + ' ' + P.unit + pctStr(this.weight, P.totalIn);
           } },
-        plotOptions: { sankey: { animation: false, nodePadding: 14, curveFactor: 0.5, linkOpacity: 0.45, dataLabels: { enabled: true, style: { color: P.TEXT, fontSize: '12px', fontWeight: '600', textOutline: 'none' } } } },
+        plotOptions: { sankey: { animation: false, nodePadding: 14, curveFactor: 0.5, linkOpacity: 0.45, dataLabels: { enabled: true, useHTML: true, nodeFormatter: function () { var v = Math.max(P.inn[this.id] || 0, P.out[this.id] || 0); return '<div style="text-align:center;line-height:1.15">' + this.name + '<br><span style="font-weight:400">' + fmt(v, 1) + ' ' + P.unit + '</span></div>'; }, style: { color: P.TEXT, fontSize: '12px', fontWeight: '600', textOutline: 'none' } } } },
         series: [{ type: 'sankey', name: 'Energie', keys: ['from', 'to', 'weight'], nodes: nodes, data: data }]
       };
       el.innerHTML = ''; chart = Highcharts.chart('chart', options);
@@ -173,7 +176,7 @@
           } },
         series: [{ type: 'sankey', left: 8, right: 12, top: 8, bottom: 8, nodeWidth: 16, nodeGap: 14, draggable: false,
           emphasis: { focus: 'adjacency' }, data: nodes, links: links,
-          label: { formatter: function (p) { return P.nameById[p.name]; }, color: P.TEXT, fontWeight: 600, fontSize: 12 },
+          label: { formatter: function (p) { var id = p.name, v = Math.max(P.inn[id] || 0, P.out[id] || 0); return P.nameById[id] + '\n' + fmt(v, 1) + ' ' + P.unit; }, color: P.TEXT, fontWeight: 600, fontSize: 12, lineHeight: 15 },
           lineStyle: { color: 'gradient', opacity: 0.42, curveness: 0.5 } }]
       };
       if (!chart) { el.innerHTML = ''; chart = echarts.init(el, null, { renderer: 'canvas' }); }

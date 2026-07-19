@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.36.2-beta.1 (2026-07-19)
+
+Energiefluss-Kachel nach Webfront-Test:
+
+- **Oberer Abstand für den IPS-Instanznamen** — die Kopfzeile (Zeitraum-Auswahl/Datum) lag
+  unter dem von IP-Symcon eingeblendeten Instanznamen und wurde davon überlagert; dadurch
+  ließ sich das Zeitraum-Dropdown auch nicht bedienen (Klicks wurden abgefangen). Jetzt bleibt
+  oben Platz frei — Titel, Dropdown und Diagramm überlappen nicht mehr, die Umschaltung
+  funktioniert.
+- **kWh-Werte am Knoten sichtbar** — jeder Knoten zeigt jetzt zusätzlich zum Namen seinen
+  Energiewert (z. B. „Solar 21,8 kWh"), nicht mehr nur im Tooltip.
+
 ## 0.36.1-beta.1 (2026-07-19)
 
 Energiefluss-Kachel nach Rückmeldung:
