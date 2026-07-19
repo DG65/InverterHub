@@ -3760,11 +3760,12 @@ class InverterHub extends IPSModule
                 ],
                 [
                     'type'    => 'ExpansionPanel',
-                    'caption' => '🏠  Hauslastzähler (optional)',
+                    'caption' => '🏠  Externer Hauslastzähler — Eingang (optional)',
                     'expanded' => false,
                     'items' => [
-                        ['type' => 'Label', 'caption' => 'Optional: eine bereits vorhandene Variable mit real gemessener Hauslast (z. B. ein separater Energiezähler/Shelly am Hausanschluss) auswählen. Ist ein Zähler gewählt, zeigt die InverterHubTile-Kachel damit eine genauere Last sowie die Differenz zur PV/Netz/Batterie-Bilanz als „Wandlungsverluste" (Wechselrichter-Eigenverbrauch, Leitungsverluste). Ohne Auswahl bleibt es bei der reinen Bilanzschätzung.'],
-                        ['type' => 'SelectVariable', 'name' => 'HouseLoadMeterID', 'caption' => 'Hauslastzähler-Variable'],
+                        ['type' => 'Label', 'caption' => 'Eingang, nicht Ausgang: Hier optional eine bereits vorhandene Variable mit real GEMESSENER Hauslast auswählen (z. B. ein separater Energiezähler/Shelly am Hausanschluss). Bitte einen echten Verbrauchszähler wählen (immer positiv) — kein Netz-/Einspeisezähler, der negativ werden kann. Ist ein Zähler gewählt, zeigt die InverterHubTile-Kachel damit eine genauere Last sowie die Differenz zur PV/Netz/Batterie-Bilanz als „Wandlungsverluste" (Wechselrichter-Eigenverbrauch, Leitungsverluste). Ohne Auswahl bleibt es bei der reinen Bilanzschätzung.'],
+                        ['type' => 'Label', 'caption' => 'Hinweis: Die vom Modul BERECHNETE Hauslast als eigene Variable AUSGEBEN kannst du dagegen in der Kachel-Instanz (InverterHubTile) → Panel „Datenquelle" → „Berechnete Hauslast … in eine Variable schreiben".'],
+                        ['type' => 'SelectVariable', 'name' => 'HouseLoadMeterID', 'caption' => 'Externe Hauslast-Messvariable (Eingang)'],
                     ],
                 ],
                 [

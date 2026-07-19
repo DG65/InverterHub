@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.32.4-beta.1 (2026-07-18)
+
+- **Klarere Benennung Hauslast (Eingang vs. Ausgang).** Das Feld in der Wechselrichter-Instanz
+  heißt jetzt „Externer Hauslastzähler — Eingang (optional)" und weist explizit darauf hin,
+  dass es ein *Eingang* für einen gemessenen Wert ist (echter Verbrauchszähler, immer positiv)
+  — im Unterschied zur in der Kachel optional *ausgegebenen* Variable „Hauslast (berechnet)".
+  Ein Querverweis nennt direkt, wo der berechnete Wert ausgegeben wird.
+
 ## 0.32.3-beta.1 (2026-07-18)
 
 - **Dokumentation & In-Modul-Hilfe auf den aktuellen Stand gebracht.** Die Hilfe im

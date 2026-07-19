@@ -56,9 +56,10 @@ freigeschaltet. Architektur:
 Einrichtung: Instanz anlegen, Hersteller wählen, IP-Adresse (und bei Bedarf Port/Unit-ID)
 eintragen, gewünschte Datenpunkt-Gruppen aktivieren, übernehmen.
 
-**Hauslastzähler (optional):** Unter „Hauslastzähler (optional)" lässt sich eine bereits
-vorhandene Variable mit real gemessener Hauslast auswählen (z. B. ein Shelly am
-Hausanschluss). Die reine PV/Netz/Batterie-Bilanzschätzung berücksichtigt Wechselrichter-
+**Externer Hauslastzähler — Eingang (optional):** Unter „Externer Hauslastzähler — Eingang
+(optional)" lässt sich eine bereits vorhandene Variable mit real gemessener Hauslast auswählen
+(z. B. ein Shelly am Hausanschluss). Das ist ein **Eingang** — nicht zu verwechseln mit der in
+der Kachel optional **ausgegebenen** Variable „Hauslast (berechnet)". Die reine PV/Netz/Batterie-Bilanzschätzung berücksichtigt Wechselrichter-
 Eigenverbrauch und Leitungsverluste nicht — mit einem echten Zähler zeigt `InverterHubTile`
 die genauere Last sowie die Differenz als eigenen „Wandlungsverluste"-Kreis. Wichtig: hier
 einen echten Verbrauchszähler wählen (immer positiv), keinen Netz-/Einspeisezähler — negative
