@@ -209,9 +209,15 @@ Voraussetzung: Die Variablen sind akkumulierende Zähler mit aktivierter Archivi
 
 Einzelne Verbraucher (Wärmepumpe, Wallbox …) lassen sich mit ihrer eigenen archivierten
 Energievariable eintragen — sie werden aus dem Hausverbrauch herausgelöst, der Rest erscheint
-als „Sonstiger Verbrauch". Die Aufteilung der Flüsse folgt einem Energiebilanz-Modell
-(Netzeinspeisung und Batterie-Ladung stammen aus PV; der Verbrauch wird anteilig aus
-PV/Batterie/Netz gedeckt).
+als „Sonstiger Verbrauch".
+
+**Darstellung:** 3-stufiges Sankey (Erzeugung/Bezug → **Batterie als Puffer** → Verbrauch/
+Einspeisung). Die Batterie ist ein Zwischenknoten (Zufluss = Ladung, Abfluss = Entladung),
+taucht also nicht doppelt auf. Als Engine ist wahlweise **Apache ECharts** oder **Highcharts**
+wählbar (wie in der Prognosekachel). Interaktive Tooltips zeigen je Knoten Durchsatz/Anteil
+(Batterie zusätzlich „geladen/entladen") und je Fluss Quelle → Ziel mit kWh und Anteil. Die
+Flussaufteilung folgt einem Energiebilanz-Modell (Netzeinspeisung und Batterie-Ladung aus PV;
+Verbrauch anteilig aus PV/Batterie/Netz).
 
 ## Fronius und SMA: Hinweis zur SunSpec-Discovery
 

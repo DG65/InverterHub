@@ -86,6 +86,14 @@
       "caption": "Darstellung",
       "expanded": false,
       "items": [
+        {
+          "type": "Select", "name": "Engine", "caption": "Diagramm-Engine",
+          "options": [
+            { "caption": "Apache ECharts", "value": "echarts" },
+            { "caption": "Highcharts", "value": "highcharts" }
+          ]
+        },
+        { "type": "NumberSpinner", "name": "Height", "caption": "Höhe (px)", "minimum": 220, "maximum": 900 },
         { "type": "SelectColor", "name": "ColorBackground", "caption": "Hintergrundfarbe (-1 = Standard)" },
         { "type": "ValidationTextBox", "name": "FontFamily", "caption": "Schriftart (leer = Standard)" }
       ]

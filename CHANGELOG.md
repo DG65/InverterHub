@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.36.0-beta.1 (2026-07-19)
+
+- **Energiefluss-Kachel: 3-stufiges Sankey mit Highcharts & ECharts.** Statt des eigenen
+  SVG-Renderers nutzt die Kachel jetzt — wie die Prognosekachel — wahlweise **Apache ECharts**
+  oder **Highcharts** (umschaltbar per „Diagramm-Engine"). Neue **3-stufige** Darstellung
+  (Variante B): Erzeugung/Bezug → **Batterie als Puffer** (ein Knoten mit Zufluss = Ladung,
+  Abfluss = Entladung) → Verbrauch/Einspeisung. Damit taucht die Batterie nicht mehr doppelt
+  links und rechts auf, sondern ist als Zwischenspeicher sichtbar. **Interaktive Tooltips**
+  (obligatorisch) zeigen je Knoten Durchsatz/Anteil (bei der Batterie zusätzlich
+  „geladen / entladen") und je Fluss Quelle → Ziel mit kWh und Anteil. Höhe konfigurierbar.
+
 ## 0.35.0-beta.1 (2026-07-19)
 
 - **Neues Modul: InverterHub Energiefluss (Sankey).** Zeigt als Sankey-Diagramm, wohin die

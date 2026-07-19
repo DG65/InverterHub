@@ -1,168 +1,199 @@
 <!DOCTYPE html>
-<html lang="de">
+<html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-  :root {
-    --bg: #16181d;
-    --fg: #e9edf2;
-    --muted: #9aa4b0;
-    --panel: rgba(255,255,255,0.03);
-  }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; }
-  #wrap {
-    background: var(--bg);
-    color: var(--fg);
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    border-radius: 16px;
-    padding: 16px 18px 18px;
-    width: 100%;
-  }
-  #head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
-  #title { font-size: 15px; font-weight: 700; letter-spacing: .2px; }
-  #range { font-size: 13px; color: var(--muted); }
-  #cols { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); font-weight: 600; margin: 6px 2px 2px; }
-  svg { width: 100%; height: auto; display: block; }
-  .nodeLabel { font-size: 12px; font-weight: 700; fill: #10141a; }
-  .nodeVal   { font-size: 13px; font-weight: 800; }
-  .nodePct   { font-size: 12px; font-weight: 700; }
-  #empty { text-align: center; color: var(--muted); padding: 40px 0; font-size: 14px; }
+  html, body { margin: 0; height: 100%; background: transparent; }
+  .wrap { box-sizing: border-box; padding: 12px 12px 12px; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  #head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0 2px 6px; }
+  #title { font-size: 15px; font-weight: 700; }
+  #cols { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; margin: 0 2px 4px; }
+  #range { font-size: 13px; }
+  #chart { width: 100%; height: 380px; }
+  .empty { font-size: 13px; padding: 28px 10px; text-align: center; }
 </style>
 </head>
 <body>
-<div id="wrap">
-  <div id="head"><div id="title">Energiefluss</div><div id="range"></div></div>
-  <div id="cols"><span>Energiequelle</span><span>Energieverbraucher</span></div>
-  <div id="canvas"></div>
-</div>
-<script>
-  var SVGNS = 'http://www.w3.org/2000/svg';
+  <div class="wrap">
+    <div id="head"><div id="title">Energiefluss</div><div id="range"></div></div>
+    <div id="cols"><span>Energiequelle</span><span>Energieverbraucher</span></div>
+    <div id="chart"></div>
+  </div>
 
-  function fmt(v, d) {
-    return Number(v).toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d });
-  }
-  function el(tag, attrs) {
-    var e = document.createElementNS(SVGNS, tag);
-    for (var k in attrs) { e.setAttribute(k, attrs[k]); }
-    return e;
-  }
-  function hexA(hex, a) {
-    var h = (hex || '#888').replace('#', '');
-    var r = parseInt(h.substring(0,2),16), g = parseInt(h.substring(2,4),16), b = parseInt(h.substring(4,6),16);
-    return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
-  }
+  <script>
+    var lastData = null, chart = null, chartEngine = null, libs = { hc: 0, ec: 0 };
 
-  function handleMessage(raw) {
-    var d = (typeof raw === 'string') ? JSON.parse(raw) : raw;
-    if (d.bg)   { document.documentElement.style.setProperty('--bg', d.bg); }
-    if (d.font) { document.getElementById('wrap').style.fontFamily = d.font; }
-    document.getElementById('range').textContent =
-      (d.period ? d.period + ' · ' : '') + (d.range || '');
-
-    var canvas = document.getElementById('canvas');
-    canvas.innerHTML = '';
-
-    if (!d.ok || !d.sources || !d.sources.length || !d.sinks || !d.sinks.length) {
-      var e = document.createElement('div');
-      e.id = 'empty';
-      e.textContent = d.stateLabel || 'Keine Daten im Zeitraum';
-      canvas.appendChild(e);
-      return;
+    function handleMessage(payload) {
+      var data = (typeof payload === 'string') ? JSON.parse(payload) : payload;
+      if (!data) { return; }
+      lastData = data;
+      document.body.style.background = data.bg ? data.bg : 'transparent';
+      document.documentElement.style.background = data.bg ? data.bg : 'transparent';
+      render();
     }
 
-    var W = 1000, NODE_W = 150, GAP = 10, PAD = 6;
-    var sumSrc  = d.sources.reduce(function (a, n) { return a + n.val; }, 0);
-    var sumSink = d.sinks.reduce(function (a, n) { return a + n.val; }, 0);
-    var total   = Math.max(sumSrc, sumSink) || 1;
-
-    // Höhe so wählen, dass auch kleine Knoten sichtbar bleiben.
-    var nMax = Math.max(d.sources.length, d.sinks.length);
-    var H = Math.max(360, nMax * 64);
-    var availL = H - (d.sources.length - 1) * GAP - 2 * PAD;
-    var availR = H - (d.sinks.length - 1) * GAP - 2 * PAD;
-    var scale  = Math.min(availL / (sumSrc || 1), availR / (sumSink || 1));
-    var MINH   = 3;
-
-    var svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H, preserveAspectRatio: 'xMidYMid meet' });
-
-    // Knoten-Layout (Rechtecke + laufende Offsets für die Bänder).
-    function layout(nodes, sumTotal, avail, x) {
-      var draw = nodes.map(function (n) { return { n: n, h: Math.max(MINH, n.val * scale) }; });
-      var used = draw.reduce(function (a, o) { return a + o.h; }, 0) + (draw.length - 1) * GAP;
-      var y = PAD + Math.max(0, (H - 2 * PAD - used) / 2);
-      draw.forEach(function (o) {
-        o.x = x; o.y = y; o.top = y; o.outOff = y; o.inOff = y;
-        y += o.h + GAP;
-      });
-      return draw;
+    function fmt(v, d) { return Number(v).toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d }); }
+    function isDarkColor(hex) {
+      var m = /^#?([0-9a-f]{6})$/i.exec(hex || ''); if (!m) { return null; }
+      var n = parseInt(m[1], 16);
+      return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) < 140;
     }
-    var L = layout(d.sources, sumSrc, availL, 0);
-    var R = layout(d.sinks, sumSink, availR, W - NODE_W);
-    var byKeyL = {}; L.forEach(function (o) { byKeyL[o.n.key] = o; });
-    var byKeyR = {}; R.forEach(function (o) { byKeyR[o.n.key] = o; });
+    function addScript(src, cb) {
+      var s = document.createElement('script'); s.src = src; s.onload = cb; s.onerror = function () { cb && cb(); };
+      document.head.appendChild(s);
+    }
+    function ensureLib(engine, cb) {
+      if (engine === 'echarts') {
+        if (typeof echarts !== 'undefined') { libs.ec = 2; return cb(); }
+        if (libs.ec === 1) { return setTimeout(function () { ensureLib(engine, cb); }, 80); }
+        libs.ec = 1; addScript('https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js', function () { libs.ec = 2; cb(); });
+      } else {
+        if (typeof Highcharts !== 'undefined' && Highcharts.seriesTypes && Highcharts.seriesTypes.sankey) { libs.hc = 2; return cb(); }
+        if (libs.hc === 1) { return setTimeout(function () { ensureLib(engine, cb); }, 80); }
+        libs.hc = 1; addScript('https://code.highcharts.com/highcharts.js', function () {
+          addScript('https://code.highcharts.com/modules/sankey.js', function () { libs.hc = 2; cb(); });
+        });
+      }
+    }
+    function destroyChart() {
+      if (chart) { try { if (chartEngine === 'highcharts') { chart.destroy(); } else { chart.dispose(); } } catch (e) {} }
+      chart = null; chartEngine = null;
+      var c = document.getElementById('chart'); if (c) { c.innerHTML = ''; }
+    }
 
-    // Bänder (Bezier) zuerst, damit die Knoten darüber liegen.
-    // Nach Quellenreihenfolge, je Quelle nach Senkenreihenfolge.
-    var sinkOrder = {}; R.forEach(function (o, i) { sinkOrder[o.n.key] = i; });
-    L.forEach(function (src) {
-      var mine = d.flows.filter(function (f) { return f.from === src.n.key; });
-      mine.sort(function (a, b) { return (sinkOrder[a.to] || 0) - (sinkOrder[b.to] || 0); });
-      mine.forEach(function (f) {
-        var dst = byKeyR[f.to];
-        if (!dst) { return; }
-        var th = Math.max(1, f.val * scale);
-        var y0 = src.outOff, y1 = dst.inOff;
-        src.outOff += th; dst.inOff += th;
-        var x0 = src.x + NODE_W, x1 = dst.x, xm = (x0 + x1) / 2;
-        var p = 'M' + x0 + ',' + y0
-              + 'C' + xm + ',' + y0 + ' ' + xm + ',' + y1 + ' ' + x1 + ',' + y1
-              + 'L' + x1 + ',' + (y1 + th)
-              + 'C' + xm + ',' + (y1 + th) + ' ' + xm + ',' + (y0 + th) + ' ' + x0 + ',' + (y0 + th)
-              + 'Z';
-        var band = el('path', { d: p, fill: hexA(src.n.color, 0.42) });
-        svg.appendChild(band);
+    // Theme + aufbereitete Knoten/Links.
+    function prep() {
+      var d = lastData;
+      var bgDark = isDarkColor(d.bg);
+      var dark = (bgDark !== null) ? bgDark : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      var nameById = {}, colById = {}, colColById = {};
+      (d.nodes || []).forEach(function (n) { nameById[n.id] = n.name; colById[n.id] = n.color; colColById[n.id] = n.col; });
+      // Ein-/Ausgänge je Knoten (für Tooltip-Summen).
+      var inn = {}, out = {};
+      (d.links || []).forEach(function (l) { out[l.from] = (out[l.from] || 0) + l.val; inn[l.to] = (inn[l.to] || 0) + l.val; });
+      return {
+        d: d, dark: dark,
+        TEXT: dark ? '#e8edf2' : '#1b2430', MUTED: dark ? '#9fb0c0' : '#5c6b7a',
+        TIP: dark ? 'rgba(28,38,52,.97)' : 'rgba(255,255,255,.98)', BORDER: dark ? 'rgba(159,176,192,.34)' : 'rgba(92,107,122,.30)',
+        font: d.font || 'system-ui, sans-serif', unit: d.unit || 'kWh', totalIn: d.totalIn || 0,
+        nameById: nameById, colById: colById, colColById: colColById, inn: inn, out: out
+      };
+    }
+    function pct(v, tot) { return tot > 0 ? ' · ' + fmt(v / tot * 100, 1) + ' %' : ''; }
+
+    function render() {
+      var data = lastData; if (!data) { return; }
+      var engine = (data.engine === 'highcharts') ? 'highcharts' : 'echarts';
+      var el = document.getElementById('chart');
+      document.getElementById('range').textContent = (data.period ? data.period + ' · ' : '') + (data.range || '');
+      var dark0 = isDarkColor(data.bg);
+      var d0 = (dark0 !== null) ? dark0 : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      document.getElementById('title').style.color = d0 ? '#e8edf2' : '#1b2430';
+      document.getElementById('range').style.color = d0 ? '#9fb0c0' : '#5c6b7a';
+      document.getElementById('cols').style.color = d0 ? '#9fb0c0' : '#5c6b7a';
+      el.style.height = ((data.height && data.height >= 220) ? data.height : 380) + 'px';
+
+      if (!data.ok || !data.hasData || !data.links || !data.links.length) {
+        destroyChart();
+        el.style.color = d0 ? '#9fb0c0' : '#5c6b7a';
+        el.innerHTML = '<div class="empty">' + (data.stateLabel || 'Keine Energie im Zeitraum') + '</div>';
+        return;
+      }
+      ensureLib(engine, function () {
+        if (typeof echarts === 'undefined' && typeof Highcharts === 'undefined') {
+          el.innerHTML = '<div class="empty">Diagramm-Bibliothek konnte nicht geladen werden (Internet erforderlich).</div>';
+          return;
+        }
+        if (chart && chartEngine !== engine) { destroyChart(); }
+        chartEngine = engine;
+        if (engine === 'echarts' && typeof echarts !== 'undefined') { buildEC(); }
+        else if (typeof Highcharts !== 'undefined') { buildHC(); }
       });
+    }
+
+    // ---- Highcharts (sankey) ----------------------------------------------
+    function buildHC() {
+      var P = prep(), d = P.d, el = document.getElementById('chart');
+      var nodes = (d.nodes || []).map(function (n) { return { id: n.id, name: n.name, color: n.color, column: n.col }; });
+      var data = (d.links || []).map(function (l) { return { from: l.from, to: l.to, weight: l.val }; });
+
+      var options = {
+        chart: { backgroundColor: 'transparent', style: { fontFamily: P.font }, animation: false, marginTop: 6, marginBottom: 6 },
+        title: { text: undefined }, credits: { enabled: false }, exporting: { enabled: false },
+        tooltip: {
+          useHTML: true, backgroundColor: P.TIP, borderColor: P.BORDER, borderRadius: 6,
+          style: { color: P.TEXT, fontSize: '12px' },
+          nodeFormatter: function () {
+            var v = Math.max(P.inn[this.id] || 0, P.out[this.id] || 0);
+            var extra = '';
+            if ((P.inn[this.id] || 0) > 0 && (P.out[this.id] || 0) > 0) {
+              extra = '<div style="color:' + P.MUTED + '">geladen ' + fmt(P.inn[this.id], 2) + ' · entladen ' + fmt(P.out[this.id], 2) + ' ' + P.unit + '</div>';
+            }
+            return '<span style="color:' + this.color + '">●</span> <b>' + this.name + '</b><br>'
+              + fmt(v, 2) + ' ' + P.unit + pct(v, P.totalIn) + extra;
+          },
+          pointFormatter: function () {
+            return '<span style="color:' + P.colById[this.from] + '">●</span> '
+              + P.nameById[this.from] + ' → <b>' + P.nameById[this.to] + '</b><br>'
+              + fmt(this.weight, 2) + ' ' + P.unit + pct(this.weight, P.totalIn);
+          }
+        },
+        plotOptions: { sankey: { animation: false, nodePadding: 14, curveFactor: 0.5, linkOpacity: 0.45,
+          dataLabels: { enabled: true, style: { color: P.TEXT, fontSize: '12px', fontWeight: '600', textOutline: 'none' } } } },
+        series: [{ type: 'sankey', name: 'Energie', keys: ['from', 'to', 'weight'], nodes: nodes, data: data }]
+      };
+      el.innerHTML = ''; chart = Highcharts.chart('chart', options);
+    }
+
+    // ---- Apache ECharts (sankey) ------------------------------------------
+    function buildEC() {
+      var P = prep(), d = P.d, el = document.getElementById('chart');
+      var nodes = (d.nodes || []).map(function (n) {
+        var pos = (n.col === 2) ? 'left' : (n.col === 1 ? 'top' : 'right');
+        return { name: n.id, depth: n.col, itemStyle: { color: n.color, borderColor: n.color }, label: { color: P.TEXT, position: pos } };
+      });
+      var links = (d.links || []).map(function (l) { return { source: l.from, target: l.to, value: l.val }; });
+
+      var option = {
+        backgroundColor: 'transparent',
+        textStyle: { fontFamily: P.font, color: P.TEXT },
+        animation: false,
+        tooltip: {
+          trigger: 'item', triggerOn: 'mousemove',
+          backgroundColor: P.TIP, borderColor: P.BORDER, borderWidth: 1, textStyle: { color: P.TEXT, fontSize: 12 },
+          formatter: function (p) {
+            if (p.dataType === 'edge') {
+              return '<span style="color:' + P.colById[p.data.source] + '">●</span> '
+                + P.nameById[p.data.source] + ' → <b>' + P.nameById[p.data.target] + '</b><br>'
+                + fmt(p.data.value, 2) + ' ' + P.unit + pct(p.data.value, P.totalIn);
+            }
+            var id = p.name, v = Math.max(P.inn[id] || 0, P.out[id] || 0), extra = '';
+            if ((P.inn[id] || 0) > 0 && (P.out[id] || 0) > 0) {
+              extra = '<br><span style="color:' + P.MUTED + '">geladen ' + fmt(P.inn[id], 2) + ' · entladen ' + fmt(P.out[id], 2) + ' ' + P.unit + '</span>';
+            }
+            return '<span style="color:' + P.colById[id] + '">●</span> <b>' + P.nameById[id] + '</b><br>'
+              + fmt(v, 2) + ' ' + P.unit + pct(v, P.totalIn) + extra;
+          }
+        },
+        series: [{
+          type: 'sankey', left: 8, right: 12, top: 8, bottom: 8,
+          nodeWidth: 16, nodeGap: 14, draggable: false,
+          emphasis: { focus: 'adjacency' },
+          data: nodes, links: links,
+          label: { formatter: function (p) { return P.nameById[p.name]; }, color: P.TEXT, fontWeight: 600, fontSize: 12 },
+          lineStyle: { color: 'gradient', opacity: 0.42, curveness: 0.5 }
+        }]
+      };
+      if (!chart) { el.innerHTML = ''; chart = echarts.init(el, null, { renderer: 'canvas' }); }
+      chart.setOption(option, true);
+    }
+
+    window.addEventListener('resize', function () {
+      if (!chart) { return; }
+      if (chartEngine === 'echarts') { chart.resize(); } else { chart.reflow(); }
     });
 
-    // Knoten + Beschriftung.
-    function drawNodes(arr, side) {
-      arr.forEach(function (o) {
-        var n = o.n;
-        svg.appendChild(el('rect', {
-          x: o.x, y: o.y, width: NODE_W, height: o.h, rx: 8, ry: 8,
-          fill: n.color, opacity: 0.92
-        }));
-        if (o.h < 16) { return; }
-        var pad = 10;
-        var lx = (side === 'L') ? o.x + pad : o.x + NODE_W - pad;
-        var anchor = (side === 'L') ? 'start' : 'end';
-        // Bezeichnung oben
-        var t1 = el('text', { x: lx, y: o.y + 17, class: 'nodeLabel', 'text-anchor': anchor });
-        t1.textContent = n.label;
-        svg.appendChild(t1);
-        // Wert (kWh) nur bei ausreichend hohem Knoten (sonst Kollision mit %).
-        if (o.h > 58) {
-          var t2 = el('text', { x: lx, y: o.y + 35, class: 'nodeVal', 'text-anchor': anchor, fill: '#10141a' });
-          t2.textContent = fmt(n.val, 2) + ' ' + (d.unit || 'kWh');
-          svg.appendChild(t2);
-        }
-        // Prozent unten (ab mittlerer Höhe); bei sehr flachen Knoten entfällt es.
-        if (o.h > 30) {
-          var t3 = el('text', { x: lx, y: o.y + o.h - 8, class: 'nodePct', 'text-anchor': anchor, fill: '#10141a' });
-          t3.textContent = fmt(n.pct, 2) + ' %';
-          svg.appendChild(t3);
-        }
-      });
-    }
-    drawNodes(L, 'L');
-    drawNodes(R, 'R');
-
-    canvas.appendChild(svg);
-  }
-
-  if (typeof window !== 'undefined') { window.handleMessage = handleMessage; }
-</script>
+    if (typeof window !== 'undefined') { window.handleMessage = handleMessage; }
+  </script>
 </body>
 </html>

@@ -53,6 +53,9 @@ class InverterHubEnergy extends IPSModule
         // Einzelverbraucher (Energie): [{Type,Name,EnergyID,Color}]
         $this->RegisterPropertyString('Consumers', '[]');
 
+        // Diagramm-Engine: echarts | highcharts (wie in der Prognosekachel).
+        $this->RegisterPropertyString('Engine', 'echarts');
+        $this->RegisterPropertyInteger('Height', 380);
         $this->RegisterPropertyInteger('ColorBackground', -1);
         $this->RegisterPropertyString('FontFamily', '');
 
@@ -111,9 +114,13 @@ class InverterHubEnergy extends IPSModule
 
     private function BuildPayload()
     {
+        $engine = ($this->ReadPropertyString('Engine') === 'highcharts') ? 'highcharts' : 'echarts';
+        $height = $this->ReadPropertyInteger('Height');
         $style = [
-            'bg'   => $this->ColorOrEmpty($this->ReadPropertyInteger('ColorBackground')),
-            'font' => $this->FontStack($this->ReadPropertyString('FontFamily')),
+            'engine' => $engine,
+            'height' => ($height >= 220 ? $height : 380),
+            'bg'     => $this->ColorOrEmpty($this->ReadPropertyInteger('ColorBackground')),
+            'font'   => $this->FontStack($this->ReadPropertyString('FontFamily')),
         ];
 
         [$start, $end, $periodLabel, $rangeLabel] = $this->ResolveRange();
@@ -163,72 +170,62 @@ class InverterHubEnergy extends IPSModule
         }
         $rest = max(0.0, $load - $consSum);
 
-        // ---- Quellen (links) ----
-        $sources = [];
-        if ($solar   > 0) { $sources['solar'] = ['key' => 'solar', 'label' => 'Solar',    'color' => self::COL_SOLAR, 'val' => $solar]; }
-        if ($batDis  > 0) { $sources['bat']   = ['key' => 'bat',   'label' => 'Batterie', 'color' => self::COL_BAT,   'val' => $batDis]; }
-        if ($gridImp > 0) { $sources['grid']  = ['key' => 'grid',  'label' => 'Netz',     'color' => self::COL_GRID,  'val' => $gridImp]; }
+        // 3-stufiges Sankey (Variante B): Erzeugung/Bezug (Spalte 0) → Batterie
+        // als Puffer (Spalte 1) → Verbrauch/Einspeisung (Spalte 2). Die Batterie
+        // ist EIN Knoten: Zufluss = Ladung (aus PV), Abfluss = Entladung (an den
+        // Verbrauch). So wird der Speicher als Zwischenstufe sichtbar, statt
+        // links und rechts doppelt aufzutauchen.
+        $nodes    = [];
+        $links    = [];
+        $batNode  = ($batCh > 0 || $batDis > 0);
 
-        // ---- Senken (rechts) ----
-        $sinks = [];
-        if ($batCh > 0)   { $sinks['batch']  = ['key' => 'batch', 'label' => 'Batterie', 'color' => self::COL_BAT, 'val' => $batCh]; }
+        // Spalte 0
+        if ($solar   > 0) { $nodes[] = ['id' => 'solar',   'name' => 'Solar',      'color' => self::COL_SOLAR, 'col' => 0]; }
+        if ($gridImp > 0) { $nodes[] = ['id' => 'gridimp', 'name' => 'Netzbezug',  'color' => self::COL_GRID,  'col' => 0]; }
+        // Spalte 1
+        if ($batNode)     { $nodes[] = ['id' => 'bat',     'name' => 'Batterie',   'color' => self::COL_BAT,   'col' => 1]; }
+        // Spalte 2
         foreach ($consumers as $c) {
-            $sinks[$c['key']] = $c;
+            $nodes[] = ['id' => $c['key'], 'name' => $c['label'], 'color' => $c['color'], 'col' => 2];
         }
-        if ($rest > 0)    { $sinks['rest']   = ['key' => 'rest',  'label' => ($consSum > 0 ? 'Sonstiger Verbrauch' : 'Hausverbrauch'), 'color' => self::COL_LOAD, 'val' => $rest]; }
-        if ($gridExp > 0) { $sinks['gridexp']= ['key' => 'gridexp','label' => 'Netz',    'color' => self::COL_GRID, 'val' => $gridExp]; }
+        if ($rest > 0)    { $nodes[] = ['id' => 'rest',    'name' => ($consSum > 0 ? 'Sonstiger Verbrauch' : 'Hausverbrauch'), 'color' => self::COL_LOAD, 'col' => 2]; }
+        if ($gridExp > 0) { $nodes[] = ['id' => 'gridexp', 'name' => 'Netzeinspeisung', 'color' => self::COL_GRID, 'col' => 2]; }
 
-        // ---- Flüsse ----
-        $flows = [];
-        $add = function ($from, $to, $val) use (&$flows) {
-            if ($val > 0.0001 && isset($from) && isset($to)) {
-                $flows[] = ['from' => $from, 'to' => $to, 'val' => $val];
+        $addLink = function ($from, $to, $val) use (&$links) {
+            if ($val > 0.0001) {
+                $links[] = ['from' => $from, 'to' => $to, 'val' => round($val, 3)];
             }
         };
-        // PV -> Batterie-Ladung / Netzeinspeisung
-        if (isset($sources['solar'])) {
-            if (isset($sinks['batch']))   { $add('solar', 'batch', $batCh); }
-            if (isset($sinks['gridexp'])) { $add('solar', 'gridexp', $gridExp); }
-        }
-        // Verbrauchs-Senken anteilig aus PV/Batterie/Netz.
+        // PV → Batterie-Ladung / Netzeinspeisung
+        if ($solar > 0 && $batCh > 0)   { $addLink('solar', 'bat', $batCh); }
+        if ($solar > 0 && $gridExp > 0) { $addLink('solar', 'gridexp', $gridExp); }
+        // Verbrauchs-Senken anteilig aus PV-Direkt / Batterie-Entladung / Netzbezug.
+        $sinkList = [];
+        foreach ($consumers as $c) { $sinkList[$c['key']] = $c['val']; }
+        if ($rest > 0) { $sinkList['rest'] = $rest; }
         if ($load > 0) {
             $fPv   = $pvToLoad / $load;
             $fBat  = $batDis   / $load;
             $fGrid = $gridImp  / $load;
-            foreach ($sinks as $k => $s) {
-                if ($k === 'batch' || $k === 'gridexp') {
-                    continue;
-                }
-                if (isset($sources['solar'])) { $add('solar', $k, $s['val'] * $fPv); }
-                if (isset($sources['bat']))   { $add('bat',   $k, $s['val'] * $fBat); }
-                if (isset($sources['grid']))  { $add('grid',  $k, $s['val'] * $fGrid); }
+            foreach ($sinkList as $k => $v) {
+                if ($solar > 0 && $pvToLoad > 0) { $addLink('solar',   $k, $v * $fPv); }
+                if ($batNode && $batDis > 0)     { $addLink('bat',     $k, $v * $fBat); }
+                if ($gridImp > 0)                { $addLink('gridimp', $k, $v * $fGrid); }
             }
         }
 
-        $sumSrc  = array_sum(array_column($sources, 'val'));
-        $sumSink = array_sum(array_column($sinks, 'val'));
-
-        $fmtNodes = function (array $nodes, float $total) {
-            $out = [];
-            foreach ($nodes as $n) {
-                $n['pct'] = $total > 0 ? round($n['val'] / $total * 100, 2) : 0.0;
-                $n['val'] = round($n['val'], 2);
-                $out[] = $n;
-            }
-            return array_values($out);
-        };
+        // Gesamt-Erzeugung/Bezug als Bezugsgröße für Tooltip-Anteile.
+        $totalIn = $solar + $gridImp;
 
         return json_encode(array_merge($style, [
             'ok'      => true,
+            'hasData' => (count($links) > 0),
             'period'  => $periodLabel,
             'range'   => $rangeLabel,
             'unit'    => 'kWh',
-            'sources' => $fmtNodes($sources, $sumSrc),
-            'sinks'   => $fmtNodes($sinks, $sumSink),
-            'flows'   => array_map(function ($f) {
-                $f['val'] = round($f['val'], 3);
-                return $f;
-            }, $flows),
+            'totalIn' => round($totalIn, 2),
+            'nodes'   => $nodes,
+            'links'   => $links,
         ]));
     }
 
