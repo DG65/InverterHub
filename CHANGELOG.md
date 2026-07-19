@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.33.0-beta.1 (2026-07-18)
+
+- **Neu: Energie-Ausgabe wahlweise in Wh statt kWh.** Schalter „Energie in Wh statt kWh
+  ausgeben" (Datenpunkte-Panel). Aktiviert, werden alle Energiewerte (Ertrag, Bezug,
+  Einspeisung, Ladung/Entladung, Hausverbrauch usw.) in der Basiseinheit Wh geführt –
+  konsistent zur Leistung (W); die neue IP-Symcon-Darstellung skaliert dann selbst auf
+  Wh/kWh/MWh und nutzt das lokale Dezimaltrennzeichen. Standard bleibt kWh, damit bestehende
+  Instanzen keinen Sprung in der Historie bekommen. Die Umstellung erfolgt zentral (Wh-Profil
+  „IHB.Wh" + Wert ×1000), unabhängig vom Hersteller.
+
 ## 0.32.4-beta.1 (2026-07-18)
 
 - **Klarere Benennung Hauslast (Eingang vs. Ausgang).** Das Feld in der Wechselrichter-Instanz

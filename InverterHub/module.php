@@ -3511,6 +3511,9 @@ class InverterHub extends IPSModule
         $this->RegisterPropertyString('Manufacturer', 'goodwe');
         $this->RegisterPropertyBoolean('MeterInvert', false);
         $this->RegisterPropertyBoolean('BatInvert', false);
+        // Energie-Ausgabe in Wh statt kWh (Basiseinheit, konsistent zu W;
+        // die neue IPS-Darstellung skaliert dann selbst auf Wh/kWh/MWh).
+        $this->RegisterPropertyBoolean('EnergyUnitWh', false);
         // Modbus-Unit-ID des Smart Meters (SunSpec-Hersteller wie Fronius/SMA/
         // SolarEdge: der Zähler ist ein eigenes Modbus-Gerät, Adresse ab 200,
         // je nach Konfiguration z. B. auch 240).
@@ -3671,6 +3674,11 @@ class InverterHub extends IPSModule
             'type'    => 'CheckBox',
             'name'    => 'BatInvert',
             'caption' => 'Batterie-Leistung invertieren — Standard ist + Entladen / − Laden',
+        ];
+        $groupItems[] = [
+            'type'    => 'CheckBox',
+            'name'    => 'EnergyUnitWh',
+            'caption' => 'Energie in Wh statt kWh ausgeben (Basiseinheit; die neue IPS-Darstellung skaliert dann selbst auf Wh/kWh/MWh)',
         ];
 
         // Meter-Adresse nur bei Fronius relevant: Dort ist der Smart Meter ein
@@ -3971,6 +3979,11 @@ class InverterHub extends IPSModule
         IPS_SetParent($vid, $catID);
         IPS_SetPosition($vid, $pos);
         IPS_SetName($vid, $caption);
+        // Energie in Wh: Statt des kWh-Standardprofils ~Electricity das Wh-
+        // Profil setzen. Die Skalierung des Werts (×1000) übernimmt SetVarFloat.
+        if ($profile === '~Electricity' && $this->ReadPropertyBoolean('EnergyUnitWh')) {
+            $profile = 'IHB.Wh';
+        }
         if ($profile !== '') {
             IPS_SetVariableCustomProfile($vid, $profile);
         }
@@ -4076,6 +4089,12 @@ class InverterHub extends IPSModule
         }
         $vid = $this->FindVarByIdent($ident);
         if ($vid) {
+            // Energie in Wh: Die Treiber liefern kWh. Trägt die Zielvariable das
+            // Wh-Profil (vom Nutzer aktiviert), auf Wh hochrechnen.
+            if ($this->ReadPropertyBoolean('EnergyUnitWh')
+                && @IPS_GetVariable($vid)['VariableCustomProfile'] === 'IHB.Wh') {
+                $value *= 1000.0;
+            }
             SetValueFloat($vid, $value);
         }
     }
@@ -4119,6 +4138,13 @@ class InverterHub extends IPSModule
     private function CreateProfiles()
     {
         $driver = $this->GetDriver();
+
+        // Energie-Profil in Wh (Basiseinheit) für die optionale Wh-Ausgabe.
+        if (!IPS_VariableProfileExists('IHB.Wh')) {
+            IPS_CreateVariableProfile('IHB.Wh', VARIABLETYPE_FLOAT);
+        }
+        IPS_SetVariableProfileDigits('IHB.Wh', 0);
+        IPS_SetVariableProfileText('IHB.Wh', '', ' Wh');
 
         foreach ($driver->getProfiles() as $name => $def) {
             [$type, $suffix, $min, $max, $step, $digits] = $def;

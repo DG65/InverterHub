@@ -65,6 +65,11 @@ die genauere Last sowie die Differenz als eigenen „Wandlungsverluste"-Kreis. W
 einen echten Verbrauchszähler wählen (immer positiv), keinen Netz-/Einspeisezähler — negative
 Werte werden ignoriert und die Kachel bleibt bei der Bilanz.
 
+**Energie-Einheit (kWh/Wh):** Standardmäßig werden Energiewerte in kWh ausgegeben. Der Schalter
+„Energie in Wh statt kWh ausgeben" (im Datenpunkte-Panel) stellt sie auf die Basiseinheit Wh um
+— konsistent zur Leistung (W); die neue IP-Symcon-Darstellung skaliert dann selbst auf
+Wh/kWh/MWh. Bestehende Instanzen bleiben ohne Umschalten bei kWh (kein Sprung in der Historie).
+
 **Invers-Schalter:** Je nach Verdrahtung/gewünschter Konvention lassen sich Netz-Leistung
 (Meter) und Batterie-Leistung per Schalter invertieren. Der angezeigte Datenpunkt folgt dann
 der gewählten Konvention; die `InverterHubTile`-Kachel rechnet beide Schalter intern wieder
