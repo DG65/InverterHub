@@ -842,6 +842,7 @@ class SungrowDriver implements InverterDriverInterface
     {
         return [
             ['connected',   'Verbindung',        'B', '~Alert.Reversed', false, 'errors', ''],
+            ['riso',        'Isolationswiderstand','F', 'SGW.KOhm',       true,  'pv',     'RO 5071 (kΩ)'],
             ['running_state','Betriebsstatus',   'I', 'SGW.RunState',     true,  'device', 'RO 13000'],
             ['power_flow_status', 'Leistungsfluss-Status', 'I', '',       true,  'device', 'RO 13001'],
             ['pv_total',    'PV Gesamtleistung', 'F', 'SGW.Watt',         true,  'pv',     'RO 5017-5018'],
@@ -919,6 +920,7 @@ class SungrowDriver implements InverterDriverInterface
             'SGW.Hertz'         => [VARIABLETYPE_FLOAT,   ' Hz',      45.0,    65.0, 0.01, 2],
             'SGW.WattReactive'  => [VARIABLETYPE_FLOAT,   ' var', -40000.0, 40000.0, 1.0,  0],
             'SGW.PowerFactor'   => [VARIABLETYPE_FLOAT,   '',        -1.0,     1.0, 0.001, 3],
+            'SGW.KOhm'          => [VARIABLETYPE_FLOAT,   ' kΩ',       0.0, 65535.0, 1.0,  0],
         ];
     }
 
@@ -954,6 +956,10 @@ class SungrowDriver implements InverterDriverInterface
             $hub->SetVarInt('power_flow_status', $mb->u16($running, 1));
         }
         $hub->SetVarFloat('pv_total', (float)$mb->u32($dc, 6));
+        $riso = $mb->readInput(5071, 1); // Array-Isolationswiderstand (kΩ)
+        if ($riso !== null) {
+            $hub->SetVarFloat('riso', (float)$mb->u16($riso, 0));
+        }
         if ($sum !== null) {
             $hub->SetVarFloat('ac_power', (float)$mb->s32($sum, 0));
         }
@@ -1682,6 +1688,7 @@ class SmaDriver implements InverterDriverInterface
             ['status',    'Betriebsstatus',    'I', 'SMA.Status',      true,  'device', 'SunSpec St'],
             ['ac_power',  'AC Wirkleistung',   'F', 'SMA.Watt',        true,  'device', 'SunSpec W (Model 101/103)'],
             ['pv_total',  'PV Gesamtleistung', 'F', 'SMA.Watt',        true,  'pv',     'SunSpec DCW (Model 101/103)'],
+            ['riso',      'Isolationswiderstand','F', 'SMA.KOhm',      true,  'pv',     'RO 30225 (SMA-Profil, Ohm ÷1000)'],
         ];
     }
 
@@ -1721,6 +1728,7 @@ class SmaDriver implements InverterDriverInterface
             'SMA.Volt'   => [VARIABLETYPE_FLOAT, ' V',       0.0,  1000.0, 0.1,  1],
             'SMA.Ampere' => [VARIABLETYPE_FLOAT, ' A',       0.0,   200.0, 0.1,  1],
             'SMA.Hertz'  => [VARIABLETYPE_FLOAT, ' Hz',     45.0,    65.0, 0.01, 2],
+            'SMA.KOhm'   => [VARIABLETYPE_FLOAT, ' kΩ',      0.0, 65535.0, 1.0,  0],
         ];
     }
 
@@ -1753,6 +1761,16 @@ class SmaDriver implements InverterDriverInterface
         if ($blk === null) {
             $hub->SetVarBool('connected', false);
             return false;
+        }
+
+        // Isolationswiderstand aus dem proprietären SMA-Profil (Reg 30225,
+        // uint32 in Ohm). Sentinel 0xFFFFFFFF = "nicht verfügbar" überspringen.
+        $risoBlk = $mb->readHolding(30225, 2);
+        if ($risoBlk !== null) {
+            $r = $mb->u32($risoBlk, 0);
+            if ($r !== 0xFFFFFFFF) {
+                $hub->SetVarFloat('riso', $r / 1000.0);
+            }
         }
 
         // Offsets siehe FroniusDriver (identische SunSpec-Modelle 101/103/111/113),
@@ -2809,6 +2827,7 @@ class KostalDriver implements InverterDriverInterface
             ['connected', 'Verbindung',        'B', '~Alert.Reversed', false, 'errors', ''],
             ['pv_total',  'PV Gesamtleistung (DC)', 'F', 'KST.Watt',   true,  'pv',     'RO 100 (Float32)'],
             ['ac_power',  'AC Wirkleistung Gesamt',  'F', 'KST.Watt',  true,  'device', 'RO 172 (Float32)'],
+            ['riso',      'Isolationswiderstand', 'F', 'KST.KOhm',    true,  'pv',     'RO 120 (Float32, Ohm ÷1000)'],
         ];
     }
 
@@ -2880,6 +2899,7 @@ class KostalDriver implements InverterDriverInterface
             'KST.Volt'   => [VARIABLETYPE_FLOAT, ' V',       0.0,  1000.0, 0.1,  1],
             'KST.Ampere' => [VARIABLETYPE_FLOAT, ' A',    -200.0,   200.0, 0.1,  1],
             'KST.Hertz'  => [VARIABLETYPE_FLOAT, ' Hz',     45.0,    65.0, 0.01, 2],
+            'KST.KOhm'   => [VARIABLETYPE_FLOAT, ' kΩ',      0.0, 100000.0, 1.0, 0],
         ];
     }
 
@@ -2903,6 +2923,12 @@ class KostalDriver implements InverterDriverInterface
         $hub->SetVarFloat('pv_total', $mb->readFloat32($pv, 0));
         if ($ac !== null) {
             $hub->SetVarFloat('ac_power', $mb->readFloat32($ac, 0));
+        }
+        // Isolationswiderstand (Reg 120, Float32 in Ohm -> kΩ). Wort-Swap greift
+        // über die bereits gesetzte Byte-Reihenfolge.
+        $risoBlk = $mb->readHolding(120, 2);
+        if ($risoBlk !== null) {
+            $hub->SetVarFloat('riso', $mb->readFloat32($risoBlk, 0) / 1000.0);
         }
 
         if ($hub->GetPropBool('GroupPV')) {

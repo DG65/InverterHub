@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.31.0-beta.1 (2026-07-18)
+
+- **Isolationswiderstand (Riso) für Sungrow, SMA und Kostal ergänzt.** Damit lesen jetzt
+  GoodWe, Huawei, Sungrow, SMA und Kostal den für die PV-Sicherheit wichtigen Riso-Wert.
+  Register je Hersteller gegen gepflegte Fremdquellen verifiziert:
+  - Sungrow: Input-Register 5071 (U16, kΩ).
+  - SMA: Holding 30225 aus dem proprietären SMA-Profil (uint32 in Ohm → kΩ; Sentinel
+    0xFFFFFFFF „nicht verfügbar" wird übersprungen).
+  - Kostal: Holding 120 (Float32 in Ohm → kΩ, mit der eingestellten Byte-Reihenfolge).
+  - Für Solis, SolaX, Deye, Solplanet und Growatt ist über die geprüften Modbus-Quellen
+    kein zuverlässiger Riso-**Messwert** dokumentiert (nur Fehlercodes/Schwellwerte);
+    Fronius/SolarEdge liefern ihn im reinen SunSpec-Modell nicht. Dort wird Riso bewusst
+    nicht geraten.
+
 ## 0.30.2-beta.1 (2026-07-18)
 
 - **Huawei: Isolationswiderstand (Riso) ergänzt** (Reg 32088, MΩ). Damit lesen jetzt GoodWe
