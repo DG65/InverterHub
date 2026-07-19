@@ -2394,12 +2394,12 @@ class SolarEdgeDriver implements InverterDriverInterface
             if ($bat !== null) {
                 $hub->SetVarFloat('bat_temp', $mb->readFloat32($bat, 0));   // 0xE16C
                 $hub->SetVarFloat('bat_volt', $mb->readFloat32($bat, 4));   // 0xE170
-                $hub->SetVarFloat('bat_curr', $mb->readFloat32($bat, 6));   // 0xE172
-                // Vorzeichen am realen Gerät verifiziert: SolarEdge meldet die
-                // Batterieleistung bereits in Modul-Konvention (+ Entladen /
-                // − Laden). Wer die umgekehrte Konvention will, nutzt den
-                // Schalter „Batterie-Leistung invertieren".
-                $batPowerVal = $mb->readFloat32($bat, 8);                   // 0xE174
+                // Vorzeichen: SolarEdge meldet Batterie-Strom/-Leistung mit
+                // + = Laden (0xE172/0xE174). Modul-Konvention ist + = Entladen /
+                // − = Laden (damit die Kachel-Flussrichtung stimmt) -> negieren.
+                $hub->SetVarFloat('bat_curr', -$mb->readFloat32($bat, 6));  // 0xE172
+                $batChargeW  = $mb->readFloat32($bat, 8);                   // 0xE174 (+ = Laden)
+                $batPowerVal = -$batChargeW;                               // + = Entladen
                 $hub->SetVarFloat('bat_power', $batPowerVal);
                 $hub->SetVarInt('bat_soc', (int)round($mb->readFloat32($bat, 24))); // 0xE184
                 // Speicherstatus (0xE186, uint32): Wert 1-6 liegt im niederw.
@@ -2409,10 +2409,10 @@ class SolarEdgeDriver implements InverterDriverInterface
                 // Berechnete PV-Erzeugung (optional). StorEdge-Eigenart: Das
                 // DC-Leistungsregister spiegelt bei Batteriebetrieb nicht die
                 // reine PV-Erzeugung wider. Formel des Testers (am realen Gerät
-                // bewährt): PV-Erzeugung = PV-Gesamtleistung + Batterieleistung,
-                // nie negativ. Benötigt daher die aktive Batteriegruppe.
+                // bewährt): PV-Erzeugung = PV-Gesamtleistung + Batterie-
+                // Ladeleistung, nie negativ. Benötigt die aktive Batteriegruppe.
                 if ($hub->GetPropBool('GroupPvReal')) {
-                    $hub->SetVarFloat('pv_real', max(0.0, $pvTotalVal + $batPowerVal));
+                    $hub->SetVarFloat('pv_real', max(0.0, $pvTotalVal + $batChargeW));
                 }
             }
             // SOH liegt in einem separaten Block (0xF582 = 62850), Float32 CDAB.

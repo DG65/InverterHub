@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.31.2-beta.1 (2026-07-18)
+
+Nach SolarEdge-Kachel-Rückmeldung:
+
+- **SolarEdge: Batterie-Vorzeichen auf Modul-Konvention korrigiert.** SolarEdge meldet
+  Batterie-Leistung/-Strom mit + = Laden (0xE174/0xE172); das Modul nutzt aber durchgängig
+  + = Entladen / − = Laden. Dadurch zeigte die Kachel die Lade-/Entlade-Pfeile verkehrt
+  herum. Leistung und Strom werden jetzt negiert → korrekte Flussrichtung. (Wer die
+  Datenpunkt-Werte lieber in der anderen Konvention möchte, nutzt den Schalter
+  „Batterie-Leistung invertieren" — die Kachel bleibt dank interner Rückrechnung korrekt.)
+  Die berechnete PV-Erzeugung wurde entsprechend angepasst (PV-Gesamt + Batterie-
+  Ladeleistung), sodass ihr Ergebnis unverändert bleibt.
+- **Kachel: berechnete PV-Erzeugung (`pv_real`) hat Vorrang vor `pv_total`.** Ist die
+  optionale PV-Erzeugung aktiv (z. B. SolarEdge StorEdge), zeigt die Kachel diesen Wert statt
+  der DC-Leistung, die bei Batteriebetrieb nicht die reine PV abbildet.
+
 ## 0.31.1-beta.1 (2026-07-18)
 
 - **Fronius: Batterie-SOC jetzt mit einer Nachkommastelle** (Float statt Integer). Fronius

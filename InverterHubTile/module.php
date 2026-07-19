@@ -17,8 +17,10 @@ class InverterHubTile extends IPSModule
 {
     private const SOURCE_MODULE = '{BBE2C593-1A91-426D-A714-29A9C7E87589}';
 
-    // Ident-Fallback-Ketten je Größe (erster gefundener Ident gewinnt)
-    private const IDENT_PV     = ['pv_total'];
+    // Ident-Fallback-Ketten je Größe (erster gefundener Ident gewinnt).
+    // pv_real (berechnete PV-Erzeugung, z. B. SolarEdge StorEdge) hat Vorrang
+    // vor pv_total, da Letzteres bei Batteriebetrieb die reine PV nicht abbildet.
+    private const IDENT_PV     = ['pv_real', 'pv_total'];
     private const IDENT_AC     = ['ac_power'];
     private const IDENT_GRID   = ['meter_total'];
     private const IDENT_BATPWR = ['bat_total_pwr', 'bat_power'];
