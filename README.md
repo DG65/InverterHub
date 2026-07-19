@@ -193,6 +193,26 @@ der Widget-Größe.
 Einrichtung: Kachel-Instanz anlegen, unter „Datenquelle" die gewünschte InverterHub-Instanz
 auswählen.
 
+### InverterHubEnergy (Energiefluss / Sankey)
+
+Zweite Visualisierung: ein **Sankey-Diagramm**, das zeigt, **wohin die Energie über einen
+Zeitraum geflossen ist** — Quellen (Solar, Batterie-Entladung, Netzbezug) links, Verbraucher
+(Batterie-Ladung, Hausverbrauch bzw. Einzelverbraucher, Netzeinspeisung) rechts, jeweils mit
+Anteil in %. Zeitraum wählbar: **Tag / Woche / Monat / Jahr / Gesamt** oder **angepasst**
+(Von/Bis).
+
+Die Werte kommen ausschließlich aus dem **IP-Symcon-Archiv** der zugewiesenen
+**Energie-Zählervariablen** (z. B. „Ertrag Gesamt", „Bezug/Einspeisung Gesamt", „Bat.
+Laden/Entladen Gesamt") — es wird nichts selbst berechnet oder zusätzlich mitgeführt.
+Voraussetzung: Die Variablen sind akkumulierende Zähler mit aktivierter Archivierung
+(Aggregation „Zähler"). Alle Datenpunkte sind optional; fehlt einer, entfällt der Knoten.
+
+Einzelne Verbraucher (Wärmepumpe, Wallbox …) lassen sich mit ihrer eigenen archivierten
+Energievariable eintragen — sie werden aus dem Hausverbrauch herausgelöst, der Rest erscheint
+als „Sonstiger Verbrauch". Die Aufteilung der Flüsse folgt einem Energiebilanz-Modell
+(Netzeinspeisung und Batterie-Ladung stammen aus PV; der Verbrauch wird anteilig aus
+PV/Batterie/Netz gedeckt).
+
 ## Fronius und SMA: Hinweis zur SunSpec-Discovery
 
 Beide Hersteller sprechen den offenen SunSpec-Standard statt eigener Register (bei Fronius

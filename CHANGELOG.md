@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.35.0-beta.1 (2026-07-19)
+
+- **Neues Modul: InverterHub Energiefluss (Sankey).** Zeigt als Sankey-Diagramm, wohin die
+  Energie über einen wählbaren Zeitraum geflossen ist — Quellen (Solar, Batterie-Entladung,
+  Netzbezug) links, Verbraucher (Batterie-Ladung, Hausverbrauch bzw. Einzelverbraucher,
+  Netzeinspeisung) rechts, jeweils mit Anteil in %. Zeitraum: Tag/Woche/Monat/Jahr/Gesamt oder
+  angepasst (Von/Bis). Die Werte kommen aus dem **IP-Symcon-Archiv** der zugewiesenen
+  Energie-Zählervariablen (AC_GetAggregatedValues) — nichts wird selbst berechnet oder
+  zusätzlich mitgeführt. Einzelverbraucher (Wärmepumpe, Wallbox …) werden aus dem
+  Hausverbrauch herausgelöst; der Rest erscheint als „Sonstiger Verbrauch". Die Aufteilung der
+  Flüsse folgt einem Energiebilanz-Modell (Netzeinspeisung/Batterie-Ladung aus PV; Verbrauch
+  anteilig aus PV/Batterie/Netz).
+
 ## 0.34.1-beta.1 (2026-07-18)
 
 - **Kachel-Hilfe aktualisiert.** Das Panel „Dokumentation & Hilfe" der Kachel beschreibt jetzt

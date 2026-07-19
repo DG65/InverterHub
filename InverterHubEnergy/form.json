@@ -1,0 +1,99 @@
+{
+  "elements": [
+    {
+      "type": "ExpansionPanel",
+      "caption": "📖 Dokumentation & Hilfe",
+      "expanded": false,
+      "items": [
+        { "type": "Label", "caption": "Zeigt als Sankey-Diagramm, WOHIN die Energie geflossen ist: Quellen (Solar, Batterie-Entladung, Netzbezug) links, Verbraucher (Batterie-Ladung, Hausverbrauch bzw. Einzelverbraucher, Netzeinspeisung) rechts – jeweils mit Anteil in %." },
+        { "type": "Label", "caption": "Die Werte kommen aus dem IP-Symcon-ARCHIV der zugewiesenen Energie-Zählervariablen über den gewählten Zeitraum. Es wird nichts selbst berechnet oder zusätzlich mitgeführt. Voraussetzung: Die Variablen sind akkumulierende Zähler (z. B. „Ertrag Gesamt“, „Bezug Gesamt“, „Einspeisung Gesamt“, „Bat. Laden/Entladen Gesamt“) MIT aktivierter Archivierung und Aggregation „Zähler“." },
+        { "type": "Label", "caption": "Alle Datenpunkte sind optional – fehlt ein Wert, entfällt der zugehörige Knoten. Einzelverbraucher (Wärmepumpe, Wallbox …) werden aus dem Hausverbrauch herausgelöst; der Rest erscheint als „Sonstiger Verbrauch“." },
+        { "type": "Label", "caption": "Zeitraum: Tag/Woche/Monat/Jahr/Gesamt oder ein angepasster Zeitraum (Von/Bis). Bei „Angepasst“ die beiden Datumsfelder setzen." }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Zeitraum",
+      "expanded": true,
+      "items": [
+        {
+          "type": "Select",
+          "name": "Period",
+          "caption": "Zeitraum",
+          "options": [
+            { "caption": "Tag", "value": "day" },
+            { "caption": "Woche", "value": "week" },
+            { "caption": "Monat", "value": "month" },
+            { "caption": "Jahr", "value": "year" },
+            { "caption": "Gesamt", "value": "all" },
+            { "caption": "Angepasst (Von/Bis)", "value": "custom" }
+          ]
+        },
+        { "type": "SelectDate", "name": "CustomStart", "caption": "Von (nur bei „Angepasst“)" },
+        { "type": "SelectDate", "name": "CustomEnd", "caption": "Bis (nur bei „Angepasst“)" }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Energie-Datenpunkte (archivierte Zähler)",
+      "expanded": true,
+      "items": [
+        { "type": "SelectVariable", "name": "PvEnergyID", "caption": "PV-Erzeugung (kWh gesamt)" },
+        { "type": "SelectVariable", "name": "GridImportID", "caption": "Netzbezug (kWh gesamt)" },
+        { "type": "SelectVariable", "name": "GridExportID", "caption": "Netzeinspeisung (kWh gesamt)" },
+        { "type": "SelectVariable", "name": "BatChargeID", "caption": "Batterie-Ladung (kWh gesamt)" },
+        { "type": "SelectVariable", "name": "BatDischargeID", "caption": "Batterie-Entladung (kWh gesamt)" },
+        { "type": "SelectVariable", "name": "HouseLoadID", "caption": "Hausverbrauch (kWh gesamt, optional – sonst aus Bilanz)" }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Einzelverbraucher (optional)",
+      "expanded": false,
+      "items": [
+        { "type": "Label", "caption": "Optional: einzelne Verbraucher (Wärmepumpe, Wallbox …) mit ihrer archivierten Energie-Zählervariable. Sie werden im Diagramm als eigene Verbraucher-Blöcke dargestellt und aus dem Hausverbrauch herausgerechnet." },
+        {
+          "type": "List",
+          "name": "Consumers",
+          "caption": "Verbraucher",
+          "rowCount": 5,
+          "add": true,
+          "delete": true,
+          "columns": [
+            {
+              "caption": "Art", "name": "Type", "width": "160px", "add": "other",
+              "edit": { "type": "Select", "options": [
+                { "caption": "Wallbox", "value": "wallbox" },
+                { "caption": "Wärmepumpe", "value": "heatpump" },
+                { "caption": "Klimaanlage", "value": "ac" },
+                { "caption": "Pool-Wärmepumpe", "value": "poolheat" },
+                { "caption": "Pool-Pumpe", "value": "poolpump" },
+                { "caption": "Sauna", "value": "sauna" },
+                { "caption": "Warmwasser", "value": "boiler" },
+                { "caption": "Trockner", "value": "dryer" },
+                { "caption": "Sonstiger Verbraucher", "value": "other" }
+              ] }
+            },
+            { "caption": "Bezeichnung", "name": "Name", "width": "180px", "add": "", "edit": { "type": "ValidationTextBox" } },
+            { "caption": "Energie-Variable (kWh)", "name": "EnergyID", "width": "auto", "add": 0, "edit": { "type": "SelectVariable" } },
+            { "caption": "Farbe", "name": "Color", "width": "90px", "add": -1, "edit": { "type": "SelectColor" } }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Darstellung",
+      "expanded": false,
+      "items": [
+        { "type": "SelectColor", "name": "ColorBackground", "caption": "Hintergrundfarbe (-1 = Standard)" },
+        { "type": "ValidationTextBox", "name": "FontFamily", "caption": "Schriftart (leer = Standard)" }
+      ]
+    }
+  ],
+  "actions": [],
+  "status": [
+    { "code": 102, "icon": "active", "caption": "Energiefluss aktiv" },
+    { "code": 201, "icon": "inactive", "caption": "Keine Energie-Datenpunkte zugewiesen" }
+  ]
+}
