@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.31.1-beta.1 (2026-07-18)
+
+- **Fronius: Batterie-SOC jetzt mit einer Nachkommastelle** (Float statt Integer). Fronius
+  liefert den SOC ohnehin als Float (Model 124 ChaState) — so sieht man schneller, in welche
+  Richtung die Ladung läuft. Bestehende Integer-SOC-Variablen werden beim Übernehmen
+  automatisch auf Float migriert (neue allgemeine Typ-Migration in `RegisterVar`: ändert sich
+  der gewünschte Variablentyp, wird die Variable neu angelegt, da IPS den Typ nicht
+  nachträglich ändern kann).
+
 ## 0.31.0-beta.1 (2026-07-18)
 
 - **Isolationswiderstand (Riso) für Sungrow, SMA und Kostal ergänzt.** Damit lesen jetzt

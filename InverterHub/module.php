@@ -1928,7 +1928,7 @@ class FroniusDriver implements InverterDriverInterface
                 ['meter_total', 'Netz Leistung (Meter)', 'F', 'FRO.Watt', true, 'meter', 'SunSpec Meter Model 20x/21x (Unit-ID 200)'],
             ]],
             'GroupBat' => ['caption' => 'Batterie (GEN24-Hybrid: SOC, Leistung)', 'vars' => [
-                ['bat_soc',   'Bat. SOC', 'I', '~Battery.100', true, 'bat', 'SunSpec Model 124 ChaState'],
+                ['bat_soc',   'Bat. SOC', 'F', 'FRO.Soc', true, 'bat', 'SunSpec Model 124 ChaState'],
                 ['bat_power', 'Bat. Leistung (Entladen + / Laden -)', 'F', 'FRO.Watt', true, 'bat', 'SunSpec Model 160 Module 3+4'],
             ]],
             'GroupDevice' => ['caption' => 'Geräteinformation', 'vars' => [
@@ -1967,6 +1967,7 @@ class FroniusDriver implements InverterDriverInterface
             'FRO.Volt'   => [VARIABLETYPE_FLOAT, ' V',       0.0,  1000.0, 0.1,  1],
             'FRO.Ampere' => [VARIABLETYPE_FLOAT, ' A',       0.0,   200.0, 0.1,  1],
             'FRO.Hertz'  => [VARIABLETYPE_FLOAT, ' Hz',     45.0,    65.0, 0.01, 2],
+            'FRO.Soc'    => [VARIABLETYPE_FLOAT, ' %',        0.0,   100.0, 0.1,  1],
         ];
     }
 
@@ -2088,7 +2089,9 @@ class FroniusDriver implements InverterDriverInterface
                 if ($sblk !== null && min($slen, 24) >= 21) {
                     $soc = $this->scaledU16($mb, $sblk, 6, $this->sfVal($mb->u16($sblk, 20)));
                     if ($soc !== null) {
-                        $hub->SetVarInt('bat_soc', (int)round($soc));
+                        // Fronius liefert den SOC als Float (ChaState mit
+                        // Skalierungsfaktor) - eine Nachkommastelle zeigen.
+                        $hub->SetVarFloat('bat_soc', round((float)$soc, 1));
                     }
                 }
             }
@@ -3843,14 +3846,22 @@ class InverterHub extends IPSModule
         [$ident, $caption, $type, $profile, $archive, $group] = $def;
         $reg = isset($def[6]) ? $def[6] : '';
 
+        $vtype = [
+            'F' => VARIABLETYPE_FLOAT,
+            'I' => VARIABLETYPE_INTEGER,
+            'B' => VARIABLETYPE_BOOLEAN,
+            'S' => VARIABLETYPE_STRING,
+        ][$type];
+
         $vid = $this->FindVarByIdent($ident);
+        // Typ-Migration: Ändert sich der gewünschte Variablentyp (z. B. Fronius-
+        // SOC von Integer auf Float), muss die bestehende Variable neu angelegt
+        // werden - IPS kann den Typ einer Variable nicht nachträglich ändern.
+        if ($vid && IPS_GetVariable($vid)['VariableType'] !== $vtype) {
+            @IPS_DeleteVariable($vid);
+            $vid = 0;
+        }
         if (!$vid) {
-            $vtype = [
-                'F' => VARIABLETYPE_FLOAT,
-                'I' => VARIABLETYPE_INTEGER,
-                'B' => VARIABLETYPE_BOOLEAN,
-                'S' => VARIABLETYPE_STRING,
-            ][$type];
             $vid = IPS_CreateVariable($vtype);
             IPS_SetIdent($vid, $ident);
         }
