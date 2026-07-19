@@ -137,16 +137,16 @@ class InverterHubEnergy extends IPSModule
         foreach ($win as $type => $count) {
             $arr = [];
             foreach ($this->PeriodDefs($type, $count) as $def) {
-                [$s, $e, $plabel, $rlabel] = $def;
-                $arr[] = array_merge($this->ComputeFlow($s, $e), ['label' => $plabel, 'range' => $rlabel]);
+                [$s, $e, $plabel, $rlabel, $id] = $def;
+                $arr[] = array_merge($this->ComputeFlow($s, $e), ['label' => $plabel, 'range' => $rlabel, 'id' => $id]);
             }
             $series[$type] = $arr;
         }
         [$s, $e, $pl, $rl] = $this->ResolveRange('all');
-        $series['all'] = [array_merge($this->ComputeFlow($s, $e), ['label' => $pl, 'range' => $rl])];
+        $series['all'] = [array_merge($this->ComputeFlow($s, $e), ['label' => $pl, 'range' => $rl, 'id' => ''])];
         if ($this->ReadPropertyString('Period') === 'custom' || $this->ReadPropertyInteger('CustomStart') > 0) {
             [$s, $e, $pl, $rl] = $this->ResolveRange('custom');
-            $series['custom'] = [array_merge($this->ComputeFlow($s, $e), ['label' => $pl, 'range' => $rl])];
+            $series['custom'] = [array_merge($this->ComputeFlow($s, $e), ['label' => $pl, 'range' => $rl, 'id' => ''])];
         }
 
         $default = $this->ReadPropertyString('Period');
@@ -174,22 +174,22 @@ class InverterHubEnergy extends IPSModule
                 case 'week':
                     $s = strtotime("monday this week -{$k} weeks 00:00:00");
                     $eN = ($k === 0) ? $now : strtotime('monday this week -' . ($k - 1) . ' weeks 00:00:00');
-                    $out[] = [$s, min($now, $eN), 'Woche', 'KW ' . date('W', $s) . ' / ' . date('Y', $s)];
+                    $out[] = [$s, min($now, $eN), 'Woche', 'KW ' . date('W', $s) . ' / ' . date('Y', $s), date('o', $s) . '-W' . date('W', $s)];
                     break;
                 case 'month':
                     $s = strtotime("-{$k} months", $mBase);
                     $eN = ($k === 0) ? $now : strtotime('-' . ($k - 1) . ' months', $mBase);
-                    $out[] = [$s, min($now, $eN), 'Monat', $this->MonthName((int)date('n', $s)) . ' ' . date('Y', $s)];
+                    $out[] = [$s, min($now, $eN), 'Monat', $this->MonthName((int)date('n', $s)) . ' ' . date('Y', $s), date('Y-m', $s)];
                     break;
                 case 'year':
                     $s = strtotime("-{$k} years", $yBase);
                     $eN = ($k === 0) ? $now : strtotime('-' . ($k - 1) . ' years', $yBase);
-                    $out[] = [$s, min($now, $eN), 'Jahr', date('Y', $s)];
+                    $out[] = [$s, min($now, $eN), 'Jahr', date('Y', $s), date('Y', $s)];
                     break;
                 case 'day':
                 default:
                     $s = strtotime("today -{$k} days 00:00:00");
-                    $out[] = [$s, min($now, $s + 86400), 'Tag', date('d.m.Y', $s)];
+                    $out[] = [$s, min($now, $s + 86400), 'Tag', date('d.m.Y', $s), date('Y-m-d', $s)];
                     break;
             }
         }

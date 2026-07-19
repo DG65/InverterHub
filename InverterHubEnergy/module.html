@@ -13,6 +13,8 @@
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%239aa4b0'/></svg>"); background-repeat: no-repeat; background-position: right 9px center; }
   button.nav { font: inherit; font-size: 14px; line-height: 1; width: 30px; height: 30px; border-radius: 8px; border: 1px solid rgba(127,135,145,.35); background: rgba(127,135,145,.12); color: inherit; cursor: pointer; }
   button.nav:disabled { opacity: .35; cursor: default; }
+  input.pick { font: inherit; font-size: 13px; font-weight: 600; padding: 4px 8px; border-radius: 8px; border: 1px solid rgba(127,135,145,.35); background: rgba(127,135,145,.12); color: inherit; cursor: pointer; }
+  #pickwrap .rangeTxt { font-size: 13px; font-weight: 600; padding: 0 4px; }
   #cols { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; margin: 6px 2px 2px; }
   #chart { width: 100%; flex: 1 1 auto; min-height: 160px; }
   .empty { font-size: 13px; padding: 28px 10px; text-align: center; }
@@ -23,7 +25,7 @@
     <div id="bar">
       <select id="type" class="sel"></select>
       <button id="prev" class="nav" title="Zurück">&#9664;</button>
-      <select id="period" class="sel"></select>
+      <span id="pickwrap"></span>
       <button id="next" class="nav" title="Vor">&#9654;</button>
     </div>
     <div id="cols"><span>Energiequelle</span><span>Energieverbraucher</span></div>
@@ -43,7 +45,7 @@
       document.documentElement.style.background = data.bg ? data.bg : 'transparent';
       applyTheme(data);
 
-      var showCtl = ['type', 'prev', 'period', 'next'];
+      var showCtl = ['type', 'prev', 'pickwrap', 'next'];
       if (!data.ok || !data.series) {
         destroyChart();
         showCtl.forEach(function (id) { document.getElementById(id).style.display = 'none'; });
@@ -55,7 +57,7 @@
       if (!curType || !data.series[curType]) { curType = data.defaultType || 'day'; curIdx = 0; }
       if (curIdx >= data.series[curType].length) { curIdx = 0; }
       document.getElementById('type').value = curType;
-      buildPeriodSelect();
+      buildPicker();
       renderCurrent();
     }
 
@@ -63,25 +65,43 @@
       var sel = document.getElementById('type'), html = '';
       ORDER.forEach(function (t) { if (data.series[t] && data.series[t].length) { html += '<option value="' + t + '">' + (TYPENAME[t] || t) + '</option>'; } });
       sel.innerHTML = html;
-      sel.onchange = function () { curType = this.value; curIdx = 0; buildPeriodSelect(); renderCurrent(); };
+      sel.onchange = function () { curType = this.value; curIdx = 0; buildPicker(); renderCurrent(); };
     }
 
-    function buildPeriodSelect() {
-      var arr = lastData.series[curType] || [], sel = document.getElementById('period'), html = '';
-      for (var i = 0; i < arr.length; i++) { html += '<option value="' + i + '">' + (arr[i].range || '') + '</option>'; }
-      sel.innerHTML = html;
-      sel.value = curIdx;
-      sel.onchange = function () { curIdx = +this.value; renderCurrent(); };
+    // Datumsauswahl je Typ als Kalender-Widget: Tag=Datum, Woche=Woche,
+    // Monat=Monat (native Browser-Kalender-Popups), Jahr=Dropdown.
+    var INPUT_TYPE = { day: 'date', week: 'week', month: 'month' };
+    function idxById(arr, id) { for (var i = 0; i < arr.length; i++) { if (arr[i].id === id) { return i; } } return -1; }
+
+    function buildPicker() {
+      var arr = lastData.series[curType] || [], wrap = document.getElementById('pickwrap');
       var single = arr.length <= 1;
       document.getElementById('prev').style.display = single ? 'none' : '';
       document.getElementById('next').style.display = single ? 'none' : '';
+      wrap.innerHTML = '';
+      if (single) { var s = document.createElement('span'); s.className = 'rangeTxt'; s.textContent = arr[0] ? arr[0].range : ''; wrap.appendChild(s); applyTheme(lastData); return; }
+
+      var it = INPUT_TYPE[curType], el;
+      if (it) {
+        el = document.createElement('input');
+        el.type = it; el.className = 'pick';
+        el.min = arr[arr.length - 1].id; el.max = arr[0].id; el.value = arr[curIdx].id;
+        el.onchange = function () { var i = idxById(arr, this.value); if (i >= 0) { curIdx = i; syncNav(); renderCurrent(); } else { this.value = arr[curIdx].id; } };
+      } else {
+        el = document.createElement('select'); el.className = 'sel pick';
+        var h = ''; for (var i = 0; i < arr.length; i++) { h += '<option value="' + i + '">' + (arr[i].range || '') + '</option>'; }
+        el.innerHTML = h; el.value = curIdx;
+        el.onchange = function () { curIdx = +this.value; syncNav(); renderCurrent(); };
+      }
+      wrap.appendChild(el);
       document.getElementById('prev').onclick = function () { if (curIdx < arr.length - 1) { curIdx++; syncNav(); renderCurrent(); } };
       document.getElementById('next').onclick = function () { if (curIdx > 0) { curIdx--; syncNav(); renderCurrent(); } };
+      applyTheme(lastData);
     }
 
     function syncNav() {
-      var arr = lastData.series[curType] || [];
-      document.getElementById('period').value = curIdx;
+      var arr = lastData.series[curType] || [], el = document.querySelector('#pickwrap .pick');
+      if (el) { if (el.tagName === 'SELECT') { el.value = curIdx; } else { el.value = arr[curIdx].id; } }
       document.getElementById('prev').disabled = (curIdx >= arr.length - 1);
       document.getElementById('next').disabled = (curIdx <= 0);
     }
@@ -128,7 +148,10 @@
     }
     function applyTheme(data) {
       var dark = themeDark(data), fg = dark ? '#e8edf2' : '#1b2430', muted = dark ? '#9fb0c0' : '#5c6b7a';
-      ['type', 'period', 'prev', 'next'].forEach(function (id) { var e = document.getElementById(id); if (e) { e.style.color = fg; } });
+      ['type', 'prev', 'next'].forEach(function (id) { var e = document.getElementById(id); if (e) { e.style.color = fg; } });
+      var pk = document.querySelector('#pickwrap .pick');
+      // color-scheme steuert auch das native Kalender-Popup (hell/dunkel).
+      if (pk) { pk.style.color = fg; pk.style.colorScheme = dark ? 'dark' : 'light'; }
       document.getElementById('cols').style.color = muted;
       if (data && data.font) { document.querySelector('.wrap').style.fontFamily = data.font; }
     }

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.37.1-beta.1 (2026-07-19)
+
+- **Energiefluss: Datumsauswahl als Kalender.** Statt der Dropdown-Liste zeigt die Kachel
+  jetzt ein echtes Kalender-Widget zur Auswahl — Tag als Datums-Kalender, Woche als
+  Wochen-Kalender, Monat als Monats-Kalender (native Browser-Kalender-Popups); das Jahr bleibt
+  ein Dropdown. Die Kalenderauswahl ist auf das navigierbare Fenster begrenzt (min/max) und
+  passt sich dem Hell-/Dunkelmodus an.
+
+
 ## 0.37.0-beta.1 (2026-07-19)
 
 - **Energiefluss: Zeitraum-Navigation in der Kachel.** Neben der Typ-Auswahl (Tag/Woche/Monat/
