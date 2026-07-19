@@ -5,9 +5,11 @@ und steuert — ein generisches Treiber-Framework statt eines Moduls pro Herstel
 
 **Status: Beta.** Die Register-Zuordnungen basieren auf den öffentlich verfügbaren
 Modbus-Protokolldokumenten der Hersteller und wurden, soweit möglich, gegen reale Anlagen
-geprüft (aktuell GoodWe live verifiziert) sowie gegen unabhängige Quellen gegengeprüft — die
+geprüft (GoodWe live verifiziert; Fronius, SolarEdge, Kostal, Victron und Huawei durch
+Beta-Tester an realen Anlagen erprobt) sowie gegen unabhängige Quellen gegengeprüft — die
 Referenzimplementierung [OpenEMS](https://github.com/OpenEMS/openems) für Register-/
-Feldoffsets (GoodWe, Fronius, SMA) und von echten Nutzern im
+Feldoffsets (GoodWe, Fronius, SMA), die Register-Definitionen der `huawei-solar-lib` sowie
+von echten Nutzern im
 [IP-Symcon-Forum](https://community.symcon.de/c/symcon/vorlagen-modbus/86) geteilte
 Modbus-Vorlagen (GoodWe, SolaX, SolarEdge, Deye, Solplanet, Kostal, Victron, Huawei). Rückmeldungen zu
 falschen/fehlenden Werten sind willkommen — bitte mit Hersteller, Modell und betroffenem
@@ -22,12 +24,12 @@ Register melden.
 | **Solis** | PV (4 Strings), Netz, Batterie, Meter, Energie | Nur Hybrid-Serie (33000er-Register); reine String-Wechselrichter (3000er) noch nicht unterstützt |
 | **Growatt** | PV (3 Strings), Netz, Energie, Temperatur, Fehlercodes | Deckt den über TL-X/TL3-X/MOD/MIX/SPH/WIT gemeinsamen Basisregisterbereich ab |
 | **SolaX** | PV (6 Strings), Netz ein-/dreiphasig, Batterie-Systemwerte, Meter/CT | **Wichtig:** Der Wechselrichter spricht nur Modbus RTU. Modbus TCP läuft ausschließlich über ein zusätzliches SolaX-Monitoring-Modul (Pocket WiFi/LAN) als Gateway — dessen IP-Adresse eintragen, nicht die des Wechselrichters |
-| **SolarEdge** | PV Gesamtleistung, Netz, Meter, Energie, Temperatur, Status, Gerätename/Seriennummer | Reines SunSpec, dieselbe Laufzeit-Discovery wie Fronius/SMA |
+| **SolarEdge** | PV Gesamtleistung, Netz, Meter (inkl. Bezug/Einspeisung kWh), Energie, Temperatur, Status, StorEdge-Batterie (SOC/Leistung/Spannung/Strom/Temperatur/SOH/Zustand), berechnete PV-Erzeugung, Gerätename/Seriennummer | Reines SunSpec (Integer-Modell 103 mit Skalierungsfaktoren), dieselbe Laufzeit-Discovery wie Fronius/SMA. Der StorEdge-Batterieblock (ab 0xE100) nutzt eine abweichende Byte-Reihenfolge (CDAB), was das Modul automatisch berücksichtigt. Auf StorEdge-Anlagen spiegelt das DC-Register nicht die reine PV wider – dafür die optionale Gruppe „PV-Erzeugung berechnet" aktivieren. |
 | **Deye** | PV (2 Strings), Netz, Batterie, Hausverbrauch, Energie, Start/Stop-Steuerung | SG04LP3-Serie, Vorlage von einem 8K-SG04LP3 getestet |
 | **Solplanet / AISWEI** | PV (3 Strings), Batterie, Temperatur, Energie | ASW-Gen-Serie |
 | **Kostal** | PV (3 DC-Eingänge), Netz, Batterie, Meter, Hausverbrauch nach Quelle, Energie | Nur PLENTICORE plus Generation 1 getestet — andere Generationen/Leistungsklassen ungeprüft. **Wichtig:** Kostal nutzt standardmäßig Port **1502**, nicht 502 — beim Anlegen der Instanz ggf. manuell eintragen. |
 | **SMA** | PV Gesamtleistung, Netz, Meter, Energie, Temperatur, Status, Gerätename/Seriennummer | Reine SunSpec-Implementierung mit Laufzeit-Discovery, wie von OpenEMS für SMA Sunny Tripower verwendet |
-| **Fronius** | PV (MPPT), Netz, Meter, Energie, Batterie (GEN24-Hybrid: SOC + Leistung), Status, Gerätename/Seriennummer | Reine SunSpec-Implementierung mit Laufzeit-Discovery (keine festen Registeradressen, siehe unten). Der Smart Meter ist ein eigenes Modbus-Gerät mit eigener Unit-ID („Smart-Meter-Adresse", Vorgabe 200, je nach Konfiguration z. B. 240 — im Datenpunkte-Panel einstellbar). Im Wechselrichter muss der Modbus-Server (TCP) aktiviert sein; „Steuerung erlauben" ist nicht nötig, das Modul liest nur. |
+| **Fronius** | PV (MPPT: Spannung/Strom/Leistung je String), Netz, Meter (Gesamt + optional je Phase U/I/P), Energie, Batterie (GEN24-Hybrid: SOC als Float, Leistung, Spannung), Status, Gerätename/Seriennummer | Reine SunSpec-Implementierung mit Laufzeit-Discovery (keine festen Registeradressen, siehe unten). Der Smart Meter ist ein eigenes Modbus-Gerät mit eigener Unit-ID („Smart-Meter-Adresse", Vorgabe 200, je nach Konfiguration z. B. 240 — im Datenpunkte-Panel einstellbar). Im Wechselrichter muss der Modbus-Server (TCP) aktiviert sein; „Steuerung erlauben" ist nicht nötig, das Modul liest nur. |
 | **Victron GX** | PV (DC + AC-gekoppelt), Netz, Batterie (SOC/Leistung/Spannung/Strom/Zustand), Hausverbrauch, Netz-Quelle | Liest den aggregierten Systemdienst `com.victronenergy.system` (Cerbo GX / Venus OS). **Wichtig:** Unit-ID ist bei Victron ein Geräte-Selektor — der Systemdienst liegt fest auf **100**, das Modul spricht diese automatisch an (die im Formular gesetzte Unit-ID wird bei Victron ignoriert). Port **502**. Im GX unter Einstellungen → Services → Modbus TCP aktivieren. Noch nicht am realen Gerät verifiziert — Vorzeichen von Netz/Batterie ggf. per Invers-Schalter anpassen. |
 | **Huawei SUN2000** | PV (DC-Eingang), Netz, Wirkleistung, Temperatur, Status, Energie, Smart Meter (DTSU666), Batterie (LUNA2000: SOC/Leistung/Spannung/Strom/Temperatur/Zustand) | Native Huawei-Registermap (kein SunSpec), Register/Gain aus `huawei-solar-lib`. Unit-ID des Wechselrichters ist meist **1** (je nach Konfiguration auch 0/16 — im Wechselrichter unter Modbus TCP einstellbar), Port **502**. Modbus TCP muss im Gerät aktiviert sein. Noch nicht am realen Gerät verifiziert — Vorzeichen von Netz/Batterie ggf. per Invers-Schalter anpassen. |
 
@@ -47,7 +49,8 @@ freigeschaltet. Architektur:
 - **`InverterDriverInterface`** — Vertrag, den jeder Hersteller-Treiber erfüllt (Basisvariablen,
   optionale Gruppen, Profile, `readFast`/`readSlow`/`readDeviceInfo`/`writeControl`).
 - **Ein Treiber je Hersteller** (`GoodweDriver`, `SungrowDriver`, `SolisDriver`, `GrowattDriver`,
-  `SolaxDriver`, `SmaDriver`, `FroniusDriver`) — kapselt die herstellerspezifischen
+  `SolaxDriver`, `SmaDriver`, `FroniusDriver`, `SolarEdgeDriver`, `DeyeDriver`, `SolplanetDriver`,
+  `KostalDriver`, `VictronDriver`, `HuaweiDriver`) — kapselt die herstellerspezifischen
   Registeradressen, Skalierungsfaktoren und Eigenheiten.
 
 Einrichtung: Instanz anlegen, Hersteller wählen, IP-Adresse (und bei Bedarf Port/Unit-ID)
@@ -57,7 +60,14 @@ eintragen, gewünschte Datenpunkt-Gruppen aktivieren, übernehmen.
 vorhandene Variable mit real gemessener Hauslast auswählen (z. B. ein Shelly am
 Hausanschluss). Die reine PV/Netz/Batterie-Bilanzschätzung berücksichtigt Wechselrichter-
 Eigenverbrauch und Leitungsverluste nicht — mit einem echten Zähler zeigt `InverterHubTile`
-die genauere Last sowie die Differenz als eigenen „Wandlungsverluste"-Kreis.
+die genauere Last sowie die Differenz als eigenen „Wandlungsverluste"-Kreis. Wichtig: hier
+einen echten Verbrauchszähler wählen (immer positiv), keinen Netz-/Einspeisezähler — negative
+Werte werden ignoriert und die Kachel bleibt bei der Bilanz.
+
+**Invers-Schalter:** Je nach Verdrahtung/gewünschter Konvention lassen sich Netz-Leistung
+(Meter) und Batterie-Leistung per Schalter invertieren. Der angezeigte Datenpunkt folgt dann
+der gewählten Konvention; die `InverterHubTile`-Kachel rechnet beide Schalter intern wieder
+auf ihre kanonische Konvention zurück und bleibt dadurch immer korrekt.
 
 ### InverterHubDiscovery
 
@@ -97,6 +107,12 @@ verteilt — in der Reihenfolge Solar (oben), Batterie (rechts), Verbraucher, Ne
 Verluste (links). Fehlt ein Datenpunkt, bleibt die Anordnung ausgewogen, statt eine Lücke zu
 hinterlassen. Kreisgröße und -abstand werden aus der Knotenzahl berechnet, sodass sich auch
 bei vielen Verbrauchern nie Kreise überlappen und die Kachel ihre Größe behält.
+
+Für die Solar-Anzeige nutzt die Kachel automatisch die berechnete PV-Erzeugung (`pv_real`,
+z. B. bei SolarEdge StorEdge), sofern vorhanden, sonst die DC-Gesamtleistung. Über den
+Schalter **„Berechnete Hauslast zusätzlich in eine Variable schreiben"** (Panel „Datenquelle")
+legt die Kachel die Variable **„Hauslast (berechnet)"** an und aktualisiert sie live — nutzbar
+für Automationen, Charts usw.
 
 **Weitere Verbraucher (optional):** Im Panel „Weitere Verbraucher" lassen sich **beliebig
 viele** zusätzliche Verbraucher als Tabelle pflegen — je Zeile **Art**, **Bezeichnung**,

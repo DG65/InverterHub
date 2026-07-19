@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.32.3-beta.1 (2026-07-18)
+
+- **Dokumentation & In-Modul-Hilfe auf den aktuellen Stand gebracht.** Die Hilfe im
+  Instanz-Formular listet jetzt alle 13 Hersteller inkl. Anschluss-Besonderheiten (Kostal
+  Port 1502/Byte-Reihenfolge, Victron Unit-ID 100, Huawei Unit-ID 1, Fronius Smart-Meter-
+  Adresse, SolaX-Gateway), die modulweite Vorzeichen-Konvention samt Invers-Schaltern und die
+  Riso-Verfügbarkeit. README: Treiberliste vollständig, SolarEdge-/Fronius-Umfang aktualisiert,
+  Hinweise zu Invers-Schaltern (Kachel-Rückrechnung), Hauslastzähler und der neuen Variable
+  „Hauslast (berechnet)" ergänzt.
+
 ## 0.32.2-beta.1 (2026-07-18)
 
 - **Kachel: berechnete Hauslast optional als Variable.** Neuer Schalter „Berechnete Hauslast
