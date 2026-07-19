@@ -53,6 +53,11 @@
           "name": "SourceInstance",
           "caption": "InverterHub-Instanz",
           "moduleID": "{BBE2C593-1A91-426D-A714-29A9C7E87589}"
+        },
+        {
+          "type": "CheckBox",
+          "name": "WriteHouseLoad",
+          "caption": "Berechnete Hauslast zusätzlich in eine Variable schreiben (»Hauslast (berechnet)«)"
         }
       ]
     },

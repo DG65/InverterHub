@@ -71,6 +71,8 @@ class InverterHubTile extends IPSModule
         $this->RegisterPropertyString('Vehicles', '[]');
         // Zeitfenster für die automatische Zuordnung Fahrzeug <-> Wallbox.
         $this->RegisterPropertyInteger('MatchToleranceSec', self::DEF_TOLERANCE);
+        // Berechnete Hauslast zusätzlich in eine eigene Variable schreiben.
+        $this->RegisterPropertyBoolean('WriteHouseLoad', false);
 
         $this->SetVisualizationType(1);
     }
@@ -117,6 +119,16 @@ class InverterHubTile extends IPSModule
             $this->RegisterReference($vid);
             $this->RegisterMessage($vid, VM_UPDATE);
         }
+
+        // Optionale Ausgabe der berechneten Hauslast als eigene Variable.
+        $this->MaintainVariable(
+            'house_load',
+            'Hauslast (berechnet)',
+            VARIABLETYPE_FLOAT,
+            '~Watt',
+            10,
+            $this->ReadPropertyBoolean('WriteHouseLoad')
+        );
 
         $this->UpdateVisualizationValue($this->BuildPayload());
     }
@@ -515,6 +527,15 @@ class InverterHubTile extends IPSModule
                     $lossHave = true;
                     $lossW    = max(0.0, $houseBalanceW - $realHouseW);
                 }
+            }
+        }
+
+        // Berechnete Hauslast optional in die eigene Variable schreiben, damit
+        // sie außerhalb der Kachel (Automationen, Charts) nutzbar ist.
+        if ($houseHave && $this->ReadPropertyBoolean('WriteHouseLoad')) {
+            $vid = @$this->GetIDForIdent('house_load');
+            if ($vid) {
+                $this->SetValue('house_load', round($houseW));
             }
         }
 

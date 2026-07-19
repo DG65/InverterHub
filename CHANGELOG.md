@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.32.2-beta.1 (2026-07-18)
+
+- **Kachel: berechnete Hauslast optional als Variable.** Neuer Schalter „Berechnete Hauslast
+  zusätzlich in eine Variable schreiben" (im Panel „Datenquelle"). Ist er aktiv, legt die
+  Kachel die Variable „Hauslast (berechnet)" (W) an und aktualisiert sie bei jeder
+  Datenänderung — nutzbar für Automationen, Charts usw.
+
 ## 0.32.1-beta.1 (2026-07-18)
 
 - **Kachel: Schalter „Netz-Leistung invertieren" wird jetzt berücksichtigt.** Wer die
