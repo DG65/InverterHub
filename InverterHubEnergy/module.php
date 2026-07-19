@@ -55,9 +55,12 @@ class InverterHubEnergy extends IPSModule
 
         // Diagramm-Engine: echarts | highcharts (wie in der Prognosekachel).
         $this->RegisterPropertyString('Engine', 'echarts');
-        $this->RegisterPropertyInteger('Height', 380);
         $this->RegisterPropertyInteger('ColorBackground', -1);
         $this->RegisterPropertyString('FontFamily', '');
+
+        // Archiv-Auswertung ist teurer (mehrere Perioden × Variablen) - daher
+        // per Timer gebündelt statt bei jeder Zähler-Änderung.
+        $this->RegisterTimer('Refresh', 0, 'IHUBNRG_Refresh($_IPS[\'TARGET\']);');
 
         $this->SetVisualizationType(1);
     }
@@ -67,33 +70,24 @@ class InverterHubEnergy extends IPSModule
         parent::ApplyChanges();
         $this->SetVisualizationType(1);
 
-        // Alte Abos lösen.
-        foreach ($this->GetMessageList() as $senderID => $messages) {
-            foreach ($messages as $msg) {
-                if ($msg === VM_UPDATE) {
-                    $this->UnregisterMessage($senderID, VM_UPDATE);
-                }
-            }
-        }
-
         $any = false;
         foreach ($this->AllEnergyVarIDs() as $vid) {
             if ($vid > 0 && IPS_VariableExists($vid)) {
                 $this->RegisterReference($vid);
-                $this->RegisterMessage($vid, VM_UPDATE);
                 $any = true;
             }
         }
         $this->SetStatus($any ? 102 : 201);
 
+        // Alle 60 s neu auswerten (nur wenn Datenpunkte zugewiesen sind).
+        $this->SetTimerInterval('Refresh', $any ? 60000 : 0);
+
         $this->UpdateVisualizationValue($this->BuildPayload());
     }
 
-    public function MessageSink($TimeStamp, $SenderID, $Message, $Data)
+    public function Refresh()
     {
-        if ($Message === VM_UPDATE) {
-            $this->UpdateVisualizationValue($this->BuildPayload());
-        }
+        $this->UpdateVisualizationValue($this->BuildPayload());
     }
 
     public function GetVisualizationTile()
@@ -115,32 +109,52 @@ class InverterHubEnergy extends IPSModule
     private function BuildPayload()
     {
         $engine = ($this->ReadPropertyString('Engine') === 'highcharts') ? 'highcharts' : 'echarts';
-        $height = $this->ReadPropertyInteger('Height');
         $style = [
             'engine' => $engine,
-            'height' => ($height >= 220 ? $height : 380),
             'bg'     => $this->ColorOrEmpty($this->ReadPropertyInteger('ColorBackground')),
             'font'   => $this->FontStack($this->ReadPropertyString('FontFamily')),
+            'unit'   => 'kWh',
         ];
 
-        [$start, $end, $periodLabel, $rangeLabel] = $this->ResolveRange();
+        if (count($this->AllEnergyVarIDs()) === 0) {
+            return json_encode(array_merge($style, ['ok' => false, 'stateLabel' => 'Keine Datenquelle']));
+        }
 
+        // Alle Standard-Zeiträume vorab berechnen, damit die Umschaltung im
+        // Webfront ohne Server-Rückfrage funktioniert.
+        $keys = ['day', 'week', 'month', 'year', 'all'];
+        if ($this->ReadPropertyString('Period') === 'custom' || $this->ReadPropertyInteger('CustomStart') > 0) {
+            $keys[] = 'custom';
+        }
+        $default = $this->ReadPropertyString('Period');
+        if (!in_array($default, $keys, true)) {
+            $default = 'day';
+        }
+
+        $periods = [];
+        foreach ($keys as $k) {
+            [$s, $e, $plabel, $rlabel] = $this->ResolveRange($k);
+            $periods[$k] = array_merge($this->ComputeFlow($s, $e), [
+                'key' => $k, 'label' => $plabel, 'range' => $rlabel,
+            ]);
+        }
+
+        return json_encode(array_merge($style, [
+            'ok'            => true,
+            'defaultPeriod' => $default,
+            'periods'       => $periods,
+        ]));
+    }
+
+    // Berechnet Knoten/Links des Sankeys für einen Zeitraum aus dem Archiv.
+    private function ComputeFlow(int $start, int $end): array
+    {
         $pv      = $this->PeriodEnergy($this->ReadPropertyInteger('PvEnergyID'),      $start, $end);
         $gridImp = $this->PeriodEnergy($this->ReadPropertyInteger('GridImportID'),    $start, $end);
         $gridExp = $this->PeriodEnergy($this->ReadPropertyInteger('GridExportID'),    $start, $end);
         $batCh   = $this->PeriodEnergy($this->ReadPropertyInteger('BatChargeID'),     $start, $end);
         $batDis  = $this->PeriodEnergy($this->ReadPropertyInteger('BatDischargeID'),  $start, $end);
         $houseE  = $this->PeriodEnergy($this->ReadPropertyInteger('HouseLoadID'),     $start, $end);
-
-        // Kein einziger Wert verfügbar -> keine Datenquelle.
-        if ($pv === null && $gridImp === null && $gridExp === null && $batCh === null && $batDis === null) {
-            return json_encode(array_merge($style, [
-                'ok'        => false,
-                'stateLabel'=> 'Keine Datenquelle',
-                'period'    => $periodLabel,
-                'range'     => $rangeLabel,
-            ]));
-        }
 
         $solar   = max(0.0, (float)$pv);
         $gridImp = max(0.0, (float)$gridImp);
@@ -214,19 +228,12 @@ class InverterHubEnergy extends IPSModule
             }
         }
 
-        // Gesamt-Erzeugung/Bezug als Bezugsgröße für Tooltip-Anteile.
-        $totalIn = $solar + $gridImp;
-
-        return json_encode(array_merge($style, [
-            'ok'      => true,
+        return [
             'hasData' => (count($links) > 0),
-            'period'  => $periodLabel,
-            'range'   => $rangeLabel,
-            'unit'    => 'kWh',
-            'totalIn' => round($totalIn, 2),
+            'totalIn' => round($solar + $gridImp, 2),
             'nodes'   => $nodes,
             'links'   => $links,
-        ]));
+        ];
     }
 
     // Energie einer Zähler-Variable im Zeitraum aus dem Archiv (Summe der
@@ -270,10 +277,9 @@ class InverterHubEnergy extends IPSModule
     }
 
     // [start, end, periodLabel, rangeLabel]
-    private function ResolveRange(): array
+    private function ResolveRange(string $period): array
     {
         $now = time();
-        $period = $this->ReadPropertyString('Period');
         switch ($period) {
             case 'week':
                 $start = strtotime('monday this week 00:00:00');

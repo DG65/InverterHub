@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.36.1-beta.1 (2026-07-19)
+
+Energiefluss-Kachel nach Rückmeldung:
+
+- **Eigener Kachel-Titel entfernt** — er überlagerte den von IP-Symcon angezeigten
+  Instanznamen. Kopfzeile enthält jetzt nur noch die Zeitraum-Auswahl und das Datum.
+- **Inhalt skaliert mit der Kachel** — das Diagramm füllt die verfügbare Widget-Höhe
+  automatisch (statt fester Höhe) und passt sich bei Größenänderung an (ResizeObserver).
+- **Zeitraum im Webfront umschaltbar** — Auswahl (Tag/Woche/Monat/Jahr/Gesamt, ggf.
+  Angepasst) direkt in der Kachel per Dropdown. Alle Zeiträume werden serverseitig
+  vorberechnet (Archiv), die Umschaltung erfolgt ohne Server-Rückfrage. Die Neuberechnung
+  läuft gebündelt per 60-s-Timer (statt bei jeder Zähleränderung).
+
 ## 0.36.0-beta.1 (2026-07-19)
 
 - **Energiefluss-Kachel: 3-stufiges Sankey mit Highcharts & ECharts.** Statt des eigenen

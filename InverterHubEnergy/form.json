@@ -8,7 +8,7 @@
         { "type": "Label", "caption": "Zeigt als Sankey-Diagramm, WOHIN die Energie geflossen ist: Quellen (Solar, Batterie-Entladung, Netzbezug) links, Verbraucher (Batterie-Ladung, Hausverbrauch bzw. Einzelverbraucher, Netzeinspeisung) rechts – jeweils mit Anteil in %." },
         { "type": "Label", "caption": "Die Werte kommen aus dem IP-Symcon-ARCHIV der zugewiesenen Energie-Zählervariablen über den gewählten Zeitraum. Es wird nichts selbst berechnet oder zusätzlich mitgeführt. Voraussetzung: Die Variablen sind akkumulierende Zähler (z. B. „Ertrag Gesamt“, „Bezug Gesamt“, „Einspeisung Gesamt“, „Bat. Laden/Entladen Gesamt“) MIT aktivierter Archivierung und Aggregation „Zähler“." },
         { "type": "Label", "caption": "Alle Datenpunkte sind optional – fehlt ein Wert, entfällt der zugehörige Knoten. Einzelverbraucher (Wärmepumpe, Wallbox …) werden aus dem Hausverbrauch herausgelöst; der Rest erscheint als „Sonstiger Verbrauch“." },
-        { "type": "Label", "caption": "Zeitraum: Tag/Woche/Monat/Jahr/Gesamt oder ein angepasster Zeitraum (Von/Bis). Bei „Angepasst“ die beiden Datumsfelder setzen." }
+        { "type": "Label", "caption": "Zeitraum: Der Anzeigezeitraum (Tag/Woche/Monat/Jahr/Gesamt) lässt sich direkt in der Kachel umschalten. Hier wird nur der Start-Zeitraum gewählt. „Angepasst“ (Von/Bis) über die beiden Datumsfelder – dieser erscheint zusätzlich als Auswahl in der Kachel." }
       ]
     },
     {
@@ -19,7 +19,7 @@
         {
           "type": "Select",
           "name": "Period",
-          "caption": "Zeitraum",
+          "caption": "Start-Zeitraum (in der Kachel jederzeit umschaltbar)",
           "options": [
             { "caption": "Tag", "value": "day" },
             { "caption": "Woche", "value": "week" },
@@ -93,7 +93,6 @@
             { "caption": "Highcharts", "value": "highcharts" }
           ]
         },
-        { "type": "NumberSpinner", "name": "Height", "caption": "Höhe (px)", "minimum": 220, "maximum": 900 },
         { "type": "SelectColor", "name": "ColorBackground", "caption": "Hintergrundfarbe (-1 = Standard)" },
         { "type": "ValidationTextBox", "name": "FontFamily", "caption": "Schriftart (leer = Standard)" }
       ]
