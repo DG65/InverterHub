@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.56.3-beta.1 (2026-07-20)
+
+- **Kachel: geprägte Zahlen/Icons in Safari waren körnig.** Der Relief-Filter
+  (`feSpecularLighting`) erzeugte an den scharfen Glyphenkanten hochfrequente
+  Glanzspitzen, die Safari (rastert SVG-Filter grob) als Rauschen zeigte. Die Höhenkarte
+  wird jetzt stärker geglättet (Blur 1.3 statt 0.9) und der Glanz breiter/weicher verteilt
+  (specularExponent 9 statt 14, surfaceScale 2.6 statt 3.2) - in Chrome/Firefox weiterhin
+  klar geprägt, in Safari deutlich ruhiger.
+
 ## 0.56.2-beta.1 (2026-07-20)
 
 - **Kachel: Corona in Safari war nur ein Ring statt Verlauf.** Der Verlauf wurde per

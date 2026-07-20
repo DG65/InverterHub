@@ -248,9 +248,15 @@
        Kanten (wie in eine Münze gestanzt), dazu ein dunkler, weicher
        Tiefenschatten unten-rechts. -->
     <filter id="relief" x="-70%" y="-70%" width="240%" height="240%">
-      <feGaussianBlur in="SourceAlpha" stdDev="0.9" result="bump"/>
-      <feSpecularLighting in="bump" surfaceScale="3.2" specularConstant="1"
-          specularExponent="14" lighting-color="#ffffff" result="spec">
+      <!-- Höhenkarte bewusst kräftiger geglättet (stdDev 1.3 statt 0.9): an den
+           scharfen Glyphenkanten entstehen sonst hochfrequente Glanzspitzen, die
+           Safari (rastert den Filter grob) als Körnung/Rauschen zeigt. Der
+           breitere Glanz (specularExponent 9 statt 14) verteilt das Highlight
+           weicher - in Chrome/Firefox weiterhin klar geprägt, in Safari deutlich
+           ruhiger. -->
+      <feGaussianBlur in="SourceAlpha" stdDev="1.3" result="bump"/>
+      <feSpecularLighting in="bump" surfaceScale="2.6" specularConstant="1"
+          specularExponent="9" lighting-color="#ffffff" result="spec">
         <fePointLight x="-60" y="-90" z="70"/>
       </feSpecularLighting>
       <feComposite in="spec" in2="SourceAlpha" operator="in" result="specClip"/>
