@@ -46,14 +46,24 @@
 
   text { font-family: var(--font); }
 
-  /* Statusanzeige als kleine Plakette im selben Stil wie die Kreise:
-     plastische Fläche, feine Kante, glühender Punkt. */
-  .status-pill { fill: url(#plasticFill); stroke: rgba(255,255,255,0.10); stroke-width: 1.4; }
-  .status-dot { fill: var(--textmuted); }
-  .status-dot.ok { fill: #4caf50; filter: drop-shadow(0 0 4px rgba(76,175,80,0.85)); }
+  /* Statusanzeige als HTML-Overlay-Plakette im Stil der Kreise: plastische
+     Fläche, feine Kante, glühender Punkt. Fest in der unteren linken Ecke -
+     unabhängig von der SVG-viewBox, daher kein Nachziehen beim Resize. */
+  .status-overlay {
+    position: fixed; left: 4px; bottom: 4px; z-index: 2;
+    display: inline-flex; align-items: center; gap: 8px;
+    height: 26px; padding: 0 13px 0 11px;
+    border-radius: 13px;
+    background: linear-gradient(180deg, rgba(60,64,72,0.92), rgba(28,30,36,0.92));
+    border: 1px solid rgba(255,255,255,0.10);
+    font-family: var(--font);
+    pointer-events: none;
+  }
+  .status-dot { width: 11px; height: 11px; border-radius: 50%; background: var(--textmuted); flex: none; }
+  .status-dot.ok { background: #4caf50; box-shadow: 0 0 4px rgba(76,175,80,0.85); }
   .status-dot.pulse { animation: pulse 2s ease-in-out infinite; }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
-  .state-label { font-size: 14px; font-weight: 600; fill: var(--textmuted); }
+  .state-label { font-size: 14px; font-weight: 600; color: var(--textmuted); white-space: nowrap; }
 
   /* Der Knoten trägt --nc (Farbe erben Ring/Icon/Wert) sowie Position UND
      Skalierung in EINEM transform. transform-box/-origin sind bewusst gesetzt,
@@ -275,16 +285,16 @@
 
   <g id="nodes-layer"></g>
 
-  <!-- Statusanzeige: sitzt als Plakette in der unteren linken Ecke der
-       Zeichenfläche und wird dort von layoutStatus() verankert - die
-       Zeichenfläche passt sich dem Seitenverhältnis an, ein fester Punkt
-       würde daher mitwandern. Zuletzt gezeichnet = liegt über allem. -->
-  <g id="status">
-    <rect id="status-pill" class="status-pill" x="0" y="0" rx="13" ry="13" height="26" width="120"/>
-    <circle id="dot" class="status-dot" cx="15" cy="13" r="5.5"/>
-    <text id="stateLabel" x="27" y="17.5" class="state-label">–</text>
-  </g>
 </svg>
+
+<!-- Statusanzeige als HTML-Overlay, fest in der unteren linken Ecke (per CSS).
+     Bewusst NICHT im SVG: dort müsste die Position aus der viewBox berechnet und
+     bei jedem Resize nachgezogen werden - das hinkte beim Zoomen hinterher. Als
+     Overlay klebt sie ohne Nachrechnen in der Ecke. -->
+<div id="status" class="status-overlay">
+  <span id="dot" class="status-dot"></span>
+  <span id="stateLabel" class="state-label">–</span>
+</div>
 
 <script>
 // Hinweis: Pfeile/Lauflinien und der große Kollektor-Ring werden derzeit nicht
@@ -363,17 +373,21 @@ function attachGlow(glowEl) {
   const defs = document.getElementById('markerDefs');
   const id = 'glowg' + (++glowGradSeq);
   const grad = el('radialGradient', { id: id, cx: '50%', cy: '50%', r: '50%' });
+  // Der Knotenrand liegt bei ~54 % des Verlaufsradius (DESIGN_R / (DESIGN_R*1.9)).
+  // Innen transparent, direkt außerhalb der Kante das Maximum, danach ein langer
+  // weicher Auslauf - so entsteht ein glühender Hof statt einer harten Kante.
   const stops = [
     el('stop', { offset: '0%',   'stop-color': '#fff', 'stop-opacity': '0' }),
-    el('stop', { offset: '55%',  'stop-color': '#fff', 'stop-opacity': '0' }),
-    el('stop', { offset: '63%',  'stop-color': '#fff', 'stop-opacity': '0.85' }),
+    el('stop', { offset: '52%',  'stop-color': '#fff', 'stop-opacity': '0' }),
+    el('stop', { offset: '58%',  'stop-color': '#fff', 'stop-opacity': '0.8' }),
+    el('stop', { offset: '74%',  'stop-color': '#fff', 'stop-opacity': '0.22' }),
     el('stop', { offset: '100%', 'stop-color': '#fff', 'stop-opacity': '0' }),
   ];
   stops.forEach(function (s) { grad.appendChild(s); });
   if (defs) { defs.appendChild(grad); }
-  glowEl.setAttribute('r', (DESIGN_R * 1.78).toFixed(1)); // Halo reicht über den Knotenrand hinaus
+  glowEl.setAttribute('r', (DESIGN_R * 1.9).toFixed(1)); // Halo reicht über den Knotenrand hinaus
   glowEl.setAttribute('fill', 'url(#' + id + ')');
-  glowEl._glowStops = [stops[2], stops[3]]; // farb-/fadetragende Stops
+  glowEl._glowStops = [stops[2], stops[3], stops[4]]; // farb-/fadetragende Stops
   return glowEl;
 }
 function applyGlow(glowEl, color, magnitudeW) {
@@ -395,52 +409,30 @@ function el(tag, attrs) {
 // bis exakt R_MAX, dazu etwas Luft für die Corona.
 const R_CONTENT = R_MAX + 26;
 
-// Die viewBox wird an das TATSÄCHLICHE Seitenverhältnis der gerenderten
-// SVG-Box angepasst, statt fest zu sein. Eine feste viewBox hinterlässt bei
-// abweichendem Seitenverhältnis Leerraum (Letterboxing) - und da der Inhalt
-// darin nicht exakt mittig saß, wurde er nach unten gedrückt und konnte unten
-// abgeschnitten werden. Jetzt liegt das Zentrum immer exakt in der Mitte der
-// Box und der Inhalt nutzt die kürzere Seite voll aus.
-function fitViewBox() {
-  const svg = document.getElementById('svg');
-  const r = svg.getBoundingClientRect();
-  const w = Math.max(1, r.width);
-  const h = Math.max(1, r.height);
-  const aspect = w / h;
-  let vbW, vbH;
-  if (aspect >= 1) { vbH = 2 * R_CONTENT; vbW = vbH * aspect; }
-  else             { vbW = 2 * R_CONTENT; vbH = vbW / aspect; }
-  svg.setAttribute('viewBox',
-    (CX - vbW / 2).toFixed(2) + ' ' + (CY - vbH / 2).toFixed(2) + ' ' +
-    vbW.toFixed(2) + ' ' + vbH.toFixed(2));
-  layoutStatus();
-}
+// Die viewBox ist bewusst FEST und quadratisch (Zentrum CX/CY, Kantenlänge
+// 2*R_CONTENT) - sie umschließt den Inhalt exakt und symmetrisch. Das
+// Einpassen in die tatsächliche Kachelgröße übernimmt allein der Browser über
+// preserveAspectRatio="xMidYMid meet": der Inhalt wird an die kürzere Seite
+// gefittet und in der längeren zentriert - identisches Layout wie zuvor, aber
+// nativ und ohne JS.
+//
+// Früher wurde die viewBox per JS an das Seitenverhältnis nachgezogen. Das
+// klappte im Endzustand, hinkte beim laufenden Vergrößern/Verkleinern aber
+// einen Frame hinterher: für diesen Frame stand eine viewBox mit falschem
+// Seitenverhältnis in einer bereits neu dimensionierten Box - der Inhalt sprang
+// klein in eine Ecke ("halber Inhalt weg"). Mit fester viewBox gibt es diesen
+// Zwischenzustand nicht mehr. fitViewBox bleibt als No-op erhalten, damit
+// bestehende Aufrufer nicht ins Leere greifen.
+function fitViewBox() { /* viewBox ist fest - siehe Kommentar oben */ }
 
 // Statusplakette an der unteren linken Ecke der Zeichenfläche ausrichten und
 // auf die Textbreite zuschneiden (die Beschriftung wechselt: "Verbunden",
 // "Getrennt", "Keine Datenquelle").
-function layoutStatus() {
-  const svg = document.getElementById('svg');
-  const vb = (svg.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number);
-  if (vb.length !== 4 || vb.some(isNaN)) { return; }
-
-  const g    = document.getElementById('status');
-  const pill = document.getElementById('status-pill');
-  const txt  = document.getElementById('stateLabel');
-
-  let tw = 80;
-  try { tw = txt.getBBox().width; } catch (e) { /* noch nicht gerendert */ }
-  pill.setAttribute('width', (27 + tw + 13).toFixed(1));
-
-  const inset = 4;
-  g.setAttribute('transform',
-    'translate(' + (vb[0] + inset).toFixed(1) + ',' + (vb[1] + vb[3] - inset - 26).toFixed(1) + ')');
-}
-window.addEventListener('resize', fitViewBox);
-if (window.ResizeObserver) {
-  new ResizeObserver(fitViewBox).observe(document.documentElement);
-}
-fitViewBox();
+// Die Statusplakette liegt als HTML-Overlay fest in der unteren linken Ecke
+// (per CSS positioniert, Breite folgt dem Text automatisch) - sie braucht die
+// viewBox nicht mehr und wandert daher auch bei Resize nicht. layoutStatus
+// bleibt als No-op erhalten.
+function layoutStatus() { /* Overlay wird per CSS positioniert */ }
 
 // --- Münz-/Schlaglicht-Ebenen (nur für aktive Knoten) ---
 // Dunkle Bodenschattierung leicht nach unten versetzt - die Münze schwebt.

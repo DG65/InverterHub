@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.56.1-beta.1 (2026-07-20)
+
+- **Kachel: „halber Inhalt weg" beim Zoomen behoben.** Die SVG-viewBox wurde bisher
+  per JS an die jeweilige Kachelgröße nachgezogen. Im Endzustand stimmte das, beim
+  laufenden Vergrößern/Verkleinern hinkte es aber einen Frame hinterher - für diesen
+  Frame stand ein falsches Seitenverhältnis in einer bereits neu dimensionierten Box
+  und der Inhalt sprang klein in eine Ecke. Die viewBox ist jetzt fest und quadratisch;
+  das Einpassen macht allein der Browser (`xMidYMid meet`) - identisches Layout, aber
+  ohne Zwischenzustand. Verifiziert über breite/hohe/quadratische Kachelformate.
+- **Kachel: Statusplakette („Verbunden") als HTML-Overlay.** Sie lag im SVG und musste
+  aus der viewBox positioniert werden (was das Nachziehen mitverursachte). Jetzt klebt
+  sie per CSS fest in der unteren linken Ecke - unabhängig von der viewBox.
+- **Kachel: Corona weicher.** Der radiale Verlauf hatte eine schmale, harte helle Bande
+  (wirkte wie eine Kante). Jetzt: Maximum direkt an der Knotenkante mit langem weichem
+  Auslauf nach außen - ein glühender Hof statt einer Linie.
+
 ## 0.56.0-beta.1 (2026-07-20)
 
 - **Kachel: Corona als Vektor-Verlauf statt CSS-Blur.** Der Leucht-Halo um die Knotenpunkte
