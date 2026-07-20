@@ -22,6 +22,31 @@ class ModbusTcpClient
     // sind ab Werk auf CDAB gestellt und liefern sonst Datenmüll.
     public $floatWordSwap = false;
 
+    // Batch-Modus: eine offene Verbindung für viele Reads. Manche Geräte
+    // (z. B. Sungrow WiNet-S) erlauben nur EINE Modbus-Verbindung und lehnen
+    // schnelle Reconnects ab - dann fielen spätere Reads eines Zyklus aus.
+    private $batchSock = null;
+
+    // Öffnet eine wiederverwendbare Verbindung. Schlägt sie fehl, bleibt der
+    // Per-Read-Modus aktiv (kein Fehler).
+    public function beginBatch()
+    {
+        $this->endBatch();
+        $s = @fsockopen($this->host, $this->port, $errno, $errstr, 3.0);
+        if ($s !== false) {
+            stream_set_timeout($s, 3);
+            $this->batchSock = $s;
+        }
+    }
+
+    public function endBatch()
+    {
+        if ($this->batchSock !== null) {
+            @fclose($this->batchSock);
+            $this->batchSock = null;
+        }
+    }
+
     public function __construct($host, $port, $unitId)
     {
         $this->host   = $host;
@@ -36,11 +61,13 @@ class ModbusTcpClient
 
     public function readHolding($startReg, $count)
     {
-        $sock = @fsockopen($this->host, $this->port, $errno, $errstr, 3.0);
+        $sock = $this->batchSock ?: @fsockopen($this->host, $this->port, $errno, $errstr, 3.0);
         if ($sock === false) {
             return null;
         }
-        stream_set_timeout($sock, 3);
+        if ($this->batchSock === null) {
+            stream_set_timeout($sock, 3);
+        }
 
         $tid  = mt_rand(1, 65535);
         $pdu  = pack('Cnn', 0x03, $startReg, $count);
@@ -57,13 +84,18 @@ class ModbusTcpClient
             }
             $response .= $chunk;
             if (strlen($response) >= 9) {
+                if (ord($response[7]) & 0x80) {
+                    break; // Modbus-Exception (9-Byte-Antwort) - nicht auf mehr warten
+                }
                 $byteCount = ord($response[8]);
                 if (strlen($response) >= 9 + $byteCount) {
                     break;
                 }
             }
         }
-        fclose($sock);
+        if ($this->batchSock === null) {
+            fclose($sock);
+        }
 
         if (strlen($response) < 9) {
             return null;
@@ -88,11 +120,13 @@ class ModbusTcpClient
     // Mess-/Input-Register (0x04) von Holding-/Steuerregistern (0x03).
     public function readInput($startReg, $count)
     {
-        $sock = @fsockopen($this->host, $this->port, $errno, $errstr, 3.0);
+        $sock = $this->batchSock ?: @fsockopen($this->host, $this->port, $errno, $errstr, 3.0);
         if ($sock === false) {
             return null;
         }
-        stream_set_timeout($sock, 3);
+        if ($this->batchSock === null) {
+            stream_set_timeout($sock, 3);
+        }
 
         $tid  = mt_rand(1, 65535);
         $pdu  = pack('Cnn', 0x04, $startReg, $count);
@@ -109,13 +143,18 @@ class ModbusTcpClient
             }
             $response .= $chunk;
             if (strlen($response) >= 9) {
+                if (ord($response[7]) & 0x80) {
+                    break; // Modbus-Exception (9-Byte-Antwort) - nicht auf mehr warten
+                }
                 $byteCount = ord($response[8]);
                 if (strlen($response) >= 9 + $byteCount) {
                     break;
                 }
             }
         }
-        fclose($sock);
+        if ($this->batchSock === null) {
+            fclose($sock);
+        }
 
         if (strlen($response) < 9) {
             return null;
@@ -951,6 +990,19 @@ class SungrowDriver implements InverterDriverInterface
 
     public function readFast($mb, $hub)
     {
+        // Alle Reads eines Zyklus über EINE Verbindung (Batch): der Sungrow
+        // WiNet-S erlaubt nur eine Modbus-Verbindung und lehnt schnelle
+        // Reconnects ab - sonst fielen spätere Reads (z. B. der MPPT-Block) aus.
+        $mb->beginBatch();
+        try {
+            return $this->readFastInner($mb, $hub);
+        } finally {
+            $mb->endBatch();
+        }
+    }
+
+    private function readFastInner($mb, $hub)
+    {
         // String-Wechselrichter (SG-CX/„P2") haben den 13000er-Hybrid-Block NICHT
         // (Modbus-Exception) und legen ihre Daten ausschließlich im 5000er-Block
         // ab - mit gegenüber den Hybrid-Modellen um 1 nach unten verschobenen
@@ -1129,6 +1181,16 @@ class SungrowDriver implements InverterDriverInterface
     }
 
     public function readDeviceInfo($mb, $hub)
+    {
+        $mb->beginBatch();
+        try {
+            $this->readDeviceInfoInner($mb, $hub);
+        } finally {
+            $mb->endBatch();
+        }
+    }
+
+    private function readDeviceInfoInner($mb, $hub)
     {
         // String-WR (SG-CX/„P2"): Gerätetyp 4999, Nennleistung 5000 (×0,1 kW).
         // Hybrid-Modelle: Gerätetyp 5000, Nennleistung 5001.

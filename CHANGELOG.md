@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.52.0-beta.1 (2026-07-20)
+
+- **Modbus-Client: Batch-Modus (eine Verbindung je Lesezyklus).** Bisher oeffnete jeder Register-
+  Read eine eigene TCP-Verbindung. Geraete wie der Sungrow WiNet-S erlauben nur EINE Modbus-
+  Verbindung und lehnen schnelle Reconnects ab - dadurch fielen spaetere Reads eines Zyklus aus
+  (z. B. Sungrow-String MPPT 4-12 blieben leer). Der Sungrow-Treiber liest jetzt den ganzen
+  Zyklus ueber eine offene Verbindung. Zusaetzlich bricht die Lese-Schleife bei einer Modbus-
+  Exception sofort ab (kein 3-s-Timeout mehr, z. B. beim String-Erkennungs-Probe auf 13000).
+
 ## 0.51.3-beta.1 (2026-07-20)
 
 - **Sungrow String: MPPT 4-12 kamen nicht an.** Der erweiterte MPPT-Block wird jetzt ab dem
