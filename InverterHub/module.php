@@ -920,10 +920,13 @@ class SungrowDriver implements InverterDriverInterface
                 ['mppt12_volt','MPPT12 Spannung','F', 'SGW.Volt',   false, 'pv', 'RO 5136'],
                 ['mppt12_curr','MPPT12 Strom',   'F', 'SGW.Ampere', false, 'pv', 'RO 5137'],
             ]],
-            'GroupGrid' => ['caption' => 'Netz (Spannung, Blindleistung, Power Factor, Frequenz)', 'vars' => [
+            'GroupGrid' => ['caption' => 'Netz (Spannung, Strom, Blindleistung, Power Factor, Frequenz)', 'vars' => [
                 ['grid_v1',      'Netz Spannung 1', 'F', 'SGW.Volt',   false, 'grid', 'RO 5019'],
                 ['grid_v2',      'Netz Spannung 2', 'F', 'SGW.Volt',   false, 'grid', 'RO 5020'],
                 ['grid_v3',      'Netz Spannung 3', 'F', 'SGW.Volt',   false, 'grid', 'RO 5021'],
+                ['grid_c1',      'Netz Strom 1',    'F', 'SGW.Ampere', false, 'grid', 'RO 5022 (String)'],
+                ['grid_c2',      'Netz Strom 2',    'F', 'SGW.Ampere', false, 'grid', 'RO 5023 (String)'],
+                ['grid_c3',      'Netz Strom 3',    'F', 'SGW.Ampere', false, 'grid', 'RO 5024 (String)'],
                 ['grid_reactive','Blindleistung',    'F', 'SGW.WattReactive', false, 'grid', 'RO 5033-5034'],
                 ['power_factor', 'Power Factor',     'F', 'SGW.PowerFactor',  false, 'grid', 'RO 5035'],
                 ['grid_freq',    'Netzfrequenz',     'F', 'SGW.Hertz',        false, 'grid', 'RO 5242'],
@@ -1151,6 +1154,9 @@ class SungrowDriver implements InverterDriverInterface
             $hub->SetVarFloat('grid_v1', ($b[18] ?? 0) / 10.0);  // 5018-5020 Phasen U
             $hub->SetVarFloat('grid_v2', ($b[19] ?? 0) / 10.0);
             $hub->SetVarFloat('grid_v3', ($b[20] ?? 0) / 10.0);
+            $hub->SetVarFloat('grid_c1', ($b[21] ?? 0) / 10.0);  // 5021-5023 Phasen I
+            $hub->SetVarFloat('grid_c2', ($b[22] ?? 0) / 10.0);
+            $hub->SetVarFloat('grid_c3', ($b[23] ?? 0) / 10.0);
             $hub->SetVarFloat('grid_reactive', (float)$s32(32));  // 5032-5033 Blindleistung
             $hub->SetVarFloat('power_factor',  $s16(34) / 1000.0);// 5034 Power Factor
             $hub->SetVarFloat('grid_freq',     ($b[35] ?? 0) / 10.0); // 5035 Frequenz (×0,1)

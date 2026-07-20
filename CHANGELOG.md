@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.52.1-beta.1 (2026-07-20)
+
+- **Sungrow String: Phasenstroeme.** Netz Strom L1/L2/L3 (Register 5021-5023) ergaenzt -
+  fuer die grossen CX-Modelle im Netz-Ordner.
+
 ## 0.52.0-beta.1 (2026-07-20)
 
 - **Modbus-Client: Batch-Modus (eine Verbindung je Lesezyklus).** Bisher oeffnete jeder Register-
