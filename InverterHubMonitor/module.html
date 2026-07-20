@@ -6,6 +6,12 @@
   html, body { margin: 0; height: 100%; background: transparent; }
   .wrap { box-sizing: border-box; height: 100vh; display: flex; flex-direction: column; padding: 52px 12px 10px; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   #bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  #body { display: flex; flex: 1 1 auto; min-height: 0; gap: 10px; margin-top: 8px; }
+  #tabs { display: flex; flex-direction: column; gap: 4px; flex: 0 0 auto; padding-top: 2px; }
+  button.tab { font: inherit; font-size: 12px; font-weight: 600; text-align: left; white-space: nowrap; padding: 7px 12px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: inherit; cursor: pointer; opacity: .6; }
+  button.tab:hover { opacity: .85; background: rgba(127,135,145,.10); }
+  button.tab.active { opacity: 1; background: rgba(127,135,145,.16); border-color: rgba(127,135,145,.35); }
+  #chartcol { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
   button.nav { font: inherit; font-size: 14px; line-height: 1; width: 30px; height: 30px; border-radius: 8px; border: 1px solid rgba(127,135,145,.35); background: rgba(127,135,145,.12); color: inherit; cursor: pointer; }
   button.nav:disabled { opacity: .35; cursor: default; }
   input.pick, select.pick, select.sel { font: inherit; font-size: 13px; font-weight: 600; padding: 4px 8px; border-radius: 8px; border: 1px solid rgba(127,135,145,.35); background: rgba(127,135,145,.12); color: inherit; cursor: pointer; }
@@ -23,11 +29,14 @@
       <span id="pickwrap"></span>
       <button id="next" class="nav" title="Vor">&#9654;</button>
     </div>
-    <div id="chart"></div>
+    <div id="body">
+      <div id="tabs"></div>
+      <div id="chartcol"><div id="chart"></div></div>
+    </div>
   </div>
 
   <script>
-    var lastData = null, curType = null, curIdx = 0, chart = null, chartEngine = null, libs = { hc: 0, ec: 0 };
+    var lastData = null, curType = null, curIdx = 0, curTab = null, chart = null, chartEngine = null, libs = { hc: 0, ec: 0 };
     // Legenden-Sichtbarkeit je Kurven-Label (true/false). Bleibt über Zeitraum-
     // und Ansichtswechsel erhalten, damit die Auswahl nicht zurückgesetzt wird.
     var vis = {};
@@ -44,28 +53,59 @@
       document.documentElement.style.background = data.bg ? data.bg : 'transparent';
       applyTheme(data);
       var ctl = ['type', 'prev', 'pickwrap', 'next'];
-      if (!data.ok || !data.types) {
+      if (!data.ok || !data.types || !data.tabs || !data.tabs.length) {
         destroyChart();
         ctl.forEach(function (id) { document.getElementById(id).style.display = 'none'; });
+        document.getElementById('tabs').innerHTML = '';
         document.getElementById('chart').innerHTML = '<div class="empty">' + (data.stateLabel || 'Keine Daten') + '</div>';
         return;
       }
       ctl.forEach(function (id) { document.getElementById(id).style.display = ''; });
+      if (!curTab || !tabByKey(curTab)) { curTab = data.defaultTab || data.tabs[0].key; }
+      buildTabs(data);
       buildTypeSelect(data);
-      if (!curType || !data.types[curType] || !data.types[curType].periods.length) { curType = data.defaultType || 'day'; curIdx = 0; }
+      if (!curType || activeTab().types.indexOf(curType) < 0) { curType = activeTab().types[0]; curIdx = 0; }
       if (curIdx >= data.types[curType].periods.length) { curIdx = 0; }
       document.getElementById('type').value = curType;
       buildPicker();
       render();
     }
 
+    function tabByKey(k) { return (lastData.tabs || []).filter(function (t) { return t.key === k; })[0] || null; }
+    function activeTab() { return tabByKey(curTab) || (lastData.tabs || [])[0]; }
+
+    function buildTabs(data) {
+      var wrap = document.getElementById('tabs');
+      wrap.style.display = (data.tabs.length <= 1) ? 'none' : '';
+      wrap.innerHTML = '';
+      data.tabs.forEach(function (t) {
+        var b = document.createElement('button');
+        b.className = 'tab' + (t.key === curTab ? ' active' : '');
+        b.textContent = t.label;
+        b.onclick = function () {
+          if (curTab === t.key) { return; }
+          curTab = t.key;
+          Array.prototype.forEach.call(wrap.children, function (c) { c.classList.remove('active'); });
+          b.classList.add('active');
+          if (activeTab().types.indexOf(curType) < 0) { curType = activeTab().types[0]; }
+          curIdx = Math.min(curIdx, periods().length - 1); if (curIdx < 0) { curIdx = 0; }
+          buildTypeSelect(lastData);
+          document.getElementById('type').value = curType;
+          buildPicker();
+          render();
+        };
+        wrap.appendChild(b);
+      });
+    }
+
     function periods() { return (lastData.types[curType] || {}).periods || []; }
     function idxById(arr, id) { for (var i = 0; i < arr.length; i++) { if (arr[i].id === id) { return i; } } return -1; }
 
     function buildTypeSelect(data) {
-      var sel = document.getElementById('type'), html = '';
-      ORDER.forEach(function (t) { if (data.types[t] && data.types[t].periods.length) { html += '<option value="' + t + '">' + (TYPENAME[t] || t) + '</option>'; } });
+      var sel = document.getElementById('type'), html = '', allow = activeTab().types;
+      ORDER.forEach(function (t) { if (allow.indexOf(t) >= 0 && data.types[t] && data.types[t].periods.length) { html += '<option value="' + t + '">' + (TYPENAME[t] || t) + '</option>'; } });
       sel.innerHTML = html;
+      sel.style.display = (sel.options.length <= 1) ? 'none' : '';
       sel.onchange = function () { curType = this.value; curIdx = 0; buildPicker(); render(); };
     }
 
@@ -102,7 +142,8 @@
     function render() {
       syncNav(); sizeChart();
       var engine = (lastData.engine === 'highcharts') ? 'highcharts' : 'echarts';
-      var p = periods()[curIdx], has = p && (p.series || []).some(function (s) { return s && s.length; });
+      var p = periods()[curIdx], idx = activeTab().idx;
+      var has = p && idx.some(function (i) { var s = p.series[i]; return s && s.length; });
       var el = document.getElementById('chart');
       if (!has) { destroyChart(); el.innerHTML = '<div class="empty">Keine Archivdaten für diesen Zeitraum</div>'; return; }
       ensureLib(engine, function () {
@@ -146,8 +187,9 @@
     // den Kurven, die nachts auf ~0 fallen (Leistung/Einstrahlung). Serien, die
     // nicht auf null gehen (Temperatur, Spannung), bleiben unberücksichtigt.
     function prodWindow() {
-      var day = periods()[curIdx], lo = null, hi = null;
-      (day.series || []).forEach(function (pts) {
+      var day = periods()[curIdx], lo = null, hi = null, idx = activeTab().idx;
+      idx.forEach(function (i) {
+        var pts = day.series[i];
         if (!pts || !pts.length) { return; }
         var max = -Infinity, min = Infinity, j;
         for (j = 0; j < pts.length; j++) { var v = pts[j][1]; if (v > max) { max = v; } if (v < min) { min = v; } }
@@ -168,9 +210,11 @@
 
     // ---- Highcharts ----
     function buildHC() {
-      var T = theme(), tp = lastData.types[curType], p = tp.periods[curIdx], meta = lastData.seriesMeta, el = document.getElementById('chart');
+      var T = theme(), tp = lastData.types[curType], p = tp.periods[curIdx], el = document.getElementById('chart');
+      var tab = activeTab(), units = tab.units[curType] || { left: '', right: '' };
       var bar = (tp.mode === 'bar');
-      var series = meta.map(function (m, i) {
+      var series = tab.idx.map(function (i) {
+        var m = lastData.seriesMeta[i];
         return { name: m.label, type: bar ? 'column' : 'line', data: p.series[i] || [], color: m.color, yAxis: (m.axis === 'right' ? 1 : 0), lineWidth: 1.6, marker: { enabled: false }, visible: isVisible(m.label) };
       });
       var xAxis = bar
@@ -182,8 +226,8 @@
         legend: { enabled: true, itemStyle: { color: T.TEXT, fontSize: '11px', fontWeight: '400' }, itemHoverStyle: { color: T.TEXT } },
         xAxis: xAxis,
         yAxis: [
-          { title: { text: tp.leftUnit || '', style: { color: T.MUTED } }, gridLineColor: T.GRID, labels: { style: { color: T.MUTED, fontSize: '10px' } } },
-          { title: { text: tp.rightUnit || '', style: { color: T.MUTED } }, opposite: true, gridLineWidth: 0, labels: { style: { color: T.MUTED, fontSize: '10px' } } }
+          { title: { text: units.left || '', style: { color: T.MUTED } }, gridLineColor: T.GRID, labels: { style: { color: T.MUTED, fontSize: '10px' } } },
+          { title: { text: units.right || '', style: { color: T.MUTED } }, opposite: true, gridLineWidth: 0, labels: { style: { color: T.MUTED, fontSize: '10px' } } }
         ],
         tooltip: { shared: true, backgroundColor: T.TIP, borderColor: T.GRID, style: { color: T.TEXT, fontSize: '11px' }, xDateFormat: '%d.%m. %H:%M', valueDecimals: (bar ? 1 : 1) },
         plotOptions: { series: { animation: false, states: { inactive: { opacity: 1 } }, events: { legendItemClick: function () { vis[this.name] = !this.visible; } } }, column: { borderWidth: 0, groupPadding: 0.08 } },
@@ -194,9 +238,11 @@
 
     // ---- ECharts ----
     function buildEC() {
-      var T = theme(), tp = lastData.types[curType], p = tp.periods[curIdx], meta = lastData.seriesMeta, el = document.getElementById('chart');
+      var T = theme(), tp = lastData.types[curType], p = tp.periods[curIdx], el = document.getElementById('chart');
+      var tab = activeTab(), units = tab.units[curType] || { left: '', right: '' }, meta = lastData.seriesMeta;
       var bar = (tp.mode === 'bar');
-      var series = meta.map(function (m, i) {
+      var series = tab.idx.map(function (i) {
+        var m = meta[i];
         if (bar) { return { name: m.label, type: 'bar', data: p.series[i] || [], yAxisIndex: (m.axis === 'right' ? 1 : 0), itemStyle: { color: m.color } }; }
         return { name: m.label, type: 'line', showSymbol: false, smooth: false, data: p.series[i] || [], yAxisIndex: (m.axis === 'right' ? 1 : 0), lineStyle: { color: m.color, width: 1.6 }, itemStyle: { color: m.color } };
       });
@@ -221,8 +267,8 @@
           } },
         xAxis: xAxis,
         yAxis: [
-          { type: 'value', name: tp.leftUnit || '', nameTextStyle: { color: T.MUTED, fontSize: 10 }, axisLabel: { color: T.MUTED, fontSize: 10 }, axisLine: { show: false }, splitLine: { lineStyle: { color: T.GRID } } },
-          { type: 'value', name: tp.rightUnit || '', nameTextStyle: { color: T.MUTED, fontSize: 10 }, position: 'right', axisLabel: { color: T.MUTED, fontSize: 10 }, axisLine: { show: false }, splitLine: { show: false } }
+          { type: 'value', name: units.left || '', nameTextStyle: { color: T.MUTED, fontSize: 10 }, axisLabel: { color: T.MUTED, fontSize: 10 }, axisLine: { show: false }, splitLine: { lineStyle: { color: T.GRID } } },
+          { type: 'value', name: units.right || '', nameTextStyle: { color: T.MUTED, fontSize: 10 }, position: 'right', axisLabel: { color: T.MUTED, fontSize: 10 }, axisLine: { show: false }, splitLine: { show: false } }
         ],
         series: series
       };

@@ -36,24 +36,35 @@ class InverterHubMonitor extends IPSModule
     // Verlaufs-Linie (Tag), „energy" die Energie-Balken (Monat/Jahr, Max−Min).
     // Fehlt „energy", wird für die Energie-Balken aus der Leistung integriert.
     // „noEnergy" => keine sinnvolle Energie (SOC/Temperatur) → nur Tages-Linie.
+    // „groups" => in welchen seitlichen Reitern der Wert erscheint (ein Wert
+    //   kann in mehreren Reitern auftauchen, z. B. PV in „Leistung" und „PV").
     private const CATALOG = [
-        'pv'      => ['label' => 'PV-Erzeugung',       'power' => ['pv_total'],                 'energy' => ['e_pv_total'],                       'color' => '#e0a020', 'axis' => 'left',  'unit' => 'W',    'default' => true],
-        'load'    => ['label' => 'Verbrauch',          'power' => [],                            'energy' => ['e_load_total', 'e_load_day'],        'color' => '#f0883e', 'axis' => 'left',  'unit' => 'W',    'default' => true],
-        'gridbuy' => ['label' => 'Netzbezug',          'power' => [],                            'energy' => ['e_buy_total', 'e_buy_day'],          'color' => '#4aa3e0', 'axis' => 'left',  'unit' => 'W',    'default' => true],
-        'gridsell'=> ['label' => 'Einspeisung',        'power' => [],                            'energy' => ['e_sell_total', 'e_sell_day'],        'color' => '#26a69a', 'axis' => 'left',  'unit' => 'W',    'default' => true],
-        'grid'    => ['label' => 'Netzleistung',       'power' => ['meter_total'],               'energy' => [],                                    'color' => '#7e9fb5', 'axis' => 'left',  'unit' => 'W',    'default' => false],
-        'bcharge' => ['label' => 'Batterie laden',     'power' => [],                            'energy' => ['e_charge_total', 'e_charge_day'],    'color' => '#5fcb6b', 'axis' => 'left',  'unit' => 'W',    'default' => false],
-        'bdisch'  => ['label' => 'Batterie entladen',  'power' => [],                            'energy' => ['e_disch_total', 'e_disch_day'],      'color' => '#2e7d32', 'axis' => 'left',  'unit' => 'W',    'default' => false],
-        'bat'     => ['label' => 'Batterie-Leistung',  'power' => ['bat_total_pwr', 'bat_power'], 'energy' => [],                                   'color' => '#43a047', 'axis' => 'left',  'unit' => 'W',    'default' => false],
-        'ac'      => ['label' => 'AC-Wirkleistung',    'power' => ['ac_power'],                  'energy' => [],                                    'color' => '#e05b4a', 'axis' => 'left',  'unit' => 'W',    'default' => false],
-        'inv'     => ['label' => 'Inverter gesamt',    'power' => ['inv_total'],                 'energy' => [],                                    'color' => '#c2185b', 'axis' => 'left',  'unit' => 'W',    'default' => false],
-        'mppt1'   => ['label' => 'MPPT 1',             'power' => ['mppt1_power'],               'energy' => [],                                    'color' => '#f4a742', 'axis' => 'left',  'unit' => 'W',    'default' => false],
-        'mppt2'   => ['label' => 'MPPT 2',             'power' => ['mppt2_power'],               'energy' => [],                                    'color' => '#f47a42', 'axis' => 'left',  'unit' => 'W',    'default' => false],
-        'mppt3'   => ['label' => 'MPPT 3',             'power' => ['mppt3_power'],               'energy' => [],                                    'color' => '#f45a42', 'axis' => 'left',  'unit' => 'W',    'default' => false],
-        'mppt4'   => ['label' => 'MPPT 4',             'power' => ['mppt4_power'],               'energy' => [],                                    'color' => '#f43a42', 'axis' => 'left',  'unit' => 'W',    'default' => false],
-        'soc'     => ['label' => 'Batterie-SOC',       'power' => ['soc', 'bat_soc'],            'energy' => [],                'noEnergy' => true, 'color' => '#9575cd', 'axis' => 'right', 'unit' => '%',    'default' => false],
-        'temp'    => ['label' => 'Modultemperatur',    'power' => ['temp_module', 'temp_cab'],   'energy' => [],                'noEnergy' => true, 'color' => '#78909c', 'axis' => 'right', 'unit' => '°C',   'default' => false],
-        'riso'    => ['label' => 'Isolationswiderstand','power' => ['riso'],                     'energy' => [],                'noEnergy' => true, 'color' => '#8d6e63', 'axis' => 'right', 'unit' => 'kΩ',   'default' => false],
+        'pv'      => ['label' => 'PV-Erzeugung',       'power' => ['pv_total'],                 'energy' => ['e_pv_total'],                       'color' => '#e0a020', 'axis' => 'left',  'unit' => 'W',    'default' => true,  'groups' => ['energy', 'pv']],
+        'load'    => ['label' => 'Verbrauch',          'power' => [],                            'energy' => ['e_load_total', 'e_load_day'],        'color' => '#f0883e', 'axis' => 'left',  'unit' => 'W',    'default' => true,  'groups' => ['energy']],
+        'gridbuy' => ['label' => 'Netzbezug',          'power' => [],                            'energy' => ['e_buy_total', 'e_buy_day'],          'color' => '#4aa3e0', 'axis' => 'left',  'unit' => 'W',    'default' => true,  'groups' => ['energy']],
+        'gridsell'=> ['label' => 'Einspeisung',        'power' => [],                            'energy' => ['e_sell_total', 'e_sell_day'],        'color' => '#26a69a', 'axis' => 'left',  'unit' => 'W',    'default' => true,  'groups' => ['energy']],
+        'grid'    => ['label' => 'Netzleistung',       'power' => ['meter_total'],               'energy' => [],                                    'color' => '#7e9fb5', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['energy']],
+        'bcharge' => ['label' => 'Batterie laden',     'power' => [],                            'energy' => ['e_charge_total', 'e_charge_day'],    'color' => '#5fcb6b', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['energy', 'battery']],
+        'bdisch'  => ['label' => 'Batterie entladen',  'power' => [],                            'energy' => ['e_disch_total', 'e_disch_day'],      'color' => '#2e7d32', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['energy', 'battery']],
+        'bat'     => ['label' => 'Batterie-Leistung',  'power' => ['bat_total_pwr', 'bat_power'], 'energy' => [],                                   'color' => '#43a047', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['battery']],
+        'ac'      => ['label' => 'AC-Wirkleistung',    'power' => ['ac_power'],                  'energy' => [],                                    'color' => '#e05b4a', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['energy']],
+        'inv'     => ['label' => 'Inverter gesamt',    'power' => ['inv_total'],                 'energy' => [],                                    'color' => '#c2185b', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['pv']],
+        'mppt1'   => ['label' => 'MPPT 1',             'power' => ['mppt1_power'],               'energy' => [],                                    'color' => '#f4a742', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['pv']],
+        'mppt2'   => ['label' => 'MPPT 2',             'power' => ['mppt2_power'],               'energy' => [],                                    'color' => '#f47a42', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['pv']],
+        'mppt3'   => ['label' => 'MPPT 3',             'power' => ['mppt3_power'],               'energy' => [],                                    'color' => '#f45a42', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['pv']],
+        'mppt4'   => ['label' => 'MPPT 4',             'power' => ['mppt4_power'],               'energy' => [],                                    'color' => '#f43a42', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['pv']],
+        'soc'     => ['label' => 'Batterie-SOC',       'power' => ['soc', 'bat_soc'],            'energy' => [],                'noEnergy' => true, 'color' => '#9575cd', 'axis' => 'right', 'unit' => '%',    'default' => false, 'groups' => ['battery']],
+        'temp'    => ['label' => 'Modultemperatur',    'power' => ['temp_module', 'temp_cab'],   'energy' => [],                'noEnergy' => true, 'color' => '#78909c', 'axis' => 'left',  'unit' => '°C',   'default' => false, 'groups' => ['diag']],
+        'riso'    => ['label' => 'Isolationswiderstand','power' => ['riso'],                     'energy' => [],                'noEnergy' => true, 'color' => '#8d6e63', 'axis' => 'right', 'unit' => 'kΩ',   'default' => false, 'groups' => ['diag']],
+    ];
+
+    // Seitliche Reiter (Reihenfolge = Anzeige). Ein Reiter erscheint nur, wenn
+    // mindestens einer seiner Werte angekreuzt/vorhanden ist.
+    private const TABS = [
+        'energy'  => 'Leistung & Energie',
+        'pv'      => 'PV & Strings',
+        'battery' => 'Batterie',
+        'diag'    => 'Diagnose',
     ];
 
     private const IRR_COLOR = '#ffb300';
@@ -132,6 +143,7 @@ class InverterHubMonitor extends IPSModule
             'items' => [
                 ['type' => 'Label', 'caption' => '1. InverterHub-Instanz als Quelle wählen und „Änderungen übernehmen". 2. Danach erscheinen unten die vorhandenen, archivierten Werte zum Ankreuzen. Farben, Achse und Einheit sind je Wert voreingestellt.'],
                 ['type' => 'Label', 'caption' => 'Ansichten in der Kachel: „Tag (Verlauf)" zeigt die Leistungs-Zeitreihe (~5-Min). „Monat/Jahr (Energie)" zeigen Energie-Balken aus dem Zähler-Zuwachs (Energiewerte wie „PV Gesamt", „Bezug", „Einspeisung") bzw. — bei reinen Leistungswerten — integriert.'],
+                ['type' => 'Label', 'caption' => 'Die Werte sind in der Kachel auf seitliche Reiter gruppiert (Leistung & Energie / PV & Strings / Batterie / Diagnose), damit unterschiedliche Einheiten (W, %, °C, kΩ, W/m²) nicht auf einer Achse kollidieren.'],
                 ['type' => 'Label', 'caption' => 'Verschmutzung/Defekt erkennen: PV-Erzeugung (links) + Einstrahlungssensor W/m² (rechts) ankreuzen. An sauberen Tagen laufen beide proportional; fällt die Leistung relativ ab → Reinigung/Defekt prüfen.'],
             ],
         ];
@@ -222,6 +234,7 @@ class InverterHubMonitor extends IPSModule
                     'axis'      => $def['axis'],
                     'unit'      => $def['unit'],
                     'noEnergy'  => !empty($def['noEnergy']),
+                    'groups'    => $def['groups'],
                     'isIrr'     => false,
                     'powerVid'  => $powerVid,
                     'energyVid' => $energyVid,
@@ -237,6 +250,7 @@ class InverterHubMonitor extends IPSModule
                 'axis'      => 'right',
                 'unit'      => 'W/m²',
                 'noEnergy'  => false,
+                'groups'    => ['pv'],
                 'isIrr'     => true,
                 'powerVid'  => $irr,   // wird zu kWh/m² integriert
                 'energyVid' => 0,
@@ -271,18 +285,42 @@ class InverterHubMonitor extends IPSModule
         foreach ($series as $s) {
             $meta[] = ['label' => $s['label'], 'color' => $s['color'], 'axis' => $s['axis'], 'unit' => $s['unit']];
         }
-        // Achsen-Einheiten: Verlauf (Leistung) vs. Energie.
-        $leftUnit = ''; $rightUnit = ''; $leftEUnit = 'kWh'; $rightEUnit = 'kWh';
-        foreach ($series as $s) {
-            if ($s['axis'] === 'right' && $rightUnit === '') {
-                $rightUnit = $s['unit'];
-                $rightEUnit = $s['isIrr'] ? 'kWh/m²' : ($s['noEnergy'] ? $s['unit'] : 'kWh');
+
+        // Seitliche Reiter: je Gruppe die Serienindizes + eigene Achsen-Einheiten.
+        $tabs = [];
+        foreach (self::TABS as $gkey => $glabel) {
+            $idx = []; $hasEnergy = false;
+            $dayLeft = ''; $dayRight = ''; $eRight = 'kWh';
+            foreach ($series as $i => $s) {
+                if (!in_array($gkey, $s['groups'], true)) {
+                    continue;
+                }
+                $idx[] = $i;
+                if (empty($s['noEnergy'])) { $hasEnergy = true; }
+                if ($s['axis'] === 'right') {
+                    if ($dayRight === '') { $dayRight = $s['unit']; }
+                    if ($s['isIrr']) { $eRight = 'kWh/m²'; }
+                } else {
+                    if ($dayLeft === '') { $dayLeft = $s['unit']; }
+                }
             }
-            if ($s['axis'] !== 'right' && $leftUnit === '') {
-                $leftUnit = $s['unit'];
+            if (count($idx) === 0) {
+                continue;
             }
+            if ($dayLeft === '') { $dayLeft = $dayRight !== '' ? $dayRight : 'W'; }
+            $types = $hasEnergy ? ['day', 'month', 'year'] : ['day'];
+            $tabs[] = [
+                'key'   => $gkey,
+                'label' => $glabel,
+                'idx'   => $idx,
+                'types' => $types,
+                'units' => [
+                    'day'   => ['left' => $dayLeft, 'right' => $dayRight],
+                    'month' => ['left' => 'kWh',    'right' => $eRight],
+                    'year'  => ['left' => 'kWh',    'right' => $eRight],
+                ],
+            ];
         }
-        if ($leftUnit === '') { $leftUnit = 'W'; }
 
         // --- Verlauf je Tag (5-Minuten-Linie, Leistung) ---
         $dayPeriods = [];
@@ -329,11 +367,13 @@ class InverterHubMonitor extends IPSModule
         return json_encode(array_merge($style, [
             'ok'          => true,
             'defaultType' => 'day',
+            'defaultTab'  => $tabs[0]['key'] ?? 'energy',
             'seriesMeta'  => $meta,
+            'tabs'        => $tabs,
             'types'       => [
-                'day'   => ['mode' => 'line', 'leftUnit' => $leftUnit,  'rightUnit' => $rightUnit,  'periods' => $dayPeriods],
-                'month' => ['mode' => 'bar',  'leftUnit' => $leftEUnit, 'rightUnit' => $rightEUnit, 'periods' => $monthPeriods],
-                'year'  => ['mode' => 'bar',  'leftUnit' => $leftEUnit, 'rightUnit' => $rightEUnit, 'periods' => $yearPeriods],
+                'day'   => ['mode' => 'line', 'periods' => $dayPeriods],
+                'month' => ['mode' => 'bar',  'periods' => $monthPeriods],
+                'year'  => ['mode' => 'bar',  'periods' => $yearPeriods],
             ],
         ]));
     }

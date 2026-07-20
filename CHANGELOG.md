@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.42.0-beta.1 (2026-07-20)
+
+- **Monitoring: seitliche Reiter statt Werte-Überlagerung.** Bisher trafen alle Kurven auf
+  einer Achse zusammen — Werte mit anderen Einheiten (SOC %, Einstrahlung W/m², Temperatur °C,
+  Isolationswiderstand kΩ) wurden dabei unbrauchbar an den Rand gequetscht. Die Werte sind
+  jetzt in **thematische Reiter links** gruppiert, jeder mit passenden Achsen:
+  - **Leistung & Energie** — PV, Verbrauch, Netzbezug/Einspeisung, Netzleistung, AC, Batterie
+    laden/entladen (W bzw. kWh).
+  - **PV & Strings** — PV, MPPT 1-4, Inverter gesamt und der Einstrahlungssensor (W links,
+    W/m² rechts) — die Ansicht für die Verschmutzungs-/Defekterkennung.
+  - **Batterie** — Batterie-Leistung/SOC.
+  - **Diagnose** — Modultemperatur (°C) und Isolationswiderstand (kΩ).
+  Ein Reiter erscheint nur, wenn er belegte Werte hat; Reiter ohne sinnvolle Energie (Diagnose)
+  zeigen nur den Tagesverlauf. Die Zeitraum-Steuerung (Tag/Monat/Jahr, ◄ ►, Kalender) bleibt oben.
+
 ## 0.41.1-beta.1 (2026-07-20)
 
 - **Monitoring: ausgeblendete Kurven bleiben erhalten.** Beim Datums-/Zeitraum- oder
