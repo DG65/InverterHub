@@ -254,13 +254,14 @@
       var bar = (tp.mode === 'bar');
       var series = tab.idx.map(function (i) {
         var m = lastData.seriesMeta[i];
-        return { name: m.label, type: bar ? 'column' : 'line', data: p.series[i] || [], color: m.color, yAxis: (m.axis === 'right' ? 1 : 0), lineWidth: 1.6, marker: { enabled: false }, visible: isVisible(m.label) };
+        var u = (m.axis === 'right') ? (units.right || '') : (units.left || '');
+        return { name: m.label, type: bar ? 'column' : 'line', data: p.series[i] || [], color: m.color, yAxis: (m.axis === 'right' ? 1 : 0), lineWidth: 1.6, marker: { enabled: false }, visible: isVisible(m.label), tooltip: { valueSuffix: u ? ' ' + u : '' } };
       });
       var xAxis = bar
         ? { type: 'category', categories: p.cats || [], gridLineWidth: 0, lineColor: T.GRID, tickLength: 0, labels: { style: { color: T.MUTED, fontSize: '10px' } } }
         : (function () { var w = prodWindow(); var a = { type: 'datetime', gridLineWidth: 1, gridLineColor: T.GRID, lineColor: T.GRID, tickLength: 0, labels: { style: { color: T.MUTED, fontSize: '10px' } } }; if (w) { a.min = w[0]; a.max = w[1]; } return a; })();
       var options = {
-        chart: { backgroundColor: 'transparent', style: { fontFamily: T.font }, animation: false, height: el.clientHeight, spacingTop: 6, marginRight: 14 },
+        chart: { backgroundColor: 'transparent', style: { fontFamily: T.font }, animation: false, height: el.clientHeight, spacingTop: 6, marginRight: 14, alignTicks: false },
         title: { text: undefined }, credits: { enabled: false }, exporting: { enabled: false },
         legend: { enabled: true, itemStyle: { color: T.TEXT, fontSize: '11px', fontWeight: '400' }, itemHoverStyle: { color: T.TEXT } },
         xAxis: xAxis,
@@ -268,7 +269,7 @@
           { title: { text: units.left || '', style: { color: T.MUTED } }, gridLineColor: T.GRID, labels: { style: { color: T.MUTED, fontSize: '10px' } } },
           { title: { text: units.right || '', style: { color: T.MUTED } }, opposite: true, gridLineWidth: 0, labels: { style: { color: T.MUTED, fontSize: '10px' } } }
         ],
-        tooltip: { shared: true, backgroundColor: T.TIP, borderColor: T.GRID, style: { color: T.TEXT, fontSize: '11px' }, xDateFormat: '%d.%m. %H:%M', valueDecimals: (bar ? 1 : 1) },
+        tooltip: { shared: true, backgroundColor: T.TIP, borderColor: T.GRID, style: { color: T.TEXT, fontSize: '11px' }, xDateFormat: '%d.%m.%Y %H:%M', valueDecimals: 2 },
         plotOptions: { series: { animation: false, states: { inactive: { opacity: 1 } }, events: { legendItemClick: function () { vis[this.name] = !this.visible; } } }, column: { borderWidth: 0, groupPadding: 0.08 } },
         series: series
       };
@@ -279,6 +280,7 @@
     function buildEC() {
       var T = theme(), tp = lastData.types[curType], p = activePeriod(), el = document.getElementById('chart');
       var tab = activeTab(), units = tab.units[curType] || { left: '', right: '' }, meta = lastData.seriesMeta;
+      function unitFor(name) { for (var k = 0; k < meta.length; k++) { if (meta[k].label === name) { return meta[k].axis === 'right' ? (units.right || '') : (units.left || ''); } } return units.left || ''; }
       var bar = (tp.mode === 'bar');
       var series = tab.idx.map(function (i) {
         var m = meta[i];
@@ -299,9 +301,13 @@
             if (!ps || !ps.length) { return ''; }
             var head;
             if (bar) { head = ps[0].axisValue; }
-            else { var d = new Date(ps[0].value[0]); head = p2(d.getDate()) + '.' + p2(d.getMonth() + 1) + '. ' + p2(d.getHours()) + ':' + p2(d.getMinutes()); }
+            else { var d = new Date(ps[0].value[0]); head = p2(d.getDate()) + '.' + p2(d.getMonth() + 1) + '.' + d.getFullYear() + ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes()); }
             var h = '<div style="font-weight:500;margin-bottom:2px">' + head + '</div>';
-            ps.forEach(function (s) { var v = bar ? s.value : s.value[1]; if (v === null || v === undefined) { return; } h += '<div><span style="color:' + s.color + '">●</span> ' + s.seriesName + ': <b>' + Number(v).toLocaleString('de-DE', { maximumFractionDigits: 1 }) + '</b></div>'; });
+            ps.forEach(function (s) {
+              var v = bar ? s.value : s.value[1]; if (v === null || v === undefined) { return; }
+              var u = unitFor(s.seriesName);
+              h += '<div><span style="color:' + s.color + '">●</span> ' + s.seriesName + ': <b>' + Number(v).toLocaleString('de-DE', { maximumFractionDigits: 2 }) + (u ? ' ' + u : '') + '</b></div>';
+            });
             return h;
           } },
         xAxis: xAxis,

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.43.1-beta.1 (2026-07-20)
+
+- **Monitoring: Tooltip & Achsen verbessert.** Der Tooltip zeigt jetzt das vollständige Datum
+  (inkl. Jahr) und die Einheit hinter jedem Wert. Die linke Achse im Tagesverlauf ist in kW
+  (statt W) für eine besser lesbare Skala. Die rechte Achse (z. B. Einstrahlung in W/m²) wird
+  eigenständig skaliert und beschriftet, sodass PV-Leistung und Einstrahlung sauber
+  nebeneinander ablesbar sind.
+
 ## 0.43.0-beta.1 (2026-07-20)
 
 - **Monitoring: Zeiträume Woche, Gesamt und Benutzerdefiniert ergänzt.** Zusätzlich zu Tag/

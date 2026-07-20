@@ -304,7 +304,8 @@ class InverterHubMonitor extends IPSModule
                     if ($dayRight === '') { $dayRight = $s['unit']; }
                     if ($s['isIrr']) { $eRight = 'kWh/m²'; }
                 } else {
-                    if ($dayLeft === '') { $dayLeft = $s['unit']; }
+                    // Leistung wird im Tagesverlauf in kW dargestellt (s. u.).
+                    if ($dayLeft === '') { $dayLeft = ($s['unit'] === 'W') ? 'kW' : $s['unit']; }
                 }
             }
             if (count($idx) === 0) {
@@ -335,7 +336,14 @@ class InverterHubMonitor extends IPSModule
             $end   = min(time(), $start + 86400);
             $rows = [];
             foreach ($series as $s) {
-                $rows[] = ($s['powerVid'] > 0) ? $this->DaySeries($aid, $s['powerVid'], $start, $end) : [];
+                if ($s['powerVid'] <= 0) { $rows[] = []; continue; }
+                $pts = $this->DaySeries($aid, $s['powerVid'], $start, $end);
+                // Leistung (linke Achse, W) → kW für lesbarere Skala.
+                if ($s['axis'] !== 'right' && $s['unit'] === 'W') {
+                    foreach ($pts as &$pt) { $pt[1] = round($pt[1] / 1000.0, 3); }
+                    unset($pt);
+                }
+                $rows[] = $pts;
             }
             $dayPeriods[] = ['id' => date('Y-m-d', $start), 'range' => date('d.m.Y', $start), 'series' => $rows];
         }
