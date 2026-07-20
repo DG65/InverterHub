@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.41.1-beta.1 (2026-07-20)
+
+- **Monitoring: ausgeblendete Kurven bleiben erhalten.** Beim Datums-/Zeitraum- oder
+  Ansichtswechsel wird die per Legende gewählte Sichtbarkeit der Kurven nicht mehr
+  zurückgesetzt (gilt für Highcharts und ECharts).
+
 ## 0.41.0-beta.1 (2026-07-20)
 
 - **Monitoring: Werte ankreuzen statt Tabelle pflegen.** Die Kurven-Tabelle entfällt. Man

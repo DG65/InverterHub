@@ -28,6 +28,10 @@
 
   <script>
     var lastData = null, curType = null, curIdx = 0, chart = null, chartEngine = null, libs = { hc: 0, ec: 0 };
+    // Legenden-Sichtbarkeit je Kurven-Label (true/false). Bleibt über Zeitraum-
+    // und Ansichtswechsel erhalten, damit die Auswahl nicht zurückgesetzt wird.
+    var vis = {};
+    function isVisible(label) { return vis[label] !== false; }
     var ORDER = ['day', 'month', 'year'];
     var TYPENAME = { day: 'Tag (Verlauf)', month: 'Monat (Energie)', year: 'Jahr (Energie)' };
     var INPUT_TYPE = { day: 'date', month: 'month' };
@@ -167,7 +171,7 @@
       var T = theme(), tp = lastData.types[curType], p = tp.periods[curIdx], meta = lastData.seriesMeta, el = document.getElementById('chart');
       var bar = (tp.mode === 'bar');
       var series = meta.map(function (m, i) {
-        return { name: m.label, type: bar ? 'column' : 'line', data: p.series[i] || [], color: m.color, yAxis: (m.axis === 'right' ? 1 : 0), lineWidth: 1.6, marker: { enabled: false } };
+        return { name: m.label, type: bar ? 'column' : 'line', data: p.series[i] || [], color: m.color, yAxis: (m.axis === 'right' ? 1 : 0), lineWidth: 1.6, marker: { enabled: false }, visible: isVisible(m.label) };
       });
       var xAxis = bar
         ? { type: 'category', categories: p.cats || [], gridLineWidth: 0, lineColor: T.GRID, tickLength: 0, labels: { style: { color: T.MUTED, fontSize: '10px' } } }
@@ -182,7 +186,7 @@
           { title: { text: tp.rightUnit || '', style: { color: T.MUTED } }, opposite: true, gridLineWidth: 0, labels: { style: { color: T.MUTED, fontSize: '10px' } } }
         ],
         tooltip: { shared: true, backgroundColor: T.TIP, borderColor: T.GRID, style: { color: T.TEXT, fontSize: '11px' }, xDateFormat: '%d.%m. %H:%M', valueDecimals: (bar ? 1 : 1) },
-        plotOptions: { series: { animation: false, states: { inactive: { opacity: 1 } } }, column: { borderWidth: 0, groupPadding: 0.08 } },
+        plotOptions: { series: { animation: false, states: { inactive: { opacity: 1 } }, events: { legendItemClick: function () { vis[this.name] = !this.visible; } } }, column: { borderWidth: 0, groupPadding: 0.08 } },
         series: series
       };
       el.innerHTML = ''; chart = Highcharts.chart('chart', options);
@@ -203,7 +207,7 @@
       var option = {
         backgroundColor: 'transparent', textStyle: { fontFamily: T.font, color: T.TEXT }, animation: false,
         grid: { left: 52, right: 52, top: 34, bottom: 26, containLabel: false },
-        legend: { top: 2, textStyle: { color: T.TEXT, fontSize: 11 } },
+        legend: { top: 2, textStyle: { color: T.TEXT, fontSize: 11 }, selected: (function () { var sel = {}; meta.forEach(function (m) { sel[m.label] = isVisible(m.label); }); return sel; })() },
         tooltip: { trigger: 'axis', backgroundColor: T.TIP, borderColor: T.GRID, borderWidth: 1, textStyle: { color: T.TEXT, fontSize: 11 },
           axisPointer: { type: bar ? 'shadow' : 'line', lineStyle: { color: T.MUTED, type: 'dashed' } },
           formatter: function (ps) {
@@ -222,7 +226,7 @@
         ],
         series: series
       };
-      if (!chart) { el.innerHTML = ''; chart = echarts.init(el, null, { renderer: 'canvas' }); }
+      if (!chart) { el.innerHTML = ''; chart = echarts.init(el, null, { renderer: 'canvas' }); chart.on('legendselectchanged', function (pr) { if (pr && pr.selected) { Object.keys(pr.selected).forEach(function (k) { vis[k] = pr.selected[k]; }); } }); }
       chart.setOption(option, true); chart.resize({ height: el.clientHeight });
     }
 
