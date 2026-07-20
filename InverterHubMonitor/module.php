@@ -42,7 +42,7 @@ class InverterHubMonitor extends IPSModule
     // „groups" => in welchen seitlichen Reitern der Wert erscheint (ein Wert
     //   kann in mehreren Reitern auftauchen, z. B. PV in „Leistung" und „PV").
     private const CATALOG = [
-        'pv'      => ['label' => 'PV-Erzeugung',       'power' => ['pv_total'],                 'energy' => ['e_pv_total'],                       'color' => '#e53935', 'axis' => 'left',  'unit' => 'W',    'default' => true,  'groups' => ['energy', 'solar', 'pv']],
+        'pv'      => ['label' => 'PV-Erzeugung',       'power' => ['pv_total'],                 'energy' => ['e_pv_total'],                       'color' => '#e53935', 'axis' => 'left',  'unit' => 'W',    'default' => true,  'groups' => ['energy', 'solar']],
         'load'    => ['label' => 'Verbrauch',          'power' => [],                            'energy' => ['e_load_total', 'e_load_day'],        'color' => '#f0883e', 'axis' => 'left',  'unit' => 'W',    'default' => true,  'groups' => ['energy']],
         'gridbuy' => ['label' => 'Netzbezug',          'power' => [],                            'energy' => ['e_buy_total', 'e_buy_day'],          'color' => '#4aa3e0', 'axis' => 'left',  'unit' => 'W',    'default' => true,  'groups' => ['energy']],
         'gridsell'=> ['label' => 'Einspeisung',        'power' => [],                            'energy' => ['e_sell_total', 'e_sell_day'],        'color' => '#26a69a', 'axis' => 'left',  'unit' => 'W',    'default' => true,  'groups' => ['energy']],
@@ -51,11 +51,11 @@ class InverterHubMonitor extends IPSModule
         'bdisch'  => ['label' => 'Batterie entladen',  'power' => [],                            'energy' => ['e_disch_total', 'e_disch_day'],      'color' => '#2e7d32', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['energy', 'battery']],
         'bat'     => ['label' => 'Batterie-Leistung',  'power' => ['bat_total_pwr', 'bat_power'], 'energy' => [],                                   'color' => '#43a047', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['battery']],
         'ac'      => ['label' => 'AC-Wirkleistung',    'power' => ['ac_power'],                  'energy' => [],                                    'color' => '#ab47bc', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['energy']],
-        'inv'     => ['label' => 'Inverter gesamt',    'power' => ['inv_total'],                 'energy' => [],                                    'color' => '#c2185b', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['pv']],
-        'mppt1'   => ['label' => 'MPPT 1',             'power' => ['mppt1_power'],               'energy' => [],                                    'color' => '#f4a742', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['pv']],
-        'mppt2'   => ['label' => 'MPPT 2',             'power' => ['mppt2_power'],               'energy' => [],                                    'color' => '#f47a42', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['pv']],
-        'mppt3'   => ['label' => 'MPPT 3',             'power' => ['mppt3_power'],               'energy' => [],                                    'color' => '#f45a42', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['pv']],
-        'mppt4'   => ['label' => 'MPPT 4',             'power' => ['mppt4_power'],               'energy' => [],                                    'color' => '#f43a42', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['pv']],
+        'inv'     => ['label' => 'Inverter gesamt',    'power' => ['inv_total'],                 'energy' => [],                                    'color' => '#c2185b', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['energy']],
+        'mppt1'   => ['label' => 'MPPT 1',             'power' => ['mppt1_power'],               'energy' => [],                                    'color' => '#f4a742', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['mpp']],
+        'mppt2'   => ['label' => 'MPPT 2',             'power' => ['mppt2_power'],               'energy' => [],                                    'color' => '#f47a42', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['mpp']],
+        'mppt3'   => ['label' => 'MPPT 3',             'power' => ['mppt3_power'],               'energy' => [],                                    'color' => '#f45a42', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['mpp']],
+        'mppt4'   => ['label' => 'MPPT 4',             'power' => ['mppt4_power'],               'energy' => [],                                    'color' => '#f43a42', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['mpp']],
         'soc'     => ['label' => 'Batterie-SOC',       'power' => ['soc', 'bat_soc'],            'energy' => [],                'noEnergy' => true, 'color' => '#9575cd', 'axis' => 'right', 'unit' => '%',    'default' => false, 'groups' => ['battery']],
         'temp'    => ['label' => 'Modultemperatur',    'power' => ['temp_module', 'temp_cab'],   'energy' => [],                'noEnergy' => true, 'color' => '#78909c', 'axis' => 'left',  'unit' => '°C',   'default' => false, 'groups' => ['diag']],
         'riso'    => ['label' => 'Isolationswiderstand','power' => ['riso'],                     'energy' => [],                'noEnergy' => true, 'color' => '#8d6e63', 'axis' => 'right', 'unit' => 'kΩ',   'default' => false, 'groups' => ['diag']],
@@ -66,7 +66,7 @@ class InverterHubMonitor extends IPSModule
     private const TABS = [
         'energy'  => 'Leistung & Energie',
         'solar'   => 'PV & Einstrahlung',
-        'pv'      => 'PV & Strings',
+        'mpp'     => 'MPP-Tracker',
         'battery' => 'Batterie',
         'diag'    => 'Diagnose',
     ];
@@ -254,13 +254,16 @@ class InverterHubMonitor extends IPSModule
                     'noEnergy'  => !empty($def['noEnergy']),
                     'groups'    => $def['groups'],
                     'isIrr'     => false,
+                    'dash'      => false,
+                    'scale'     => 1.0,
                     'powerVid'  => $powerVid,
                     'energyVid' => $energyVid,
                 ];
             }
         }
         $irr = $this->ReadPropertyInteger('IrradianceID');
-        if ($this->ReadPropertyBoolean('show_irr') && $irr > 0 && IPS_VariableExists($irr)) {
+        $irrOn = ($this->ReadPropertyBoolean('show_irr') && $irr > 0 && IPS_VariableExists($irr));
+        if ($irrOn) {
             $out[] = [
                 'key'       => 'irr',
                 'label'     => 'Einstrahlung',
@@ -268,13 +271,93 @@ class InverterHubMonitor extends IPSModule
                 'axis'      => 'right',
                 'unit'      => 'W/m²',
                 'noEnergy'  => false,
-                'groups'    => ['solar', 'pv'],
+                'groups'    => ['solar'],
                 'isIrr'     => true,
+                'dash'      => false,
+                'scale'     => 1.0,
                 'powerVid'  => $irr,   // wird zu kWh/m² integriert
                 'energyVid' => 0,
             ];
         }
+
+        // Berechnete Serien aus Generatorparametern (PV-Prognose) × Einstrahlung:
+        // erwartete Leistung = kWp × E(W/m²) × PR × Faktor. Nur wenn ein
+        // Einstrahlungssensor gewählt ist und die PVF-Instanz Generatoren liefert.
+        if ($irrOn) {
+            $pvf = $this->PvfModel();
+            if ($pvf !== null) {
+                // Gesamt-Erwartung fürs Diagramm „PV & Einstrahlung".
+                $out[] = [
+                    'key'       => 'exp_total',
+                    'label'     => 'PV erwartet',
+                    'color'     => '#ff8a80',
+                    'axis'      => 'left',
+                    'unit'      => 'W',
+                    'noEnergy'  => false,
+                    'groups'    => ['solar'],
+                    'isIrr'     => false,
+                    'dash'      => true,
+                    'scale'     => $pvf['totalKwp'] * $pvf['pr'],
+                    'powerVid'  => $irr,
+                    'energyVid' => 0,
+                ];
+                // Erwartung je Generator fürs Diagramm „MPP-Tracker".
+                $palette = ['#4dd0e1', '#ba68c8', '#aed581', '#4fc3f7', '#ff8a65', '#a1887f'];
+                foreach ($pvf['gens'] as $i => $g) {
+                    $out[] = [
+                        'key'       => 'exp_g' . $i,
+                        'label'     => 'Erwartet: ' . $g['name'],
+                        'color'     => $palette[$i % count($palette)],
+                        'axis'      => 'left',
+                        'unit'      => 'W',
+                        'noEnergy'  => false,
+                        'groups'    => ['mpp'],
+                        'isIrr'     => false,
+                        'dash'      => true,
+                        'scale'     => $g['kwp'] * $pvf['pr'] * $g['factor'],
+                        'powerVid'  => $irr,
+                        'energyVid' => 0,
+                    ];
+                }
+            }
+        }
         return $out;
+    }
+
+    // Liest aus der PV-Prognose (PVF) die Parameter fürs Erwartungs-Modell:
+    // Performance-Ratio (PVF_PR) und je Generator kWp + manueller Faktor.
+    // Rückgabe null, wenn keine PVF-Instanz / keine Generatoren mit kWp da sind.
+    private function PvfModel(): ?array
+    {
+        $ids = IPS_GetInstanceListByModuleID(self::PVF_GUID);
+        if (count($ids) === 0) {
+            return null;
+        }
+        $id = $ids[0];
+        $cfg = @IPS_GetConfiguration($id);
+        $cfg = is_string($cfg) ? json_decode($cfg, true) : null;
+        if (!is_array($cfg)) {
+            return null;
+        }
+        $pr = (float)($cfg['PVF_PR'] ?? 0.85);
+        if ($pr <= 0.0) { $pr = 0.85; }
+        $list = json_decode($cfg['PVGenerators'] ?? '[]', true);
+        $gens = []; $total = 0.0;
+        if (is_array($list)) {
+            foreach ($list as $row) {
+                $kwp = (float)($row['kWp'] ?? 0);
+                if ($kwp <= 0.0) { continue; }
+                $factor = (float)($row['Factor'] ?? 1.0);
+                if ($factor <= 0.0) { $factor = 1.0; }
+                $name = trim((string)($row['Name'] ?? ''));
+                $gens[] = ['name' => ($name !== '' ? $name : 'Generator ' . (count($gens) + 1)), 'kwp' => $kwp, 'factor' => $factor];
+                $total += $kwp;
+            }
+        }
+        if (count($gens) === 0) {
+            return null;
+        }
+        return ['id' => $id, 'pr' => $pr, 'gens' => $gens, 'totalKwp' => $total];
     }
 
     private function BuildPayload()
@@ -301,7 +384,7 @@ class InverterHubMonitor extends IPSModule
 
         $meta = [];
         foreach ($series as $s) {
-            $meta[] = ['label' => $s['label'], 'color' => $s['color'], 'axis' => $s['axis'], 'unit' => $s['unit']];
+            $meta[] = ['label' => $s['label'], 'color' => $s['color'], 'axis' => $s['axis'], 'unit' => $s['unit'], 'dash' => !empty($s['dash'])];
         }
 
         // Seitliche Reiter: je Gruppe die Serienindizes + eigene Achsen-Einheiten.
@@ -353,6 +436,11 @@ class InverterHubMonitor extends IPSModule
             foreach ($series as $s) {
                 if ($s['powerVid'] <= 0) { $rows[] = []; continue; }
                 $pts = $this->DaySeries($aid, $s['powerVid'], $start, $end);
+                $scale = (float)($s['scale'] ?? 1.0);
+                // Berechnete Serien: Einstrahlung × kWp × PR × Faktor = erwartete W.
+                if ($scale != 1.0) {
+                    foreach ($pts as &$pt) { $pt[1] = $pt[1] * $scale; } unset($pt);
+                }
                 // Leistung (linke Achse, W) → kW für lesbarere Skala.
                 if ($s['axis'] !== 'right' && $s['unit'] === 'W') {
                     foreach ($pts as &$pt) { $pt[1] = round($pt[1] / 1000.0, 3); }
@@ -495,6 +583,7 @@ class InverterHubMonitor extends IPSModule
             }
         }
 
+        $scale = (float)($s['scale'] ?? 1.0);
         $out = []; $prevMax = null;
         foreach ($data as $row) {
             $ts = (int)$row['TimeStamp'];
@@ -508,6 +597,7 @@ class InverterHubMonitor extends IPSModule
                 $val = $mx - (float)$row['Min'];              // Tagesreset
             }
             if ($val === null) { continue; }
+            $val *= $scale; // berechnete Serien: × kWp·PR·Faktor
             if (!is_finite($val) || $val < 0) { $val = 0.0; }
             $out[date('Y-m-d', $ts)] = round($val, 2);
         }

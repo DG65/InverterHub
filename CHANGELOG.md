@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.44.0-beta.1 (2026-07-20)
+
+- **Monitoring: berechnete Erwartungswerte aus Einstrahlung × Generatorparametern.** Aus der
+  PV-Prognose (PVF) werden Performance-Ratio (`PVF_PR`) und je Generator kWp + Faktor gelesen.
+  Mit dem Einstrahlungssensor ergibt sich die **erwartete Leistung = kWp × Einstrahlung × PR ×
+  Faktor** (bzw. die erwartete Energie über die Tages-Insolation). Diese Kurven werden
+  **gestrichelt** dargestellt (Soll), die Messwerte durchgezogen (Ist) — Abweichung nach unten =
+  Verschmutzung/Verschattung/Defekt.
+  - **PV & Einstrahlung**: PV-Erzeugung (Ist) · „PV erwartet" (Soll, gesamter Generator) ·
+    Einstrahlung.
+  - **MPP-Tracker** (früher „PV & Strings"): nur noch die MPP-Tracker (Ist) und die berechneten
+    Erwartungswerte je Generator (Soll). Reine PV-/Inverter-Summen dort entfernt.
+
 ## 0.43.2-beta.1 (2026-07-20)
 
 - **Monitoring: Hinweis aufs Prognose-Modul beim Einstrahlungssensor.** Ist ein
