@@ -99,6 +99,27 @@ class InverterHubDiscovery extends IPSModule
     public function ApplyChanges()
     {
         parent::ApplyChanges();
+        // Versteckte Abbruch-Flagge für laufende Scans (thread-sicher über
+        // GetValue/SetValue - der „Abbrechen"-Button läuft in einem eigenen
+        // Thread und setzt sie, die Scan-Schleifen prüfen sie). In ApplyChanges
+        // registriert, damit auch bestehende Instanzen sie nach dem Update haben.
+        $this->RegisterVariableBoolean('ScanAbort', 'Scan-Abbruch', '', 100);
+        IPS_SetHidden($this->GetIDForIdent('ScanAbort'), true);
+    }
+
+    // true, wenn während eines laufenden Scans „Abbrechen" geklickt wurde.
+    private function scanAborted(): bool
+    {
+        return @$this->GetValue('ScanAbort') === true;
+    }
+
+    public function AbortScan()
+    {
+        if (@IPS_GetObjectIDByIdent('ScanAbort', $this->InstanceID)) {
+            $this->SetValue('ScanAbort', true);
+        }
+        @$this->UpdateFormField('ScanProgress', 'caption', 'Abbruch angefordert – bitte kurz warten …');
+        @$this->UpdateFormField('ScanProgress', 'indeterminate', true);
     }
 
     public function GetConfigurationForm()
@@ -175,7 +196,13 @@ class InverterHubDiscovery extends IPSModule
                         ['type' => 'Label', 'caption' => 'Platzhalter für die Vorlage: {hersteller} {ip} {unitid} {nr} — z.B. "{hersteller} Dach ({ip})"'],
                         ['type' => 'ValidationTextBox', 'name' => 'IgnoreIPs', 'caption' => 'IPs ignorieren (Komma-getrennt)'],
                         ['type' => 'Label', 'caption' => 'Diese Adressen werden beim Scan komplett übersprungen — z.B. RTU/TCP-Konverter oder andere Modbus-Geräte, die sonst fälschlich als Wechselrichter erscheinen würden.'],
-                        ['type' => 'Button', 'caption' => '🔎  Netzwerk durchsuchen', 'onClick' => 'IHUBD_Discover($id);'],
+                        [
+                            'type'  => 'RowLayout',
+                            'items' => [
+                                ['type' => 'Button', 'caption' => '🔎  Netzwerk durchsuchen', 'onClick' => 'IHUBD_Discover($id);'],
+                                ['type' => 'Button', 'caption' => '✖  Scan abbrechen', 'onClick' => 'IHUBD_AbortScan($id);'],
+                            ],
+                        ],
                         [
                             'type'          => 'ProgressBar',
                             'name'          => 'ScanProgress',
@@ -298,6 +325,11 @@ class InverterHubDiscovery extends IPSModule
             return;
         }
 
+        // Abbruch-Flagge zu Beginn zurücksetzen.
+        if (@IPS_GetObjectIDByIdent('ScanAbort', $this->InstanceID)) {
+            $this->SetValue('ScanAbort', false);
+        }
+
         $ips = $this->expandRange($start, $end);
         if (count($ips) > 1024) {
             // Sicherheitslimit gegen versehentlich riesige Bereiche
@@ -318,10 +350,12 @@ class InverterHubDiscovery extends IPSModule
         // brauchen für den TCP-Handshake teils spürbar länger.
         $openIps = $this->scanPortOpen($ips, $port, 3.0);
 
-        $results = [];
-        $total   = count($openIps);
-        $i       = 0;
+        $results  = [];
+        $total    = count($openIps);
+        $i        = 0;
+        $aborted  = $this->scanAborted();
         foreach ($openIps as $ip) {
+            if ($this->scanAborted()) { $aborted = true; break; }
             $i++;
             $this->ShowProgress("Prüfe Hersteller: $ip ($i von $total offenen Ports) …", (int)round(($i / max(1, $total)) * 100));
             $found = $this->identifyVendor($ip, $port);
@@ -330,7 +364,11 @@ class InverterHubDiscovery extends IPSModule
             }
         }
 
-        $this->ShowProgress('Fertig: ' . count($results) . ' Wechselrichter gefunden (von ' . $total . ' offenen Ports).', 100);
+        if ($aborted) {
+            $this->ShowProgress('Scan abgebrochen – ' . count($results) . ' Wechselrichter bis dahin gefunden.', 100);
+        } else {
+            $this->ShowProgress('Fertig: ' . count($results) . ' Wechselrichter gefunden (von ' . $total . ' offenen Ports).', 100);
+        }
 
         $this->WriteAttributeString('ResultsJSON', json_encode($results));
         $this->SetStatus(102);
@@ -407,6 +445,9 @@ class InverterHubDiscovery extends IPSModule
         $deadline  = $startTime + $timeoutSec;
         $lastUi    = 0.0;
         while (count($pending) > 0 && microtime(true) < $deadline) {
+            if ($this->scanAborted()) {
+                break;
+            }
             $write  = array_values($pending);
             $read   = [];
             $except = [];

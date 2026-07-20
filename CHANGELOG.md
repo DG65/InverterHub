@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.49.0-beta.1 (2026-07-20)
+
+- **Discovery: Netzwerk-Scan abbrechbar.** Neben „Netzwerk durchsuchen" gibt es jetzt „Scan
+  abbrechen". Ein laufender Scan (Portscan wie Hersteller-Prüfung) hält daraufhin an und zeigt
+  die bis dahin gefundenen Wechselrichter. Umgesetzt über eine versteckte, thread-sichere
+  Abbruch-Flagge, die die Scan-Schleifen prüfen.
+
 ## 0.48.1-beta.1 (2026-07-20)
 
 - **Verbindung: Hostname statt IP möglich.** Im Feld „IP-Adresse oder Hostname" kann jetzt auch
