@@ -63,6 +63,11 @@
           "moduleID": "{BBE2C593-1A91-426D-A714-29A9C7E87589}"
         },
         {
+          "type": "SelectVariable",
+          "name": "HouseLoadID",
+          "caption": "Echter Hausverbrauch (Variable, optional – ersetzt die berechnete Hauslast in der Mitte)"
+        },
+        {
           "type": "CheckBox",
           "name": "WriteHouseLoad",
           "caption": "Berechnete Hauslast zusätzlich in eine Variable schreiben (»Hauslast (berechnet)«)"

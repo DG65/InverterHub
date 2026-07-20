@@ -96,6 +96,9 @@ class InverterHubTile extends IPSModule
         $this->RegisterPropertyInteger('MatchToleranceSec', self::DEF_TOLERANCE);
         // Berechnete Hauslast zusätzlich in eine eigene Variable schreiben.
         $this->RegisterPropertyBoolean('WriteHouseLoad', false);
+        // Echter, gemessener Hausverbrauch (Variable) - hat Vorrang vor der
+        // rechnerischen Bilanz und wird dann in der Mitte angezeigt.
+        $this->RegisterPropertyInteger('HouseLoadID', 0);
 
         $this->SetVisualizationType(1);
     }
@@ -553,6 +556,14 @@ class InverterHubTile extends IPSModule
                     'stateLabel' => 'Keine Datenquelle',
                 ]));
             }
+        }
+
+        // Direkt an der Kachel gewählter, echter Hausverbrauchs-Zähler hat
+        // Vorrang - unabhängig von Quell-/Manuell-Modus. So lässt sich statt der
+        // rechnerischen Bilanz der gemessene Wert in der Mitte anzeigen.
+        $tileHouseID = $this->ReadPropertyInteger('HouseLoadID');
+        if ($tileHouseID > 0 && IPS_VariableExists($tileHouseID)) {
+            $houseMeterID = $tileHouseID;
         }
 
         $pvHave   = ($pv !== null);

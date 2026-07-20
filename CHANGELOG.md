@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.55.0-beta.1 (2026-07-20)
+
+- **Tile: echter Hausverbrauch direkt waehlbar.** Neues Feld "Echter Hausverbrauch (Variable)"
+  in der Kachel-Konfiguration - ist es gesetzt, zeigt die Mitte den gemessenen Wert statt der
+  rechnerischen Bilanz (unabhaengig von Quell-/Manuell-Modus). Damit laesst sich der originaere
+  Hausverbrauch anzeigen, ohne ihn ueber die Reader-Instanz zu konfigurieren. (Beta-Tester-Wunsch.)
+
 ## 0.54.1-beta.1 (2026-07-20)
 
 - **Fix: PHP-Notices "fwrite failed" waehrend Scan/Abfrage.** Wenn ein Geraet die (Batch-)
