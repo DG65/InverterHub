@@ -73,7 +73,7 @@ class ModbusTcpClient
         $pdu  = pack('Cnn', 0x03, $startReg, $count);
         $mbap = pack('nnn', $tid, 0, strlen($pdu) + 1) . chr($this->unitId);
 
-        fwrite($sock, $mbap . $pdu);
+        @fwrite($sock, $mbap . $pdu);
 
         $response = '';
         $deadline = microtime(true) + 3.0;
@@ -132,7 +132,7 @@ class ModbusTcpClient
         $pdu  = pack('Cnn', 0x04, $startReg, $count);
         $mbap = pack('nnn', $tid, 0, strlen($pdu) + 1) . chr($this->unitId);
 
-        fwrite($sock, $mbap . $pdu);
+        @fwrite($sock, $mbap . $pdu);
 
         $response = '';
         $deadline = microtime(true) + 3.0;
@@ -187,7 +187,7 @@ class ModbusTcpClient
         $pdu  = pack('Cnn', 0x06, $reg, $value & 0xFFFF);
         $mbap = pack('nnn', $tid, 0, strlen($pdu) + 1) . chr($this->unitId);
 
-        fwrite($sock, $mbap . $pdu);
+        @fwrite($sock, $mbap . $pdu);
         $resp = @fread($sock, 64);
         fclose($sock);
 
@@ -212,7 +212,7 @@ class ModbusTcpClient
         $pdu  = pack('CnnC', 0x10, $startReg, $count, $byteCount) . $dataPart;
         $mbap = pack('nnn', $tid, 0, strlen($pdu) + 1) . chr($this->unitId);
 
-        fwrite($sock, $mbap . $pdu);
+        @fwrite($sock, $mbap . $pdu);
         $resp = @fread($sock, 64);
         fclose($sock);
 

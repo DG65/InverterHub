@@ -918,7 +918,7 @@ class InverterHubDiscovery extends IPSModule
         $pdu  = pack('Cnn', $fc, $startReg, $count);
         $mbap = pack('nnn', $tid, 0, strlen($pdu) + 1) . chr($unitId);
 
-        fwrite($sock, $mbap . $pdu);
+        @fwrite($sock, $mbap . $pdu);
 
         $response = '';
         $deadline = microtime(true) + $timeout;

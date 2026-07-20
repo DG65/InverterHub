@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.54.1-beta.1 (2026-07-20)
+
+- **Fix: PHP-Notices "fwrite failed" waehrend Scan/Abfrage.** Wenn ein Geraet die (Batch-)
+  Verbindung mittendrin kappt (Windows errno 10053), warf das folgende fwrite eine Notice - teils
+  mehrfach als Popup. fwrite ist jetzt unterdrueckt; der tote Socket liefert einfach null (kein
+  Notice, kein Reconnect-Spam). Betrifft Discovery und Reader-Client.
+
 ## 0.54.0-beta.1 (2026-07-20)
 
 - **Discovery: kombinierter Scan (Wechselrichter + Energiezaehler).** Ist zusaetzlich das Modul
