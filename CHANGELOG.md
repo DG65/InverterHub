@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.51.1-beta.1 (2026-07-20)
+
+- **Sungrow String (SG-CX): bis zu 12 MPP-Tracker.** Die großen CX-Modelle haben bis zu 12
+  MPPTs. Der String-Pfad liest jetzt MPPT 1-3 (5010-5015) und 4-12 (erweiterter Block
+  5114-5136) und legt entsprechend Variablen für MPPT 5-12 an.
+
 ## 0.51.0-beta.1 (2026-07-20)
 
 - **Sungrow: String-Wechselrichter (SG-CX / „P2"-Plattform) unterstützt.** Diese Modelle haben

@@ -855,7 +855,7 @@ class SungrowDriver implements InverterDriverInterface
     public function getOptionalGroups()
     {
         return [
-            'GroupPV' => ['caption' => 'PV-Details (MPPT 1-4, Spannung/Strom)', 'vars' => [
+            'GroupPV' => ['caption' => 'PV-Details (MPPT-Spannung/Strom; String-Modelle SG-CX bis MPPT 12)', 'vars' => [
                 ['mppt1_volt', 'MPPT1 Spannung', 'F', 'SGW.Volt',   false, 'pv', 'RO 5011'],
                 ['mppt1_curr', 'MPPT1 Strom',    'F', 'SGW.Ampere', false, 'pv', 'RO 5012'],
                 ['mppt2_volt', 'MPPT2 Spannung', 'F', 'SGW.Volt',   false, 'pv', 'RO 5013'],
@@ -864,6 +864,22 @@ class SungrowDriver implements InverterDriverInterface
                 ['mppt3_curr', 'MPPT3 Strom',    'F', 'SGW.Ampere', false, 'pv', 'RO 5016'],
                 ['mppt4_volt', 'MPPT4 Spannung', 'F', 'SGW.Volt',   false, 'pv', 'RO 5115'],
                 ['mppt4_curr', 'MPPT4 Strom',    'F', 'SGW.Ampere', false, 'pv', 'RO 5116'],
+                ['mppt5_volt', 'MPPT5 Spannung', 'F', 'SGW.Volt',   false, 'pv', 'RO 5117'],
+                ['mppt5_curr', 'MPPT5 Strom',    'F', 'SGW.Ampere', false, 'pv', 'RO 5118'],
+                ['mppt6_volt', 'MPPT6 Spannung', 'F', 'SGW.Volt',   false, 'pv', 'RO 5119'],
+                ['mppt6_curr', 'MPPT6 Strom',    'F', 'SGW.Ampere', false, 'pv', 'RO 5120'],
+                ['mppt7_volt', 'MPPT7 Spannung', 'F', 'SGW.Volt',   false, 'pv', 'RO 5121'],
+                ['mppt7_curr', 'MPPT7 Strom',    'F', 'SGW.Ampere', false, 'pv', 'RO 5122'],
+                ['mppt8_volt', 'MPPT8 Spannung', 'F', 'SGW.Volt',   false, 'pv', 'RO 5123'],
+                ['mppt8_curr', 'MPPT8 Strom',    'F', 'SGW.Ampere', false, 'pv', 'RO 5124'],
+                ['mppt9_volt', 'MPPT9 Spannung', 'F', 'SGW.Volt',   false, 'pv', 'RO 5130'],
+                ['mppt9_curr', 'MPPT9 Strom',    'F', 'SGW.Ampere', false, 'pv', 'RO 5131'],
+                ['mppt10_volt','MPPT10 Spannung','F', 'SGW.Volt',   false, 'pv', 'RO 5132'],
+                ['mppt10_curr','MPPT10 Strom',   'F', 'SGW.Ampere', false, 'pv', 'RO 5133'],
+                ['mppt11_volt','MPPT11 Spannung','F', 'SGW.Volt',   false, 'pv', 'RO 5134'],
+                ['mppt11_curr','MPPT11 Strom',   'F', 'SGW.Ampere', false, 'pv', 'RO 5135'],
+                ['mppt12_volt','MPPT12 Spannung','F', 'SGW.Volt',   false, 'pv', 'RO 5136'],
+                ['mppt12_curr','MPPT12 Strom',   'F', 'SGW.Ampere', false, 'pv', 'RO 5137'],
             ]],
             'GroupGrid' => ['caption' => 'Netz (Spannung, Blindleistung, Power Factor, Frequenz)', 'vars' => [
                 ['grid_v1',      'Netz Spannung 1', 'F', 'SGW.Volt',   false, 'grid', 'RO 5019'],
@@ -1058,12 +1074,22 @@ class SungrowDriver implements InverterDriverInterface
         }
 
         if ($hub->GetPropBool('GroupPV')) {
+            // MPPT 1-3 im 5000er-Block (5010-5015).
             $hub->SetVarFloat('mppt1_volt', ($b[10] ?? 0) / 10.0);
             $hub->SetVarFloat('mppt1_curr', ($b[11] ?? 0) / 10.0);
             $hub->SetVarFloat('mppt2_volt', ($b[12] ?? 0) / 10.0);
             $hub->SetVarFloat('mppt2_curr', ($b[13] ?? 0) / 10.0);
             $hub->SetVarFloat('mppt3_volt', ($b[14] ?? 0) / 10.0);
             $hub->SetVarFloat('mppt3_curr', ($b[15] ?? 0) / 10.0);
+            // MPPT 4-12 im erweiterten Block 5114-5136 (Lücke 5124-5128).
+            $ext = $mb->readInput(5114, 23); // 5114..5136
+            if ($ext !== null) {
+                $map = [4 => 0, 5 => 2, 6 => 4, 7 => 6, 8 => 8, 9 => 15, 10 => 17, 11 => 19, 12 => 21];
+                foreach ($map as $n => $vi) {
+                    $hub->SetVarFloat("mppt{$n}_volt", ($ext[$vi] ?? 0) / 10.0);
+                    $hub->SetVarFloat("mppt{$n}_curr", ($ext[$vi + 1] ?? 0) / 10.0);
+                }
+            }
         }
 
         if ($hub->GetPropBool('GroupGrid')) {
