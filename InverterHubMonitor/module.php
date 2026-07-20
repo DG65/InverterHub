@@ -52,10 +52,10 @@ class InverterHubMonitor extends IPSModule
         'bat'     => ['label' => 'Batterie-Leistung',  'power' => ['bat_total_pwr', 'bat_power'], 'energy' => [],                                   'color' => '#43a047', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['battery']],
         'ac'      => ['label' => 'AC-Wirkleistung',    'power' => ['ac_power'],                  'energy' => [],                                    'color' => '#ab47bc', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['energy']],
         'inv'     => ['label' => 'Inverter gesamt',    'power' => ['inv_total'],                 'energy' => [],                                    'color' => '#c2185b', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['energy']],
-        'mppt1'   => ['label' => 'MPPT 1',             'power' => ['mppt1_power'],               'energy' => [],                                    'color' => '#f4a742', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['mpp']],
-        'mppt2'   => ['label' => 'MPPT 2',             'power' => ['mppt2_power'],               'energy' => [],                                    'color' => '#f47a42', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['mpp']],
-        'mppt3'   => ['label' => 'MPPT 3',             'power' => ['mppt3_power'],               'energy' => [],                                    'color' => '#f45a42', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['mpp']],
-        'mppt4'   => ['label' => 'MPPT 4',             'power' => ['mppt4_power'],               'energy' => [],                                    'color' => '#f43a42', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['mpp']],
+        'mppt1'   => ['label' => 'MPPT 1',             'power' => ['mppt1_power'],               'energy' => [],                                    'color' => '#e53935', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['mpp']],
+        'mppt2'   => ['label' => 'MPPT 2',             'power' => ['mppt2_power'],               'energy' => [],                                    'color' => '#43a047', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['mpp']],
+        'mppt3'   => ['label' => 'MPPT 3',             'power' => ['mppt3_power'],               'energy' => [],                                    'color' => '#1e88e5', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['mpp']],
+        'mppt4'   => ['label' => 'MPPT 4',             'power' => ['mppt4_power'],               'energy' => [],                                    'color' => '#fb8c00', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['mpp']],
         'soc'     => ['label' => 'Batterie-SOC',       'power' => ['soc', 'bat_soc'],            'energy' => [],                'noEnergy' => true, 'color' => '#9575cd', 'axis' => 'right', 'unit' => '%',    'default' => false, 'groups' => ['battery']],
         'temp'    => ['label' => 'Modultemperatur',    'power' => ['temp_module', 'temp_cab'],   'energy' => [],                'noEnergy' => true, 'color' => '#78909c', 'axis' => 'left',  'unit' => '°C',   'default' => false, 'groups' => ['diag']],
         'riso'    => ['label' => 'Isolationswiderstand','power' => ['riso'],                     'energy' => [],                'noEnergy' => true, 'color' => '#8d6e63', 'axis' => 'right', 'unit' => 'kΩ',   'default' => false, 'groups' => ['diag']],
@@ -64,11 +64,9 @@ class InverterHubMonitor extends IPSModule
     // Seitliche Reiter (Reihenfolge = Anzeige). Ein Reiter erscheint nur, wenn
     // mindestens einer seiner Werte angekreuzt/vorhanden ist.
     private const TABS = [
-        'energy'  => 'Leistung & Energie',
         'solar'   => 'PV & Einstrahlung',
         'mpp'     => 'MPP-Tracker',
         'battery' => 'Batterie',
-        'diag'    => 'Diagnose',
     ];
 
     private const IRR_COLOR = '#ffc21a'; // sonnengelb
@@ -80,7 +78,7 @@ class InverterHubMonitor extends IPSModule
     private const NEWS_VERSION = '0.44';
     private const NEWS_ITEMS = [
         'Konfiguration: keine Kurven-Tabelle mehr — InverterHub-Instanz wählen und die gewünschten Werte einfach ankreuzen (Farben/Achsen voreingestellt).',
-        'Seitliche Reiter: Leistung & Energie · PV & Einstrahlung · MPP-Tracker · Batterie · Diagnose — jede Ansicht mit passenden Achsen.',
+        'Seitliche Reiter: PV & Einstrahlung · MPP-Tracker · Batterie — jede Ansicht mit passenden Achsen.',
         'Zeiträume: Tag · Woche · Monat · Jahr · Gesamt · Benutzerdefiniert (freier Von–Bis-Bereich).',
         'PV & Einstrahlung / MPP-Tracker: berechnete Erwartungswerte (gestrichelt) aus Einstrahlung × Generatorparametern der PV-Prognose — Soll/Ist-Vergleich für Verschmutzungs-/Defekterkennung.',
         'Tag-Verlauf jetzt in kW, Tooltip mit vollem Datum und Einheiten.',
@@ -181,7 +179,7 @@ class InverterHubMonitor extends IPSModule
             'items' => [
                 ['type' => 'Label', 'caption' => '1. InverterHub-Instanz als Quelle wählen und „Änderungen übernehmen". 2. Danach erscheinen unten die vorhandenen, archivierten Werte zum Ankreuzen. Farben, Achse und Einheit sind je Wert voreingestellt.'],
                 ['type' => 'Label', 'caption' => 'Ansichten in der Kachel: „Tag (Verlauf)" zeigt die Leistungs-Zeitreihe (~5-Min). „Monat/Jahr (Energie)" zeigen Energie-Balken aus dem Zähler-Zuwachs (Energiewerte wie „PV Gesamt", „Bezug", „Einspeisung") bzw. — bei reinen Leistungswerten — integriert.'],
-                ['type' => 'Label', 'caption' => 'Die Werte sind in der Kachel auf seitliche Reiter gruppiert (Leistung & Energie / PV & Strings / Batterie / Diagnose), damit unterschiedliche Einheiten (W, %, °C, kΩ, W/m²) nicht auf einer Achse kollidieren.'],
+                ['type' => 'Label', 'caption' => 'Die Werte sind in der Kachel auf seitliche Reiter gruppiert (PV & Einstrahlung / MPP-Tracker / Batterie), damit unterschiedliche Einheiten (kW, %, W/m²) nicht auf einer Achse kollidieren.'],
                 ['type' => 'Label', 'caption' => 'Verschmutzung/Defekt erkennen: PV-Erzeugung (links) + Einstrahlungssensor W/m² (rechts) ankreuzen. An sauberen Tagen laufen beide proportional; fällt die Leistung relativ ab → Reinigung/Defekt prüfen.'],
             ],
         ];
@@ -200,6 +198,10 @@ class InverterHubMonitor extends IPSModule
             $valueItems[] = ['type' => 'Label', 'caption' => 'Gewünschte Werte ankreuzen (Farben sind voreingestellt):'];
             $anyOffered = false;
             foreach (self::CATALOG as $key => $def) {
+                // Nur Werte anbieten, deren Gruppe noch einen aktiven Reiter hat.
+                if (count(array_intersect($def['groups'], array_keys(self::TABS))) === 0) {
+                    continue;
+                }
                 $vid = $this->FirstIdent($src, array_merge($def['power'], $def['energy']));
                 if ($vid <= 0) {
                     continue;
@@ -274,6 +276,10 @@ class InverterHubMonitor extends IPSModule
                 if (!$this->ReadPropertyBoolean('show_' . $key)) {
                     continue;
                 }
+                // Nur Werte, deren Gruppe noch einen aktiven Reiter hat.
+                if (count(array_intersect($def['groups'], array_keys(self::TABS))) === 0) {
+                    continue;
+                }
                 $powerVid  = $this->FirstIdent($src, $def['power']);
                 $energyVid = $this->FirstIdent($src, $def['energy']);
                 if ($powerVid <= 0 && $energyVid <= 0) {
@@ -335,8 +341,9 @@ class InverterHubMonitor extends IPSModule
                     'powerVid'  => $irr,
                     'energyVid' => 0,
                 ];
-                // Erwartung je Generator fürs Diagramm „MPP-Tracker".
-                $palette = ['#4dd0e1', '#ba68c8', '#aed581', '#4fc3f7', '#ff8a65', '#a1887f'];
+                // Erwartung je Generator fürs Diagramm „MPP-Tracker" — hellere
+                // Tönungen der kräftigen MPPT-Farben (gestrichelt = Soll).
+                $palette = ['#ef9a9a', '#a5d6a7', '#90caf9', '#ffcc80', '#ce93d8', '#bcaaa4'];
                 foreach ($pvf['gens'] as $i => $g) {
                     $out[] = [
                         'key'       => 'exp_g' . $i,

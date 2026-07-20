@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.45.1-beta.1 (2026-07-20)
+
+- **Monitoring: Reiter reduziert & MPP-Tracker-Farben.** Die Reiter „Leistung & Energie" und
+  „Diagnose" wurden vorerst entfernt (verbleibend: PV & Einstrahlung, MPP-Tracker, Batterie).
+  Werte, deren Gruppe keinen Reiter mehr hat, werden automatisch nicht mehr angeboten/angezeigt.
+  Die MPP-Tracker sind jetzt kräftig eingefärbt (Rot/Grün/Blau/Orange), die zugehörigen
+  berechneten Erwartungswerte in helleren Tönungen und gestrichelt (Soll vs. Ist).
+
 ## 0.45.0-beta.1 (2026-07-20)
 
 - **Monitoring: „Was ist neu"-Hinweis nach einem Update.** Beim Öffnen der Instanz erscheint
