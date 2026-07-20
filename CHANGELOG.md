@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.47.3-beta.1 (2026-07-20)
+
+- **Monitoring: Highcharts-Zoom gehärtet.** Veralteten `zoomType` entfernt (kollidiert in neuen
+  Versionen mit `zooming`), kanonische `zooming: {type:'x', mouseWheel}` beibehalten und Pan
+  (Shift+Ziehen) ergänzt. Zoom per Ziehen über die Zeitachse verifiziert; Reset-Button oben
+  rechts.
+
 ## 0.47.2-beta.1 (2026-07-20)
 
 - **Monitoring: SOC-Glättung verstärkt.** Glättungsfenster von 7 auf 15 Punkte (≈ 75 min)
