@@ -1929,6 +1929,10 @@ class FroniusDriver implements InverterDriverInterface
             'GroupMeter' => ['caption' => 'Smart Meter (Leistung)', 'vars' => [
                 ['meter_total', 'Netz Leistung (Meter)', 'F', 'FRO.Watt', true, 'meter', 'SunSpec Meter Model 20x/21x (Unit-ID 200)'],
             ]],
+            'GroupMeterEnergy' => ['caption' => 'Smart Meter Energie (Bezug / Einspeisung gesamt)', 'vars' => [
+                ['meter_imp', 'Bezug Gesamt (aus dem Netz)',   'F', '~Electricity', true, 'meter', 'SunSpec Meter TotWhImp (EnergyReal_WAC_Sum_Consumed)'],
+                ['meter_exp', 'Einspeisung Gesamt (ins Netz)', 'F', '~Electricity', true, 'meter', 'SunSpec Meter TotWhExp (EnergyReal_WAC_Sum_Produced)'],
+            ]],
             'GroupMeterPhases' => ['caption' => 'Smart Meter je Phase (Spannung/Strom/Leistung)', 'vars' => [
                 ['meter_l1_volt', 'Meter L1 Spannung', 'F', 'FRO.Volt',   false, 'meter', 'SunSpec Meter PhVphA'],
                 ['meter_l1_curr', 'Meter L1 Strom',    'F', 'FRO.Ampere', false, 'meter', 'SunSpec Meter AphA'],
@@ -2148,7 +2152,55 @@ class FroniusDriver implements InverterDriverInterface
             }
         }
 
+        if ($hub->GetPropBool('GroupMeterEnergy')) {
+            $mc = new ModbusTcpClient($mb->host, $mb->port, $hub->GetMeterUnitId());
+            $me = $this->readMeterEnergy($mc);
+            if ($me === null) {
+                $me = $this->readMeterEnergy($mb);
+            }
+            if ($me !== null) {
+                // Werte in kWh; die optionale Wh-Ausgabe rechnet SetVarFloat um.
+                $hub->SetVarFloat('meter_imp', $me['imp']); // Consumed / Bezug
+                $hub->SetVarFloat('meter_exp', $me['exp']); // Produced / Einspeisung
+            }
+        }
+
         return true;
+    }
+
+    // Liest die kumulierten Energie-Zählerstände eines SunSpec-Meters
+    // (Bezug/Einspeisung gesamt) - entspricht EnergyReal_WAC_Sum_Consumed/
+    // Produced der Fronius-API. Rückgabe ['imp'=>kWh, 'exp'=>kWh] oder null.
+    private function readMeterEnergy($client)
+    {
+        // Int-Modelle 20x: TotWhExp @36, TotWhImp @44, TotWh_SF @52 (uint32, Wh).
+        $meter = $this->findModel($client, 201) ?: $this->findModel($client, 202) ?: $this->findModel($client, 203);
+        if ($meter !== null) {
+            [$base, $len] = $meter;
+            $blk = $client->readHolding($base, min($len, 54));
+            if ($blk === null || min($len, 54) < 53) {
+                return null;
+            }
+            $sf = pow(10, $this->sfVal($client->u16($blk, 52)));
+            return [
+                'imp' => $client->u32($blk, 44) * $sf / 1000.0,
+                'exp' => $client->u32($blk, 36) * $sf / 1000.0,
+            ];
+        }
+        // Float-Modelle 21x: TotWhExp @float-Offset 60, TotWhImp @68 (je 2 Reg.).
+        $meter = $this->findModel($client, 211) ?: $this->findModel($client, 212) ?: $this->findModel($client, 213);
+        if ($meter !== null) {
+            [$base, $len] = $meter;
+            $blk = $client->readHolding($base, min($len, 72));
+            if ($blk === null || min($len, 72) < 70) {
+                return null;
+            }
+            return [
+                'imp' => $client->readFloat32($blk, 68) / 1000.0,
+                'exp' => $client->readFloat32($blk, 60) / 1000.0,
+            ];
+        }
+        return null;
     }
 
     // Liest die Phasenwerte (U/I/P je Phase) eines SunSpec-Meters. Strom und
@@ -4074,7 +4126,11 @@ class InverterHub extends IPSModule
         if ($profile === '~Electricity' && $this->ReadPropertyBoolean('EnergyUnitWh')) {
             $profile = 'IHB.Wh';
         }
-        if ($profile !== '') {
+        // Profil NUR setzen, wenn es sich tatsächlich ändert. Ein erneutes
+        // Setzen bei jedem „Übernehmen" kann eine vom Nutzer gewählte (neue)
+        // Darstellung der Variable auf die Profil-Vorgabe zurücksetzen - das
+        // vermeiden wir so.
+        if ($profile !== '' && @IPS_GetVariable($vid)['VariableCustomProfile'] !== $profile) {
             IPS_SetVariableCustomProfile($vid, $profile);
         }
         if ($reg !== '') {

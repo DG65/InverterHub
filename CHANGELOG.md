@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.38.1-beta.1 (2026-07-19)
+
+- **Fronius: Smart-Meter-Energiezähler (Bezug/Einspeisung gesamt).** Neue Gruppe „Smart Meter
+  Energie" liefert die kumulierten kWh-Zählerstände des Smart Meters — „Bezug Gesamt"
+  (TotWhImp = EnergyReal_WAC_Sum_Consumed) und „Einspeisung Gesamt" (TotWhExp =
+  EnergyReal_WAC_Sum_Produced), z. B. für die Energiekosten-Abrechnung. Gelesen über die
+  Smart-Meter-Adresse (Unit-ID, z. B. 240).
+- **Variablen-Darstellung bleibt beim „Übernehmen" erhalten.** Das Custom-Profil einer Variable
+  wird jetzt nur noch gesetzt, wenn es sich tatsächlich ändert. Dadurch wird eine vom Nutzer
+  gewählte (neue) Darstellung nicht mehr bei jedem „Übernehmen" auf die Profil-Vorgabe
+  zurückgesetzt (gilt für alle Hersteller).
+
+
 ## 0.38.0-beta.1 (2026-07-19)
 
 - **Victron: PV je Solarladeregler / MPPT.** Auf Wunsch eines Beta-Testers lassen sich die
