@@ -609,14 +609,16 @@ class InverterHubDiscovery extends IPSModule
                 return $this->probeSunSpecManufacturer($ip, $port, $unitId, 'solaredge');
 
             case 'deye':
-                // Holding 0: Inverter-Typ, sollte > 0 sein; Holding 500:
-                // Status-Register muss lesbar sein (zweites Kriterium).
+                // Holding 0: Inverter-Typ, sollte > 0 sein. Als HARTES zweites
+                // Kriterium die Deye/Sunsynk-Seriennummer (Holding 3-7, 5 Register,
+                // ASCII) verlangen - "H0>0 + H500 lesbar" allein matchte zu leicht
+                // fremde Geräte (real: ein Sungrow SG125CX-P2, dessen 3-7 = 0 sind).
                 $r = $this->readHolding($ip, $port, $unitId, 0, 1, 1.0);
                 if ($r === null || $r[0] <= 0) {
                     return false;
                 }
-                $s = $this->readHolding($ip, $port, $unitId, 500, 1, 1.0);
-                return ($s !== null);
+                $sn = $this->readHolding($ip, $port, $unitId, 3, 5, 1.0);
+                return $this->looksLikeAsciiText($sn, 4);
 
             case 'solplanet':
                 // Input 1600: PV-Gesamtleistung (U32), muss lesbar sein;

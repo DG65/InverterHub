@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.49.2-beta.1 (2026-07-20)
+
+- **Discovery: Deye-Erkennung verschärft (weniger Fehlerkennungen).** Der Deye-Probe verlangt
+  jetzt zusätzlich die Deye/Sunsynk-Seriennummer als ASCII in Holding 3-7. „Holding 0 > 0 +
+  Holding 500 lesbar" allein matchte zu leicht fremde Geräte (real gemeldet: ein Gerät wurde
+  fälschlich als Deye erkannt, obwohl dessen Register 3-7 leer sind).
+
 ## 0.49.1-beta.1 (2026-07-20)
 
 - **Discovery: „Scan abbrechen" nur während des Scans sichtbar.** Der Abbrechen-Button
