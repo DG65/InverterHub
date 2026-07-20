@@ -334,25 +334,43 @@ class InverterHubMonitor extends IPSModule
             return null;
         }
         $id = $ids[0];
-        $cfg = @IPS_GetConfiguration($id);
-        $cfg = is_string($cfg) ? json_decode($cfg, true) : null;
-        if (!is_array($cfg)) {
-            return null;
-        }
-        $pr = (float)($cfg['PVF_PR'] ?? 0.85);
-        if ($pr <= 0.0) { $pr = 0.85; }
-        $list = json_decode($cfg['PVGenerators'] ?? '[]', true);
-        $gens = []; $total = 0.0;
-        if (is_array($list)) {
-            foreach ($list as $row) {
-                $kwp = (float)($row['kWp'] ?? 0);
-                if ($kwp <= 0.0) { continue; }
-                $factor = (float)($row['Factor'] ?? 1.0);
-                if ($factor <= 0.0) { $factor = 1.0; }
-                $name = trim((string)($row['Name'] ?? ''));
-                $gens[] = ['name' => ($name !== '' ? $name : 'Generator ' . (count($gens) + 1)), 'kwp' => $kwp, 'factor' => $factor];
-                $total += $kwp;
+
+        // Bevorzugt der stabile öffentliche Getter (versionsunabhängiger
+        // Vertrag); Fallback auf die internen Properties per IPS_GetConfiguration
+        // für ältere Prognose-Modul-Versionen ohne Getter.
+        $rows = []; $pr = 0.0;
+        if (function_exists('PVF_GetGenerators')) {
+            $r = @PVF_GetGenerators($id);
+            if (is_array($r) && isset($r['generators']) && is_array($r['generators'])) {
+                $pr = (float)($r['pr'] ?? 0);
+                foreach ($r['generators'] as $g) {
+                    $rows[] = ['name' => (string)($g['name'] ?? ''), 'kwp' => (float)($g['kwp'] ?? 0), 'factor' => (float)($g['factor'] ?? 1.0)];
+                }
             }
+        }
+        if (count($rows) === 0) {
+            $cfg = @IPS_GetConfiguration($id);
+            $cfg = is_string($cfg) ? json_decode($cfg, true) : null;
+            if (is_array($cfg)) {
+                $pr = (float)($cfg['PVF_PR'] ?? 0);
+                $list = json_decode($cfg['PVGenerators'] ?? '[]', true);
+                if (is_array($list)) {
+                    foreach ($list as $row) {
+                        $rows[] = ['name' => (string)($row['Name'] ?? ''), 'kwp' => (float)($row['kWp'] ?? 0), 'factor' => (float)($row['Factor'] ?? 1.0)];
+                    }
+                }
+            }
+        }
+
+        if ($pr <= 0.0) { $pr = 0.85; }
+        $gens = []; $total = 0.0;
+        foreach ($rows as $row) {
+            $kwp = $row['kwp'];
+            if ($kwp <= 0.0) { continue; }
+            $factor = ($row['factor'] > 0.0) ? $row['factor'] : 1.0;
+            $name = trim($row['name']);
+            $gens[] = ['name' => ($name !== '' ? $name : 'Generator ' . (count($gens) + 1)), 'kwp' => $kwp, 'factor' => $factor];
+            $total += $kwp;
         }
         if (count($gens) === 0) {
             return null;

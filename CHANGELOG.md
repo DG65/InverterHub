@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.44.1-beta.1 (2026-07-20)
+
+- **Monitoring: robuste PVF-Anbindung für andere Installationen.** Die Generatorparameter werden
+  jetzt bevorzugt über den stabilen Getter `PVF_GetGenerators($id)` des Prognose-Moduls bezogen
+  (versionsunabhängiger Vertrag); nur ersatzweise fällt der Monitor auf das Lesen der internen
+  Properties (`IPS_GetConfiguration`) zurück. Fehlt das Prognose-Modul oder hat es keine
+  Generatoren, entfallen die Erwartungslinien fehlerfrei. Benötigt Prognose-Modul ≥ build 41 für
+  den Getter (ältere Versionen nutzen den Fallback).
+
 ## 0.44.0-beta.1 (2026-07-20)
 
 - **Monitoring: berechnete Erwartungswerte aus Einstrahlung × Generatorparametern.** Aus der
