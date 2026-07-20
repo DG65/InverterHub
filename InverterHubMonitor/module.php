@@ -25,6 +25,7 @@ class InverterHubMonitor extends IPSModule
 {
     private const ARCHIVE_GUID   = '{43192F0B-135B-4CE7-A0A7-1475603F3060}';
     private const INVERTERHUB_GUID = '{BBE2C593-1A91-426D-A714-29A9C7E87589}';
+    private const PVF_GUID        = '{257DD4E8-9705-462E-89FC-56D0A1038353}'; // PV-Prognose
     private const WINDOW_DAYS   = 8;    // navigierbares Tages-Fenster (Verlauf)
     private const WINDOW_WEEKS  = 26;   // Wochen-Fenster (Energie-Balken)
     private const WINDOW_MONTHS = 12;   // Monats-Fenster (Energie-Balken)
@@ -184,6 +185,20 @@ class InverterHubMonitor extends IPSModule
             $valueItems[] = ['type' => 'Label', 'caption' => '— Einstrahlungssensor (optional, externe W/m²-Variable) —'];
             $valueItems[] = ['type' => 'CheckBox', 'name' => 'show_irr', 'caption' => 'Einstrahlung anzeigen (rechte Achse)'];
             $valueItems[] = ['type' => 'SelectVariable', 'name' => 'IrradianceID', 'caption' => 'Einstrahlungs-Variable (W/m²)'];
+
+            // Hinweis aufs Prognose-Modul, sobald ein Einstrahlungssensor gewählt
+            // ist: dessen Modulfläche macht aus der reinen Kurven-Ansicht später
+            // eine quantitative Auswertung (spez. Leistung / Performance-Ratio).
+            if ($this->ReadPropertyInteger('IrradianceID') > 0) {
+                $pvf = $this->PvfArea();
+                if (!$pvf['installed']) {
+                    $valueItems[] = ['type' => 'Label', 'caption' => 'ℹ Tipp: Mit dem Prognose-Modul „PV-Prognose" (Suite EnergiePrognose, DG65/Prognose) lässt sich der Einstrahlungssensor voll nutzen: Trägst du dort je Generator Modulanzahl und Fläche ein, liefert es die Gesamt-Modulfläche — der Monitor kann daraus künftig spez. Leistung und Performance-Ratio berechnen (Verschmutzungs-/Defekterkennung). Das Modul ist derzeit nicht installiert.'];
+                } elseif ($pvf['area'] <= 0.0) {
+                    $valueItems[] = ['type' => 'Label', 'caption' => 'ℹ Das Prognose-Modul „PV-Prognose" ist installiert, liefert aber noch keine Modulfläche. Aktualisiere es ggf. auf eine Version mit dem Feld „Modulfläche gesamt" und trage je PV-Generator die Modulanzahl und die Fläche je Modul (m²) ein — dann kann der Monitor die spez. Leistung / Performance-Ratio gegen die Einstrahlung auswerten.'];
+                } else {
+                    $valueItems[] = ['type' => 'Label', 'caption' => '✅ Modulfläche aus der PV-Prognose erkannt: ' . rtrim(rtrim(number_format($pvf['area'], 2, ',', '.'), '0'), ',') . ' m² — bereit für die spätere spez.-Leistungs-/PR-Auswertung.'];
+                }
+            }
         } else {
             $valueItems[] = ['type' => 'Label', 'caption' => '➜ Zuerst oben eine InverterHub-Instanz wählen und „Änderungen übernehmen".'];
         }
@@ -554,6 +569,27 @@ class InverterHubMonitor extends IPSModule
     {
         $ids = IPS_GetInstanceListByModuleID(self::ARCHIVE_GUID);
         return $ids[0] ?? 0;
+    }
+
+    // Status des Prognose-Moduls (PV-Prognose): installiert? Gesamt-Modulfläche (m²)?
+    // Bezieht die Fläche über die öffentliche PVF_GetModuleArea($id), Fallback
+    // Statusvariable PVF_ModuleArea.
+    private function PvfArea(): array
+    {
+        $ids = IPS_GetInstanceListByModuleID(self::PVF_GUID);
+        if (count($ids) === 0) {
+            return ['installed' => false, 'area' => 0.0, 'id' => 0];
+        }
+        $iid = $ids[0];
+        $area = 0.0;
+        if (function_exists('PVF_GetModuleArea')) {
+            $area = (float)@PVF_GetModuleArea($iid);
+        }
+        if ($area <= 0.0) {
+            $vid = @IPS_GetObjectIDByIdent('PVF_ModuleArea', $iid);
+            if ($vid && IPS_VariableExists($vid)) { $area = (float)GetValue($vid); }
+        }
+        return ['installed' => true, 'area' => $area, 'id' => $iid];
     }
 
     private function ColorOrEmpty(int $color): string

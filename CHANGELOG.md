@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.43.2-beta.1 (2026-07-20)
+
+- **Monitoring: Hinweis aufs Prognose-Modul beim Einstrahlungssensor.** Ist ein
+  Einstrahlungssensor gewählt, prüft das Konfigurationsformular, ob das Modul „PV-Prognose"
+  (Suite EnergiePrognose) installiert ist und eine Gesamt-Modulfläche liefert
+  (`PVF_GetModuleArea`). Fehlt es, fehlt die Fläche oder ist das Modul zu alt, erscheint ein
+  Hinweis; ist die Fläche vorhanden, wird sie bestätigt — Grundlage für die spätere
+  spez.-Leistungs-/Performance-Ratio-Auswertung (Verschmutzungs-/Defekterkennung).
+
 ## 0.43.1-beta.1 (2026-07-20)
 
 - **Monitoring: Tooltip & Achsen verbessert.** Der Tooltip zeigt jetzt das vollständige Datum
