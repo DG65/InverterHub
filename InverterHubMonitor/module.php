@@ -426,6 +426,7 @@ class InverterHubMonitor extends IPSModule
             'engine' => $engine,
             'bg'     => $this->ColorOrEmpty($this->ReadPropertyInteger('ColorBackground')),
             'font'   => $this->FontStack($this->ReadPropertyString('FontFamily')),
+            'uid'    => (string)$this->InstanceID,
         ];
 
         $src = $this->ReadPropertyInteger('SourceInstance');

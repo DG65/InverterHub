@@ -39,8 +39,13 @@
     var lastData = null, curType = null, curIdx = 0, curTab = null, chart = null, chartEngine = null, libs = { hc: 0, ec: 0 };
     // Legenden-Sichtbarkeit je Kurven-Label (true/false). Bleibt über Zeitraum-
     // und Ansichtswechsel erhalten, damit die Auswahl nicht zurückgesetzt wird.
-    var vis = {};
+    // Legenden-Sichtbarkeit je Kurven-Label. Bleibt über Zeitraum-/Reiter-/
+    // Ansichtswechsel erhalten UND über ein Neuladen der Kachel (localStorage).
+    var vis = {}, visKey = null, visLoaded = false;
     function isVisible(label) { return vis[label] !== false; }
+    function loadVis() { if (visLoaded) { return; } visLoaded = true; try { var s = localStorage.getItem(visKey); if (s) { vis = JSON.parse(s) || {}; } } catch (e) {} }
+    function saveVis() { try { localStorage.setItem(visKey, JSON.stringify(vis)); } catch (e) {} }
+    function setVisible(label, on) { vis[label] = on; saveVis(); }
     var customFrom = null, customTo = null;
     var ORDER = ['day', 'week', 'month', 'year', 'all', 'custom'];
     var TYPENAME = { day: 'Tag (Verlauf)', week: 'Woche (Energie)', month: 'Monat (Energie)', year: 'Jahr (Energie)', all: 'Gesamt (Energie)', custom: 'Benutzerdefiniert' };
@@ -51,6 +56,8 @@
       var data = (typeof payload === 'string') ? JSON.parse(payload) : payload;
       if (!data) { return; }
       lastData = data;
+      visKey = 'ihubmon_vis_' + (data.uid || 'x');
+      loadVis();
       document.body.style.background = data.bg ? data.bg : 'transparent';
       document.documentElement.style.background = data.bg ? data.bg : 'transparent';
       applyTheme(data);
@@ -270,7 +277,7 @@
           { title: { text: units.right || '', style: { color: T.MUTED } }, opposite: true, gridLineWidth: 0, labels: { style: { color: T.MUTED, fontSize: '10px' } } }
         ],
         tooltip: { shared: true, backgroundColor: T.TIP, borderColor: T.GRID, style: { color: T.TEXT, fontSize: '11px' }, xDateFormat: '%d.%m.%Y %H:%M', valueDecimals: 2 },
-        plotOptions: { series: { animation: false, states: { inactive: { opacity: 1 } }, events: { legendItemClick: function () { vis[this.name] = !this.visible; } } }, column: { borderWidth: 0, groupPadding: 0.08 } },
+        plotOptions: { series: { animation: false, states: { inactive: { opacity: 1 } }, events: { legendItemClick: function () { setVisible(this.name, !this.visible); } } }, column: { borderWidth: 0, groupPadding: 0.08 } },
         series: series
       };
       el.innerHTML = ''; chart = Highcharts.chart('chart', options);
@@ -317,7 +324,7 @@
         ],
         series: series
       };
-      if (!chart) { el.innerHTML = ''; chart = echarts.init(el, null, { renderer: 'canvas' }); chart.on('legendselectchanged', function (pr) { if (pr && pr.selected) { Object.keys(pr.selected).forEach(function (k) { vis[k] = pr.selected[k]; }); } }); }
+      if (!chart) { el.innerHTML = ''; chart = echarts.init(el, null, { renderer: 'canvas' }); chart.on('legendselectchanged', function (pr) { if (pr && pr.selected) { Object.keys(pr.selected).forEach(function (k) { vis[k] = pr.selected[k]; }); saveVis(); } }); }
       chart.setOption(option, true); chart.resize({ height: el.clientHeight });
     }
 

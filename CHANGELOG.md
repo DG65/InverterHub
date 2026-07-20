@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.45.2-beta.1 (2026-07-20)
+
+- **Monitoring: ausgeblendete Kurven bleiben dauerhaft gemerkt.** Die per Legende gewählte
+  Sichtbarkeit wird jetzt zusätzlich je Instanz im `localStorage` gespeichert und beim Laden
+  wiederhergestellt — die Auswahl übersteht nun auch ein Neuladen der Kachel im WebFront, nicht
+  mehr nur Zeitraum-/Reiterwechsel innerhalb einer Sitzung.
+
 ## 0.45.1-beta.1 (2026-07-20)
 
 - **Monitoring: Reiter reduziert & MPP-Tracker-Farben.** Die Reiter „Leistung & Energie" und
