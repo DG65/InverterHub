@@ -725,7 +725,24 @@ class InverterHubDiscovery extends IPSModule
         return $this->modbusRead($host, $port, $unitId, 0x04, $startReg, $count, $timeout);
     }
 
+    // Ein Retry mit kurzer Pause: Geräte wie der Sungrow WiNet-S lehnen bei
+    // schnell aufeinanderfolgenden Verbindungen (wie beim Hersteller-Probing)
+    // mal eine Verbindung ab und akzeptieren die nächste kurz danach wieder.
     private function modbusRead($host, $port, $unitId, $fc, $startReg, $count, $timeout)
+    {
+        for ($attempt = 0; $attempt < 2; $attempt++) {
+            $r = $this->modbusReadOnce($host, $port, $unitId, $fc, $startReg, $count, $timeout);
+            if ($r !== null) {
+                return $r;
+            }
+            if ($attempt === 0) {
+                usleep(150000); // 150 ms Pause vor dem zweiten Versuch
+            }
+        }
+        return null;
+    }
+
+    private function modbusReadOnce($host, $port, $unitId, $fc, $startReg, $count, $timeout)
     {
         $sock = @fsockopen($host, $port, $errno, $errstr, $timeout);
         if ($sock === false) {

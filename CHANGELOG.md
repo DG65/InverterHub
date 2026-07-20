@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.49.3-beta.1 (2026-07-20)
+
+- **Discovery: robuster gegen „zickige" Modbus-Server (Sungrow WiNet-S).** Die Scan-Reads
+  wiederholen bei Fehlschlag einmal mit 150 ms Pause. Geräte wie der Sungrow WiNet-S lehnen bei
+  schnell aufeinanderfolgenden Verbindungen (während des Hersteller-Probings) gelegentlich eine
+  Verbindung ab und akzeptieren die nächste kurz danach — dadurch wurden sie mal erkannt, mal
+  nicht. Der Retry stabilisiert die Erkennung.
+
 ## 0.49.2-beta.1 (2026-07-20)
 
 - **Discovery: Deye-Erkennung verschärft (weniger Fehlerkennungen).** Der Deye-Probe verlangt
