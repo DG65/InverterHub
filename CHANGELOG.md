@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.50.0-beta.1 (2026-07-20)
+
+- **Discovery: zuverlässiger Portscan für schmale Bereiche.** Der schnelle asynchrone Subnetz-
+  Scan übersieht unter Windows und bei langsam annehmenden Geräten (z. B. Sungrow WiNet-S) offene
+  Ports. Bei Suchbereichen bis 64 Adressen wird jetzt ein blockierender `fsockopen`-Portcheck
+  genutzt — langsamer, aber verlässlich. Empfehlung im Formular ergänzt: einen nicht gefundenen
+  Wechselrichter über einen schmalen Bereich um seine IP scannen.
+
 ## 0.49.4-beta.1 (2026-07-20)
 
 - **Discovery: alte Suchergebnisse werden beim Scan-Start geleert.** Bisher wurde die

@@ -181,6 +181,7 @@ class InverterHubDiscovery extends IPSModule
                         ['type' => 'Label', 'caption' => 'Durchsucht einen IP-Bereich im lokalen Netz nach Wechselrichtern auf Modbus-TCP-Port 502 und erkennt den Hersteller anhand weniger typischer Register/Unit-IDs pro Hersteller.'],
                         ['type' => 'Label', 'caption' => 'Start- und End-IP eintragen (Vorschlag anhand des eigenen Netzwerks ist schon ausgefüllt), dann „Netzwerk durchsuchen" klicken. Gefundene Geräte erscheinen unten in der Liste — Klick auf „Erstellen" legt eine InverterHub-Instanz mit vorausgefüllter IP-Adresse, Unit-ID und Hersteller an.'],
                         ['type' => 'Label', 'caption' => 'Der Scan prüft nur wenige dokumentierte Standard-Unit-IDs je Hersteller, keinen vollen 1-247-Bereich — bei exotisch konfigurierter Unit-ID bitte die InverterHub-Instanz manuell anlegen.'],
+                        ['type' => 'Label', 'caption' => 'Wird ein bekannter Wechselrichter nicht gefunden: einen SCHMALEN Bereich (bis 64 Adressen, z. B. .30–.45) um dessen IP scannen. Kleine Bereiche nutzen einen langsameren, aber zuverlässigen Portcheck — der große Subnetz-Scan kann unter Windows oder bei langsam antwortenden Geräten (z. B. Sungrow WiNet-S) offene Ports übersehen.'],
                         ['type' => 'Label', 'caption' => 'Hinweis: „Filter"/„Aktualisieren" oberhalb und „Erstellen"/„Alle erstellen" unterhalb der Tabelle sind fester Bestandteil der IP-Symcon-Konfigurator-Ansicht selbst — ihre Position lässt sich modulseitig nicht verändern.'],
                     ],
                 ],
@@ -434,6 +435,29 @@ class InverterHubDiscovery extends IPSModule
     // Port 502 offen ist, statt sie nacheinander mit vollem Timeout abzuklopfen.
     private function scanPortOpen($ips, $port, $timeoutSec)
     {
+        // Schmale Suchbereiche: zuverlässiger, blockierender Portcheck.
+        // Der asynchrone Scan (unten) ist schnell für ganze Subnetze, übersieht
+        // aber unter Windows und bei langsam annehmenden Geräten (z. B. Sungrow
+        // WiNet-S) offene Ports. Bei kleinen Bereichen lohnt der langsamere,
+        // aber verlässliche fsockopen-Weg - so wird ein gezielt gesuchter WR
+        // sicher gefunden.
+        if (count($ips) <= 64) {
+            $open  = [];
+            $total = count($ips);
+            $i     = 0;
+            foreach ($ips as $ip) {
+                if ($this->scanAborted()) { break; }
+                $i++;
+                $this->ShowProgress("Portscan (genau) … $i von $total", (int)round(($i / max(1, $total)) * 90));
+                $s = @fsockopen($ip, $port, $errno, $errstr, min(0.8, $timeoutSec));
+                if ($s !== false) {
+                    $open[] = $ip;
+                    fclose($s);
+                }
+            }
+            return $open;
+        }
+
         $pending = [];
         foreach ($ips as $ip) {
             $s = @stream_socket_client(
