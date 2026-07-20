@@ -505,6 +505,10 @@ class InverterHubMonitor extends IPSModule
                 if ($s['axis'] !== 'right' && $s['unit'] === 'W') {
                     foreach ($pts as &$pt) { $pt[1] = round($pt[1] / 1000.0, 3); }
                     unset($pt);
+                } elseif ($s['unit'] === '%') {
+                    // SOC o. Ä.: nur ganze Prozent → kein Nachkomma-Zittern.
+                    foreach ($pts as &$pt) { $pt[1] = round($pt[1]); }
+                    unset($pt);
                 }
                 $rows[] = $pts;
             }

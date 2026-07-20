@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.45.3-beta.1 (2026-07-20)
+
+- **Monitoring: SOC/Prozent-Kurven ohne Nachkommastellen.** Werte mit Einheit „%" (z. B.
+  Batterie-SOC) werden im Tagesverlauf auf ganze Zahlen gerundet — kein Nachkomma-Zittern mehr.
+- **Monitoring: Steuerelemente mittig auf Titelhöhe.** Ansichts-/Zeitraum-Steuerung sitzt jetzt
+  horizontal zentriert oben auf Höhe des Kacheltitels statt links unter dem Titel.
+
 ## 0.45.2-beta.1 (2026-07-20)
 
 - **Monitoring: ausgeblendete Kurven bleiben dauerhaft gemerkt.** Die per Legende gewählte
