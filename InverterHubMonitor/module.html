@@ -5,8 +5,9 @@
 <style>
   html, body { margin: 0; height: 100%; background: transparent; }
   .wrap { position: relative; box-sizing: border-box; height: 100vh; display: flex; flex-direction: column; padding: 52px 12px 10px; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  /* Steuerelemente mittig auf Höhe des Kacheltitels (oberhalb der Grafik). */
-  #bar { position: absolute; top: 11px; left: 12px; right: 12px; display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; z-index: 3; }
+  /* Steuerelemente horizontal zentriert, direkt unter dem Kacheltitel. Nicht in
+     das Titelband selbst legen — dort fängt die IPS-Kopfzeile die Klicks ab. */
+  #bar { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
   #body { display: flex; flex: 1 1 auto; min-height: 0; gap: 10px; margin-top: 8px; }
   #tabs { display: flex; flex-direction: column; gap: 4px; flex: 0 0 auto; padding-top: 2px; }
   button.tab { font: inherit; font-size: 12px; font-weight: 600; text-align: left; white-space: nowrap; padding: 7px 12px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: inherit; cursor: pointer; opacity: .6; }

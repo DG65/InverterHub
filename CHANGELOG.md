@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.46.1-beta.1 (2026-07-20)
+
+- **Monitoring: Steuerung wieder klickbar.** Die zentrierte Steuerung lag im Titelband, wo die
+  IPS-Kachel-Kopfzeile die Klicks abfängt. Sie sitzt jetzt horizontal zentriert direkt unter
+  dem Titel (im klickbaren Inhaltsbereich).
+
 ## 0.46.0-beta.1 (2026-07-20)
 
 - **„Was ist neu"-Banner in allen Modulen.** Nach einem Update erscheint oben im
