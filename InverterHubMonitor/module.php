@@ -95,6 +95,8 @@ class InverterHubMonitor extends IPSModule
         // Externer Einstrahlungssensor (W/m²), nicht Teil der InverterHub-Instanz.
         $this->RegisterPropertyInteger('IrradianceID', 0);
         $this->RegisterPropertyBoolean('show_irr', true);
+        // Batterie-Leistung invertieren (Vorzeichen laden/entladen je nach Anlage).
+        $this->RegisterPropertyBoolean('BatInvert', false);
 
         $this->RegisterPropertyString('Engine', 'echarts');
         $this->RegisterPropertyInteger('ColorBackground', -1);
@@ -218,6 +220,7 @@ class InverterHubMonitor extends IPSModule
             if (!$anyOffered) {
                 $valueItems[] = ['type' => 'Label', 'caption' => '⚠ In dieser Instanz wurden keine bekannten Werte gefunden. Ist es wirklich eine InverterHub-Instanz?'];
             }
+            $valueItems[] = ['type' => 'CheckBox', 'name' => 'BatInvert', 'caption' => 'Batterie-Leistung invertieren (falls Laden/Entladen mit falschem Vorzeichen erscheint)'];
             $valueItems[] = ['type' => 'Label', 'caption' => '— Einstrahlungssensor (optional, externe W/m²-Variable) —'];
             $valueItems[] = ['type' => 'CheckBox', 'name' => 'show_irr', 'caption' => 'Einstrahlung anzeigen (rechte Achse)'];
             $valueItems[] = ['type' => 'SelectVariable', 'name' => 'IrradianceID', 'caption' => 'Einstrahlungs-Variable (W/m²)'];
@@ -285,6 +288,9 @@ class InverterHubMonitor extends IPSModule
                 if ($powerVid <= 0 && $energyVid <= 0) {
                     continue;
                 }
+                // Batterie-Leistung optional invertieren (Vorzeichen-Konvention
+                // laden/entladen ist je Anlage verschieden). Nutzt den scale-Weg.
+                $scale = ($key === 'bat' && $this->ReadPropertyBoolean('BatInvert')) ? -1.0 : 1.0;
                 $out[] = [
                     'key'       => $key,
                     'label'     => $def['label'],
@@ -295,7 +301,7 @@ class InverterHubMonitor extends IPSModule
                     'groups'    => $def['groups'],
                     'isIrr'     => false,
                     'dash'      => false,
-                    'scale'     => 1.0,
+                    'scale'     => $scale,
                     'powerVid'  => $powerVid,
                     'energyVid' => $energyVid,
                 ];

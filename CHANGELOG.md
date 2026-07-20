@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.55.1-beta.1 (2026-07-20)
+
+- **Monitoring: Batterie-Leistung invertierbar.** Neuer Schalter "Batterie-Leistung invertieren"
+  - dreht das Vorzeichen der Batterie-Leistungskurve, falls Laden/Entladen andersherum als
+  gewuenscht erscheint (die Konvention ist je Anlage verschieden). (Beta-Tester-Wunsch.)
+
 ## 0.55.0-beta.1 (2026-07-20)
 
 - **Tile: echter Hausverbrauch direkt waehlbar.** Neues Feld "Echter Hausverbrauch (Variable)"
