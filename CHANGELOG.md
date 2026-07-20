@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.50.1-beta.1 (2026-07-20)
+
+- **Discovery: Hersteller-Erkennung schonender für Single-Connection-Geräte (Sungrow WiNet-S).**
+  Der in 0.49.3 eingeführte Retry wurde wieder entfernt — er verdoppelte die schnellen
+  Verbindungen, die der WiNet-S ablehnt, und ließ das Probing hängen. Stattdessen gibt es jetzt
+  eine kurze Pause (120 ms) zwischen den Scan-Verbindungen, damit solche Geräte die nächste
+  Verbindung wieder annehmen. Der Portscan findet den WiNet-S bereits (schmaler Bereich); dies
+  zielt auf die Erkennung danach.
+
 ## 0.50.0-beta.1 (2026-07-20)
 
 - **Discovery: zuverlässiger Portscan für schmale Bereiche.** Der schnelle asynchrone Subnetz-

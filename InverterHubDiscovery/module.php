@@ -755,21 +755,16 @@ class InverterHubDiscovery extends IPSModule
         return $this->modbusRead($host, $port, $unitId, 0x04, $startReg, $count, $timeout);
     }
 
-    // Ein Retry mit kurzer Pause: Geräte wie der Sungrow WiNet-S lehnen bei
-    // schnell aufeinanderfolgenden Verbindungen (wie beim Hersteller-Probing)
-    // mal eine Verbindung ab und akzeptieren die nächste kurz danach wieder.
+    // Ein Read + kurze Pause danach. Single-Connection-Geräte wie der Sungrow
+    // WiNet-S erlauben nur EINE Modbus-Verbindung und lehnen schnell
+    // aufeinanderfolgende Verbindungen ab. Statt mit Retrys mehr Verbindungen
+    // zu erzeugen (was es verschlimmert), lassen wir zwischen den Verbindungen
+    // etwas Zeit, damit das Gerät die nächste wieder annimmt.
     private function modbusRead($host, $port, $unitId, $fc, $startReg, $count, $timeout)
     {
-        for ($attempt = 0; $attempt < 2; $attempt++) {
-            $r = $this->modbusReadOnce($host, $port, $unitId, $fc, $startReg, $count, $timeout);
-            if ($r !== null) {
-                return $r;
-            }
-            if ($attempt === 0) {
-                usleep(150000); // 150 ms Pause vor dem zweiten Versuch
-            }
-        }
-        return null;
+        $r = $this->modbusReadOnce($host, $port, $unitId, $fc, $startReg, $count, $timeout);
+        usleep(120000); // 120 ms Luft vor der nächsten Verbindung
+        return $r;
     }
 
     private function modbusReadOnce($host, $port, $unitId, $fc, $startReg, $count, $timeout)
