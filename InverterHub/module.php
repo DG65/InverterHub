@@ -3869,7 +3869,7 @@ class InverterHub extends IPSModule
                     'caption' => '📖  Dokumentation & Hilfe',
                     'expanded' => false,
                     'items' => [
-                        ['type' => 'Label', 'caption' => 'InverterHub liest Wechselrichter verschiedener Hersteller direkt per Modbus TCP aus. Hersteller wählen, IP-Adresse (und ggf. Port/Unit-ID) eintragen, Datenpunkt-Gruppen je nach Anlage aktivieren.'],
+                        ['type' => 'Label', 'caption' => 'InverterHub liest Wechselrichter verschiedener Hersteller direkt per Modbus TCP aus. Hersteller wählen, IP-Adresse oder Hostname (und ggf. Port/Unit-ID) eintragen, Datenpunkt-Gruppen je nach Anlage aktivieren. Tipp: Trägt man statt der IP einen festen Hostnamen ein (DHCP-Reservierung/mDNS), läuft das Modul auch nach einem IP-Wechsel des Wechselrichters weiter.'],
                         ['type' => 'Label', 'caption' => 'Unterstützte Hersteller: GoodWe (GW-ET/EH/BT/BH), Sungrow (SH-Hybrid), Solis (Hybrid, 33000er-Register), Growatt (TL-X/TL3-X/MOD/MIX/SPH/WIT), SolaX, SMA (STP/STPS/SI, inkl. Netzmessung), Fronius (SunSpec, GEN24-Hybrid inkl. Batterie/Smart Meter), SolarEdge (inkl. StorEdge-Batterie), Deye (SG04LP3), Solplanet/AISWEI, Kostal (PLENTICORE plus Gen. 1), Victron GX (Cerbo/Venus OS) und Huawei SUN2000 (inkl. DTSU666-Zähler + LUNA2000-Batterie).'],
                         ['type' => 'Label', 'caption' => '⚙️ Anschluss-Besonderheiten je Hersteller:'],
                         ['type' => 'Label', 'caption' => '• Kostal: Standard-Port ist 1502 (nicht 502). Zusätzlich die Byte-Reihenfolge passend zum Wechselrichter wählen (Werkseinstellung CDAB).'],
@@ -3912,7 +3912,11 @@ class InverterHub extends IPSModule
                     'caption' => '🔌  Verbindung',
                     'expanded' => true,
                     'items' => [
-                        ['type' => 'ValidationTextBox', 'name' => 'Host', 'caption' => 'IP-Adresse', 'validate' => '^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$'],
+                        // IP-Adresse ODER Hostname erlaubt (fsockopen löst den
+                        // Namen per DNS auf) - so überlebt die Instanz einen
+                        // IP-Wechsel des Wechselrichters, wenn ein fester Name
+                        // (DHCP-Reservierung/mDNS, z. B. „wr-fronius.local") genutzt wird.
+                        ['type' => 'ValidationTextBox', 'name' => 'Host', 'caption' => 'IP-Adresse oder Hostname', 'validate' => '^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$'],
                         ['type' => 'NumberSpinner', 'name' => 'Port', 'caption' => 'TCP-Port', 'minimum' => 1, 'maximum' => 65535],
                         ['type' => 'NumberSpinner', 'name' => 'UnitId', 'caption' => 'Unit ID', 'minimum' => 1, 'maximum' => 247],
                     ],
@@ -3947,7 +3951,7 @@ class InverterHub extends IPSModule
                 ['type' => 'Button', 'caption' => 'Verbindung testen / Daten sofort lesen', 'onClick' => 'IHUB_ReadFast($id);'],
             ],
             'status' => [
-                ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte IP-Adresse eintragen.'],
+                ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte IP-Adresse oder Hostname eintragen.'],
                 ['code' => 102, 'icon' => 'active',   'caption' => 'Verbindung aktiv.'],
                 ['code' => 201, 'icon' => 'error',     'caption' => 'Verbindungsfehler – Wechselrichter nicht erreichbar.'],
             ],

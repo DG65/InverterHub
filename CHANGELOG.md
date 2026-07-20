@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.48.1-beta.1 (2026-07-20)
+
+- **Verbindung: Hostname statt IP möglich.** Im Feld „IP-Adresse oder Hostname" kann jetzt auch
+  ein DNS-Name/mDNS (z. B. `wr-fronius.local`) eingetragen werden – die Verbindung wird per
+  `fsockopen` aufgelöst. Bei fester DHCP-Reservierung/Hostname läuft die Instanz so auch nach
+  einem IP-Wechsel des Wechselrichters weiter. (Vorschlag aus dem Beta-Test.)
+
 ## 0.48.0-beta.1 (2026-07-20)
 
 - **Fronius: Smart-Meter-Energiezähler lieferten 0 Wh (Float-Meter).** Bei den Float-Metern
