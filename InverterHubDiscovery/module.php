@@ -199,8 +199,8 @@ class InverterHubDiscovery extends IPSModule
                         [
                             'type'  => 'RowLayout',
                             'items' => [
-                                ['type' => 'Button', 'caption' => '🔎  Netzwerk durchsuchen', 'onClick' => 'IHUBD_Discover($id);'],
-                                ['type' => 'Button', 'caption' => '✖  Scan abbrechen', 'onClick' => 'IHUBD_AbortScan($id);'],
+                                ['type' => 'Button', 'name' => 'BtnScan',  'caption' => '🔎  Netzwerk durchsuchen', 'onClick' => 'IHUBD_Discover($id);'],
+                                ['type' => 'Button', 'name' => 'BtnAbort', 'caption' => '✖  Scan abbrechen', 'onClick' => 'IHUBD_AbortScan($id);', 'visible' => false],
                             ],
                         ],
                         [
@@ -329,6 +329,10 @@ class InverterHubDiscovery extends IPSModule
         if (@IPS_GetObjectIDByIdent('ScanAbort', $this->InstanceID)) {
             $this->SetValue('ScanAbort', false);
         }
+        // Start-Button aus, Abbrechen-Button ein (am Scan-Ende stellt ReloadForm
+        // die Ausgangslage wieder her).
+        @$this->UpdateFormField('BtnScan', 'visible', false);
+        @$this->UpdateFormField('BtnAbort', 'visible', true);
 
         $ips = $this->expandRange($start, $end);
         if (count($ips) > 1024) {

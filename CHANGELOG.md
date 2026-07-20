@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.49.1-beta.1 (2026-07-20)
+
+- **Discovery: „Scan abbrechen" nur während des Scans sichtbar.** Der Abbrechen-Button
+  erscheint erst mit dem Scan-Start (der Start-Button wird solange ausgeblendet); nach dem
+  Ende/Abbruch stellt sich die Ausgangslage automatisch wieder her.
+
 ## 0.49.0-beta.1 (2026-07-20)
 
 - **Discovery: Netzwerk-Scan abbrechbar.** Neben „Netzwerk durchsuchen" gibt es jetzt „Scan
