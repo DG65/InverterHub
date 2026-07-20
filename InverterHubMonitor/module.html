@@ -270,7 +270,7 @@
         ? { type: 'category', categories: p.cats || [], gridLineWidth: 0, lineColor: T.GRID, tickLength: 0, labels: { style: { color: T.MUTED, fontSize: '10px' } } }
         : (function () { var w = prodWindow(); var a = { type: 'datetime', gridLineWidth: 1, gridLineColor: T.GRID, lineColor: T.GRID, tickLength: 0, labels: { style: { color: T.MUTED, fontSize: '10px' } } }; if (w) { a.min = w[0]; a.max = w[1]; } return a; })();
       var options = {
-        chart: { backgroundColor: 'transparent', style: { fontFamily: T.font }, animation: false, height: el.clientHeight, spacingTop: 6, marginRight: 14, alignTicks: false },
+        chart: { backgroundColor: 'transparent', style: { fontFamily: T.font }, animation: false, height: el.clientHeight, spacingTop: 6, marginRight: 14, alignTicks: false, zoomType: 'x', zooming: { type: 'x', mouseWheel: { enabled: true } }, resetZoomButton: { theme: { fill: T.TIP, stroke: T.GRID, style: { color: T.TEXT } } } },
         title: { text: undefined }, credits: { enabled: false }, exporting: { enabled: false },
         legend: { enabled: true, itemStyle: { color: T.TEXT, fontSize: '11px', fontWeight: '400' }, itemHoverStyle: { color: T.TEXT } },
         xAxis: xAxis,
@@ -303,6 +303,7 @@
       var option = {
         backgroundColor: 'transparent', textStyle: { fontFamily: T.font, color: T.TEXT }, animation: false,
         grid: { left: 52, right: 52, top: 34, bottom: 26, containLabel: false },
+        dataZoom: [{ type: 'inside', xAxisIndex: 0, filterMode: 'none' }],
         legend: { top: 2, textStyle: { color: T.TEXT, fontSize: 11 }, selected: (function () { var sel = {}; meta.forEach(function (m) { sel[m.label] = isVisible(m.label); }); return sel; })() },
         tooltip: { trigger: 'axis', backgroundColor: T.TIP, borderColor: T.GRID, borderWidth: 1, textStyle: { color: T.TEXT, fontSize: 11 },
           axisPointer: { type: bar ? 'shadow' : 'line', lineStyle: { color: T.MUTED, type: 'dashed' } },
@@ -326,7 +327,7 @@
         ],
         series: series
       };
-      if (!chart) { el.innerHTML = ''; chart = echarts.init(el, null, { renderer: 'canvas' }); chart.on('legendselectchanged', function (pr) { if (pr && pr.selected) { Object.keys(pr.selected).forEach(function (k) { vis[k] = pr.selected[k]; }); saveVis(); } }); }
+      if (!chart) { el.innerHTML = ''; chart = echarts.init(el, null, { renderer: 'canvas' }); chart.on('legendselectchanged', function (pr) { if (pr && pr.selected) { Object.keys(pr.selected).forEach(function (k) { vis[k] = pr.selected[k]; }); saveVis(); } }); chart.getZr().on('dblclick', function () { chart.dispatchAction({ type: 'dataZoom', start: 0, end: 100 }); }); }
       chart.setOption(option, true); chart.resize({ height: el.clientHeight });
     }
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.47.0-beta.1 (2026-07-20)
+
+- **Monitoring: Diagramme zoombar.** Highcharts: mit der Maus über die x-Achse ziehen oder
+  Mausrad zum Zoomen, „Reset zoom"-Button erscheint automatisch. ECharts: Mausrad zum Zoomen,
+  Ziehen zum Verschieben, Doppelklick setzt zurück. Zoom betrifft die Zeitachse (x).
+
 ## 0.46.1-beta.1 (2026-07-20)
 
 - **Monitoring: Steuerung wieder klickbar.** Die zentrierte Steuerung lag im Titelband, wo die
