@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.56.0-beta.1 (2026-07-20)
+
+- **Kachel: Corona als Vektor-Verlauf statt CSS-Blur.** Der Leucht-Halo um die Knotenpunkte
+  wurde von `filter: blur()` auf echte radiale SVG-Verlaeufe (`<radialGradient>`) umgestellt.
+  Blur rastert beim Skalieren der Kachel unsauber (in Safari deutlich sichtbar, teils halber
+  Inhalt beim Vergroessern/Verkleinern kurz weg); der Verlauf bleibt vektorscharf. Jeder Knoten
+  erhaelt einen eigenen Verlauf, dessen Farbe und Deckkraft weiterhin von der Leistung abhaengen;
+  der statische Hauslast-Kreis in der Mitte ist mit umgestellt.
+
 ## 0.55.2-beta.1 (2026-07-20)
 
 - **Monitoring: Vollbild zeigte nur grau.** Beim Vergroessern der Kachel (↗) blieb das Diagramm

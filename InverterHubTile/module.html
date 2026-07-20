@@ -165,10 +165,13 @@
      eigenständiges Gestaltungselement erkennbar bleibt. */
   .ring-decor { fill: none; stroke: var(--ring-decor); stroke-width: 3.5; stroke-dasharray: 2 6; }
 
+  /* Corona als echter Vektor (radialer Verlauf, per attachGlow zugewiesen) statt
+     CSS-blur - gestochen scharf in allen Browsern (Safari rasterte blur() grob)
+     und kein Repaint-Aussetzer beim Vergrößern. Intensität = Opacity des Kreises
+     (leistungsabhängig, weich animiert). */
   .node-glow {
-    fill: none; stroke-width: 13; filter: blur(8px);
-    transition: stroke var(--trans) var(--ease), stroke-width var(--trans) var(--ease),
-                filter var(--trans) var(--ease);
+    fill: none; opacity: 0;
+    transition: opacity var(--trans) var(--ease);
   }
   /* Ring = nur die farbige Kante; die gewölbte Fläche liegt als eigenes
      Element (.node-face) darunter, damit sie separat ein-/ausgeblendet werden
@@ -351,16 +354,35 @@ function fmtKw(w) {
 // Nicht nur die Deckkraft wächst, sondern auch Ringbreite und Weichzeichnung,
 // damit der Halo bei hoher Leistung spürbar "aufblüht".
 const GLOW_MAX_W = 40000;
+// Corona: radialer Verlauf, der genau außerhalb des Knotenrands aufleuchtet und
+// weich nach außen ausläuft. Die farbtragenden Stops bekommen die Knotenfarbe,
+// die Gesamt-Deckkraft (leistungsabhängig) steuert die Opacity des Kreises
+// (per CSS animiert). Kein blur() -> in allen Browsern scharf.
+let glowGradSeq = 0;
+function attachGlow(glowEl) {
+  const defs = document.getElementById('markerDefs');
+  const id = 'glowg' + (++glowGradSeq);
+  const grad = el('radialGradient', { id: id, cx: '50%', cy: '50%', r: '50%' });
+  const stops = [
+    el('stop', { offset: '0%',   'stop-color': '#fff', 'stop-opacity': '0' }),
+    el('stop', { offset: '55%',  'stop-color': '#fff', 'stop-opacity': '0' }),
+    el('stop', { offset: '63%',  'stop-color': '#fff', 'stop-opacity': '0.85' }),
+    el('stop', { offset: '100%', 'stop-color': '#fff', 'stop-opacity': '0' }),
+  ];
+  stops.forEach(function (s) { grad.appendChild(s); });
+  if (defs) { defs.appendChild(grad); }
+  glowEl.setAttribute('r', (DESIGN_R * 1.78).toFixed(1)); // Halo reicht über den Knotenrand hinaus
+  glowEl.setAttribute('fill', 'url(#' + id + ')');
+  glowEl._glowStops = [stops[2], stops[3]]; // farb-/fadetragende Stops
+  return glowEl;
+}
 function applyGlow(glowEl, color, magnitudeW) {
   const t = Math.max(0, Math.min(1, magnitudeW / GLOW_MAX_W));
-  if (t <= 0) {
-    glowEl.style.stroke = 'var(--grey-glow)';
-    return;
+  if (glowEl._glowStops) {
+    const c = 'rgb(' + color[0] + ',' + color[1] + ',' + color[2] + ')';
+    glowEl._glowStops.forEach(function (s) { s.setAttribute('stop-color', c); });
   }
-  const k = Math.sqrt(t);
-  glowEl.style.stroke = `rgba(${color[0]},${color[1]},${color[2]},${(k * 0.95).toFixed(2)})`;
-  glowEl.style.strokeWidth = (12 + k * 22).toFixed(1);   // 12 .. 34
-  glowEl.style.filter = `blur(${(7 + k * 15).toFixed(1)}px)`; // 7 .. 22 px
+  glowEl.style.opacity = (t <= 0) ? '0' : Math.sqrt(t).toFixed(3);
 }
 const SVGNS = 'http://www.w3.org/2000/svg';
 function el(tag, attrs) {
@@ -683,7 +705,7 @@ function createOuterNode(item, angleDeg, layout) {
   // der ganzen Gruppe, damit stets der komplette Kreisinhalt mitgeht.
   const g = el('g', { class: 'node' });
   g.appendChild(makeCoinShadow(DESIGN_R));
-  const glow = el('circle', { class: 'node-glow', r: DESIGN_R });
+  const glow = attachGlow(el('circle', { class: 'node-glow' }));
   g.appendChild(glow);
   g.appendChild(el('circle', { class: 'node-face', r: DESIGN_R }));
   g.appendChild(el('circle', { class: 'node-ring', r: DESIGN_R }));
@@ -777,6 +799,9 @@ function addNodeBolts(g, r, seedBase) {
 // Icon/Text eingehängt, damit sie die Beschriftung nicht überlagern.
 (function () {
   const c = document.getElementById('node-center');
+  // Corona des (statischen) Hauslast-Kreises ebenfalls auf den Vektor-Verlauf.
+  const cg = c.querySelector('.node-glow');
+  if (cg) { attachGlow(cg); }
   const holder = el('g', {});
   addNodeBolts(holder, DESIGN_R, 5);
   c.insertBefore(holder, document.getElementById('center-icon'));
@@ -960,7 +985,7 @@ function applyNodeState(g, glow, color, magnitude, active, cx, cy, baseScale) {
   // Helligkeit der Kanten-Blitze am Knoten (leistungsabhängig).
   g.style.setProperty('--bmax', boltBrightness(magnitude, active).toFixed(2));
   if (active) { applyGlow(glow, color, magnitude); }
-  else { glow.style.stroke = 'var(--grey-glow)'; }
+  else { glow.style.opacity = '0'; }
 }
 
 function updateOuterNode(refs, item, d) {
