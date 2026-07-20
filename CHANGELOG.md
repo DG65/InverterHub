@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.47.2-beta.1 (2026-07-20)
+
+- **Monitoring: SOC-Glättung verstärkt.** Glättungsfenster von 7 auf 15 Punkte (≈ 75 min)
+  erhöht — die SOC-Kurve läuft nun deutlich ruhiger.
+
 ## 0.47.1-beta.1 (2026-07-20)
 
 - **Monitoring: Batterie-SOC geglättet.** Statt des reinen Integer-Rundens werden „%"-Kurven

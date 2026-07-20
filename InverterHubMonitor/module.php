@@ -508,7 +508,7 @@ class InverterHubMonitor extends IPSModule
                 } elseif ($s['unit'] === '%') {
                     // SOC o. Ä.: BMS-Rauschen glätten (gleitender Mittelwert) →
                     // ruhige Kurve statt Zackenmuster.
-                    $pts = $this->SmoothPoints($pts, 7);
+                    $pts = $this->SmoothPoints($pts, 15);
                 }
                 $rows[] = $pts;
             }
