@@ -3390,6 +3390,20 @@ class VictronDriver implements InverterDriverInterface
                 ['pv_dc',  'PV DC-gekoppelt (MPPT)',  'F', 'VIC.Watt', true, 'pv', 'Reg 850'],
                 ['pv_ac',  'PV AC-gekoppelt (Σ)',     'F', 'VIC.Watt', true, 'pv', 'Σ 808..816'],
             ]],
+            'GroupMppt' => ['caption' => 'PV je Solarladeregler / MPPT (Unit-IDs unten eintragen)', 'vars' => [
+                ['mppt1_power', 'MPPT 1 Leistung', 'F', 'VIC.Watt', true,  'pv', 'Solarladeregler Reg 789 (÷10)'],
+                ['mppt1_volt',  'MPPT 1 Spannung', 'F', 'VIC.Volt', false, 'pv', 'Reg 776 (÷100)'],
+                ['mppt1_state', 'MPPT 1 Zustand',  'I', 'VIC.ChgState', true, 'pv', 'Reg 775'],
+                ['mppt2_power', 'MPPT 2 Leistung', 'F', 'VIC.Watt', true,  'pv', 'Solarladeregler Reg 789 (÷10)'],
+                ['mppt2_volt',  'MPPT 2 Spannung', 'F', 'VIC.Volt', false, 'pv', 'Reg 776 (÷100)'],
+                ['mppt2_state', 'MPPT 2 Zustand',  'I', 'VIC.ChgState', true, 'pv', 'Reg 775'],
+                ['mppt3_power', 'MPPT 3 Leistung', 'F', 'VIC.Watt', true,  'pv', 'Solarladeregler Reg 789 (÷10)'],
+                ['mppt3_volt',  'MPPT 3 Spannung', 'F', 'VIC.Volt', false, 'pv', 'Reg 776 (÷100)'],
+                ['mppt3_state', 'MPPT 3 Zustand',  'I', 'VIC.ChgState', true, 'pv', 'Reg 775'],
+                ['mppt4_power', 'MPPT 4 Leistung', 'F', 'VIC.Watt', true,  'pv', 'Solarladeregler Reg 789 (÷10)'],
+                ['mppt4_volt',  'MPPT 4 Spannung', 'F', 'VIC.Volt', false, 'pv', 'Reg 776 (÷100)'],
+                ['mppt4_state', 'MPPT 4 Zustand',  'I', 'VIC.ChgState', true, 'pv', 'Reg 775'],
+            ]],
         ];
     }
 
@@ -3417,7 +3431,12 @@ class VictronDriver implements InverterDriverInterface
         foreach (self::GRID_SOURCE as $k => $label) {
             $src[$k] = [$label, 0x7A8A99];
         }
-        return ['VIC.BatState' => $bat, 'VIC.GridSrc' => $src];
+        $chg = [
+            0 => ['Aus', 0x7A8A99], 2 => ['Fehler', 0xC0392B], 3 => ['Bulk', 0x3BA55D],
+            4 => ['Absorption', 0x3BA55D], 5 => ['Float', 0x3BA55D], 6 => ['Storage', 0x7A8A99],
+            7 => ['Ausgleich', 0xE08A2B], 11 => ['Hub-1', 0x7A8A99], 252 => ['Hub-1', 0x7A8A99],
+        ];
+        return ['VIC.BatState' => $bat, 'VIC.GridSrc' => $src, 'VIC.ChgState' => $chg];
     }
 
     public function readFast($mb, $hub)
@@ -3477,6 +3496,27 @@ class VictronDriver implements InverterDriverInterface
             $hub->SetVarFloat('bat_power', (float)(-$mb->s16($bat, 2))); // 842
             $hub->SetVarInt('bat_soc', $mb->u16($bat, 3));            // 843
             $hub->SetVarInt('bat_state', $mb->u16($bat, 4));         // 844
+        }
+
+        // Einzelne Solarladeregler (MPPT): jeder ist ein eigenes Modbus-Gerät
+        // mit eigener Unit-ID (im GX unter Modbus-Diensten ablesbar). Je Regler
+        // Leistung (789 ÷10), Spannung (776 ÷100) und Zustand (775).
+        if ($hub->GetPropBool('GroupMppt')) {
+            $ids = $hub->GetVictronMpptUnitIds();
+            for ($i = 0; $i < 4; $i++) {
+                $n = $i + 1;
+                if (!isset($ids[$i]) || $ids[$i] <= 0) {
+                    continue;
+                }
+                $mb->unitId = $ids[$i];
+                $p = $mb->readHolding(789, 1);
+                $v = $mb->readHolding(776, 1);
+                $s = $mb->readHolding(775, 1);
+                if ($p !== null) { $hub->SetVarFloat('mppt' . $n . '_power', $mb->u16($p, 0) / 10.0); }
+                if ($v !== null) { $hub->SetVarFloat('mppt' . $n . '_volt',  $mb->u16($v, 0) / 100.0); }
+                if ($s !== null) { $hub->SetVarInt('mppt' . $n . '_state',   $mb->u16($s, 0)); }
+            }
+            $mb->unitId = self::UNIT_SYSTEM;
         }
 
         return true;
@@ -3544,6 +3584,8 @@ class InverterHub extends IPSModule
         // Modbus", Werkseinstellung Plenticore), 1 = ABCD (big-endian/SunSpec).
         // Falsche Wahl liefert unbrauchbare Werte (riesige/negative Zahlen).
         $this->RegisterPropertyInteger('KostalByteOrder', 0);
+        // Victron: Unit-IDs der einzelnen Solarladeregler (MPPT), kommagetrennt.
+        $this->RegisterPropertyString('VictronMpptUnitIds', '');
         $this->RegisterPropertyInteger('HouseLoadMeterID', 0);
         $this->RegisterPropertyString('Host', '');
         $this->RegisterPropertyInteger('Port', 502);
@@ -3733,6 +3775,16 @@ class InverterHub extends IPSModule
             ];
         }
 
+        // Victron: Unit-IDs der einzelnen Solarladeregler (MPPT). Für die
+        // optionale Gruppe „PV je Solarladeregler / MPPT".
+        if ($this->ReadPropertyString('Manufacturer') === 'victron') {
+            $groupItems[] = [
+                'type'    => 'ValidationTextBox',
+                'name'    => 'VictronMpptUnitIds',
+                'caption' => 'Solarladeregler-Unit-IDs (MPPT, kommagetrennt, max. 4 — im GX unter Einstellungen → Services → Modbus TCP → verfügbare Dienste ablesbar). Aktiviert die Gruppe „PV je Solarladeregler / MPPT".',
+            ];
+        }
+
         $form = [
             'elements' => [
                 [
@@ -3873,6 +3925,22 @@ class InverterHub extends IPSModule
     public function GetKostalWordSwap(): bool
     {
         return (int)$this->ReadPropertyInteger('KostalByteOrder') === 0;
+    }
+
+    // Victron: Unit-IDs der Solarladeregler (MPPT) als Integer-Array (max. 4).
+    public function GetVictronMpptUnitIds(): array
+    {
+        $out = [];
+        foreach (explode(',', $this->ReadPropertyString('VictronMpptUnitIds')) as $part) {
+            $id = (int)trim($part);
+            if ($id > 0 && $id <= 247) {
+                $out[] = $id;
+            }
+            if (count($out) >= 4) {
+                break;
+            }
+        }
+        return $out;
     }
 
     private function GetModbusClient(): ModbusTcpClient

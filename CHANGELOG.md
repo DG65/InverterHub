@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.38.0-beta.1 (2026-07-19)
+
+- **Victron: PV je Solarladeregler / MPPT.** Auf Wunsch eines Beta-Testers lassen sich die
+  einzelnen Solarladeregler (MPPTs) getrennt erfassen. Jeder MPPT ist bei Victron ein eigenes
+  Modbus-Gerät mit eigener Unit-ID (im GX unter Einstellungen → Services → Modbus TCP →
+  verfügbare Dienste ablesbar). Im Datenpunkte-Panel die Unit-IDs kommagetrennt eintragen
+  (max. 4); die neue Gruppe „PV je Solarladeregler / MPPT" liefert dann je Regler Leistung
+  (Reg 789), Spannung (776) und Zustand (775: Bulk/Absorption/Float …). Register aus Victrons
+  offizieller attributes.csv.
+
+
 ## 0.37.2-beta.1 (2026-07-19)
 
 - **Kostal: Batterie-Leistung und Batterie-Zustand ergänzt.** Auf Wunsch eines Beta-Testers
