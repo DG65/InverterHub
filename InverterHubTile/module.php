@@ -51,9 +51,18 @@ class InverterHubTile extends IPSModule
         'other'    => ['label' => 'Verbraucher',     'icon' => 'other',    'color' => 0x90A4AE],
     ];
 
+    // „Was ist neu"-Banner (siehe newsBanner()/AckNews()).
+    private const NEWS_VERSION = '0.45';
+    private const NEWS_ITEMS = [
+        'Manuelle Datenpunkt-Zuordnung, wenn keine InverterHub-Instanz gewählt ist.',
+        'Hauslast optional in eine eigene Variable schreiben.',
+        'Netz-Invert (Meter) wird intern korrekt entflippt (wie die Batterie).',
+    ];
+
     public function Create()
     {
         parent::Create();
+        $this->RegisterAttributeString('SeenNews', '');
 
         $this->RegisterPropertyInteger('SourceInstance', 0);
         // Manueller Modus (ohne InverterHub-Instanz): einzelne Variablen direkt
@@ -407,7 +416,36 @@ class InverterHubTile extends IPSModule
 
     public function GetConfigurationForm()
     {
-        return file_get_contents(__DIR__ . '/form.json');
+        $form = json_decode(file_get_contents(__DIR__ . '/form.json'), true);
+        $banner = $this->newsBanner();
+        if ($banner !== null) {
+            if (!isset($form['elements']) || !is_array($form['elements'])) {
+                $form['elements'] = [];
+            }
+            array_unshift($form['elements'], $banner);
+        }
+        return json_encode($form);
+    }
+
+    // „Was ist neu"-Banner: erscheint nach einem Update (Attribut startet leer),
+    // bis der Nutzer „Verstanden" klickt. Neuinstallation sieht es einmalig.
+    private function newsBanner()
+    {
+        if ($this->ReadAttributeString('SeenNews') === self::NEWS_VERSION) {
+            return null;
+        }
+        $items = [['type' => 'Label', 'caption' => '🆕 Neu in diesem Modul — bitte kurz ansehen und ggf. die Einstellungen prüfen:']];
+        foreach (self::NEWS_ITEMS as $line) {
+            $items[] = ['type' => 'Label', 'caption' => '• ' . $line];
+        }
+        $items[] = ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'IHUBTILE_AckNews($id);'];
+        return ['type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'caption' => '🆕 Neu in Version ' . self::NEWS_VERSION, 'expanded' => true, 'items' => $items];
+    }
+
+    public function AckNews()
+    {
+        $this->WriteAttributeString('SeenNews', self::NEWS_VERSION);
+        $this->UpdateFormField('NewsPanel', 'visible', false);
     }
 
     // Idents der Quell-Instanz liegen ggf. in Unterkategorien, daher

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.46.0-beta.1 (2026-07-20)
+
+- **„Was ist neu"-Banner in allen Modulen.** Nach einem Update erscheint oben im
+  Konfigurationsformular jedes Moduls (InverterHub, Tile, Discovery, Energiefluss, Monitoring)
+  ein aufgeklapptes Banner mit den wichtigsten Änderungen und dem Hinweis, die Einstellungen zu
+  prüfen. „Verstanden – nicht mehr anzeigen" blendet es aus (Attribut `SeenNews` je Instanz);
+  bei der nächsten News-Version erscheint es erneut. Neuinstallationen sehen es einmalig.
+
 ## 0.45.3-beta.1 (2026-07-20)
 
 - **Monitoring: SOC/Prozent-Kurven ohne Nachkommastellen.** Werte mit Einheit „%" (z. B.

@@ -3615,11 +3615,22 @@ class InverterHub extends IPSModule
     private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-inverterhub-multi-wechselrichter-ein-modbus-tcp-modul-fuer-goodwe-sma-fronius-sungrow-solis-growatt-solax/144121';
     private const ATTR_REVIEW_HINT_GONE = 'ReviewHintDismissed';
 
+    // „Was ist neu"-Banner (siehe newsBanner()/AckNews()).
+    private const NEWS_VERSION = '0.45';
+    private const NEWS_ITEMS = [
+        'Neue Wechselrichter: Victron und Huawei (auch in der Discovery).',
+        'Kostal: Batterie-Leistung und Batterie-Zustand. Fronius: Smart-Meter-Energiezähler (Bezug/Einspeisung gesamt).',
+        'Isolationswiderstand (Riso) für viele Hersteller.',
+        'Schalter „Energie in Wh" (Basiseinheit) — die neue IPS-Darstellung skaliert dann selbst auf Wh/kWh/MWh.',
+        'Bitte die Vorzeichen von Netz-/Batterieleistung und die optionalen Gruppen prüfen.',
+    ];
+
     private $driver = null;
 
     public function Create()
     {
         parent::Create();
+        $this->RegisterAttributeString('SeenNews', '');
 
         $this->RegisterPropertyBoolean('Active', true);
         $this->RegisterPropertyString('Manufacturer', 'goodwe');
@@ -3942,7 +3953,34 @@ class InverterHub extends IPSModule
             ];
         }
 
+        // „Was ist neu"-Banner nach einem Update ganz oben.
+        $banner = $this->newsBanner();
+        if ($banner !== null) {
+            array_unshift($form['elements'], $banner);
+        }
+
         return json_encode($form);
+    }
+
+    // „Was ist neu"-Banner: erscheint nach einem Update (Attribut startet leer),
+    // bis der Nutzer „Verstanden" klickt. Neuinstallation sieht es einmalig.
+    private function newsBanner()
+    {
+        if ($this->ReadAttributeString('SeenNews') === self::NEWS_VERSION) {
+            return null;
+        }
+        $items = [['type' => 'Label', 'caption' => '🆕 Neu in diesem Modul — bitte kurz ansehen und ggf. die Einstellungen prüfen:']];
+        foreach (self::NEWS_ITEMS as $line) {
+            $items[] = ['type' => 'Label', 'caption' => '• ' . $line];
+        }
+        $items[] = ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'IHUB_AckNews($id);'];
+        return ['type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'caption' => '🆕 Neu in Version ' . self::NEWS_VERSION, 'expanded' => true, 'items' => $items];
+    }
+
+    public function AckNews()
+    {
+        $this->WriteAttributeString('SeenNews', self::NEWS_VERSION);
+        $this->UpdateFormField('NewsPanel', 'visible', false);
     }
 
     public function DismissReviewHint()

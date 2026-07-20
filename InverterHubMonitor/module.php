@@ -75,13 +75,13 @@ class InverterHubMonitor extends IPSModule
     // Hinweis erscheinen soll. Das Attribut startet leer, damit das Banner auch
     // bei bestehenden Instanzen nach dem Update erscheint; nach „Verstanden"
     // (oder solange die Version passt) bleibt es aus.
-    private const NEWS_VERSION = '0.44';
+    private const NEWS_VERSION = '0.45';
     private const NEWS_ITEMS = [
         'Konfiguration: keine Kurven-Tabelle mehr — InverterHub-Instanz wählen und die gewünschten Werte einfach ankreuzen (Farben/Achsen voreingestellt).',
         'Seitliche Reiter: PV & Einstrahlung · MPP-Tracker · Batterie — jede Ansicht mit passenden Achsen.',
         'Zeiträume: Tag · Woche · Monat · Jahr · Gesamt · Benutzerdefiniert (freier Von–Bis-Bereich).',
         'PV & Einstrahlung / MPP-Tracker: berechnete Erwartungswerte (gestrichelt) aus Einstrahlung × Generatorparametern der PV-Prognose — Soll/Ist-Vergleich für Verschmutzungs-/Defekterkennung.',
-        'Tag-Verlauf jetzt in kW, Tooltip mit vollem Datum und Einheiten.',
+        'Tag-Verlauf in kW, Tooltip mit vollem Datum und Einheiten; ausgeblendete Kurven bleiben dauerhaft gemerkt; Steuerung mittig auf Titelhöhe.',
     ];
 
     public function Create()

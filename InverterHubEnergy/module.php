@@ -34,9 +34,18 @@ class InverterHubEnergy extends IPSModule
     private const COL_GRID  = '#4AA3E0';
     private const COL_LOAD  = '#E8823C';
 
+    // „Was ist neu"-Banner (siehe newsBanner()/AckNews()).
+    private const NEWS_VERSION = '0.45';
+    private const NEWS_ITEMS = [
+        'Sankey-Energiefluss in 3 Stufen (Erzeugung → Batterie → Verbrauch) mit Tooltips.',
+        'Diagramm-Engine wählbar (Highcharts / ECharts), Datenpunkt-Beschriftung an den Knoten.',
+        'Korrekte Energieberechnung aus dem Archiv (Zähler-Differenz) und Zeitraum-Steuerung (Tag/Woche/Monat/Jahr/Alles/Benutzerdefiniert).',
+    ];
+
     public function Create()
     {
         parent::Create();
+        $this->RegisterAttributeString('SeenNews', '');
 
         // Zeitraum: day | week | month | year | all | custom
         $this->RegisterPropertyString('Period', 'day');
@@ -103,7 +112,36 @@ class InverterHubEnergy extends IPSModule
 
     public function GetConfigurationForm()
     {
-        return file_get_contents(__DIR__ . '/form.json');
+        $form = json_decode(file_get_contents(__DIR__ . '/form.json'), true);
+        $banner = $this->newsBanner();
+        if ($banner !== null) {
+            if (!isset($form['elements']) || !is_array($form['elements'])) {
+                $form['elements'] = [];
+            }
+            array_unshift($form['elements'], $banner);
+        }
+        return json_encode($form);
+    }
+
+    // „Was ist neu"-Banner: erscheint nach einem Update (Attribut startet leer),
+    // bis der Nutzer „Verstanden" klickt. Neuinstallation sieht es einmalig.
+    private function newsBanner()
+    {
+        if ($this->ReadAttributeString('SeenNews') === self::NEWS_VERSION) {
+            return null;
+        }
+        $items = [['type' => 'Label', 'caption' => '🆕 Neu in diesem Modul — bitte kurz ansehen und ggf. die Einstellungen prüfen:']];
+        foreach (self::NEWS_ITEMS as $line) {
+            $items[] = ['type' => 'Label', 'caption' => '• ' . $line];
+        }
+        $items[] = ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'IHUBNRG_AckNews($id);'];
+        return ['type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'caption' => '🆕 Neu in Version ' . self::NEWS_VERSION, 'expanded' => true, 'items' => $items];
+    }
+
+    public function AckNews()
+    {
+        $this->WriteAttributeString('SeenNews', self::NEWS_VERSION);
+        $this->UpdateFormField('NewsPanel', 'visible', false);
     }
 
     // -----------------------------------------------------------------------
