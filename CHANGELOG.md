@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.37.2-beta.1 (2026-07-19)
+
+- **Kostal: Batterie-Leistung und Batterie-Zustand ergänzt.** Auf Wunsch eines Beta-Testers
+  liest der Kostal-Treiber jetzt zusätzlich „Bat. Leistung" (Reg 582, SInt16 in W — Vorzeichen
+  wie der Batteriestrom: + Entladen / − Laden) und den daraus abgeleiteten „Bat. Zustand"
+  (Ruhe/Laden/Entladen). Register aus der KostalKore-Registerliste. (Die Byte-Reihenfolge CDAB
+  wurde vom Tester am Gerät bestätigt — sie ist bereits Standard.)
+
+
 ## 0.37.1-beta.1 (2026-07-19)
 
 - **Energiefluss: Datumsauswahl als Kalender.** Statt der Dropdown-Liste zeigt die Kachel

@@ -2966,8 +2966,10 @@ class KostalDriver implements InverterDriverInterface
                 ['grid_l3_pwr',  'Netz L3 Leistung',  'F', 'KST.Watt',   true,  'grid', 'RO 168 (Float32)'],
                 ['grid_l3_volt', 'Netz L3 Spannung',  'F', 'KST.Volt',   false, 'grid', 'RO 170 (Float32)'],
             ]],
-            'GroupBat' => ['caption' => 'Batterie (Spannung, Strom, SOC, Temperatur)', 'vars' => [
-                ['bat_soc',  'Bat. SOC',        'I', '~Battery.100', true,  'bat', 'RO 210 (Float32)'],
+            'GroupBat' => ['caption' => 'Batterie (Leistung, Spannung, Strom, SOC, Temperatur, Zustand)', 'vars' => [
+                ['bat_soc',    'Bat. SOC',        'I', '~Battery.100', true,  'bat', 'RO 210 (Float32)'],
+                ['bat_power',  'Bat. Leistung (Entladen + / Laden -)', 'F', 'KST.Watt', true, 'bat', 'RO 582 (SInt16)'],
+                ['bat_status', 'Bat. Zustand',    'I', 'KST.BatState', true,  'bat', 'abgeleitet aus RO 582'],
                 ['bat_temp', 'Bat. Temperatur', 'F', '~Temperature', true,  'bat', 'RO 214 (Float32)'],
                 ['bat_volt', 'Bat. Spannung',   'F', 'KST.Volt',     false, 'bat', 'RO 216 (Float32)'],
                 ['bat_curr', 'Bat. Strom (Laden -/Entladen +)', 'F', 'KST.Ampere', false, 'bat', 'RO 200 (Float32)'],
@@ -3014,7 +3016,13 @@ class KostalDriver implements InverterDriverInterface
 
     public function getEnumProfiles()
     {
-        return [];
+        return [
+            'KST.BatState' => [
+                0 => ['Ruhe',     0x7A8A99],
+                1 => ['Laden',    0x3BA55D],
+                2 => ['Entladen', 0xE08A2B],
+            ],
+        ];
     }
 
     public function readFast($mb, $hub)
@@ -3086,6 +3094,15 @@ class KostalDriver implements InverterDriverInterface
             if ($temp !== null) { $hub->SetVarFloat('bat_temp', $mb->readFloat32($temp, 0)); }
             if ($volt !== null) { $hub->SetVarFloat('bat_volt', $mb->readFloat32($volt, 0)); }
             if ($curr !== null) { $hub->SetVarFloat('bat_curr', $mb->readFloat32($curr, 0)); }
+            // Bat.-Leistung: Reg 582 ist ein einzelnes SInt16 (W) - kein Float32,
+            // daher direkt lesen (Wort-Swap irrelevant). Vorzeichen wie der Strom
+            // (Reg 200): + = Entladen, − = Laden. Der Zustand wird daraus abgeleitet.
+            $pwr = $mb->readHolding(582, 1);
+            if ($pwr !== null) {
+                $p = $mb->s16($pwr, 0);
+                $hub->SetVarFloat('bat_power', (float)$p);
+                $hub->SetVarInt('bat_status', ($p > 10) ? 2 : (($p < -10) ? 1 : 0));
+            }
         }
 
         if ($hub->GetPropBool('GroupMeter')) {
