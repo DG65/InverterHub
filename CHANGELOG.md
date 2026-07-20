@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.45.0-beta.1 (2026-07-20)
+
+- **Monitoring: „Was ist neu"-Hinweis nach einem Update.** Beim Öffnen der Instanz erscheint
+  oben im Konfigurationsformular ein aufgeklapptes Banner mit den wichtigsten Änderungen und
+  dem Hinweis, die Einstellungen zu prüfen. Ein Klick auf „Verstanden – nicht mehr anzeigen"
+  blendet es aus (gemerkt über das Attribut `SeenNews`); bei der nächsten News-Version erscheint
+  es erneut. Neuinstallationen sehen es einmalig als Kurzüberblick.
+
 ## 0.44.1-beta.1 (2026-07-20)
 
 - **Monitoring: robuste PVF-Anbindung für andere Installationen.** Die Generatorparameter werden

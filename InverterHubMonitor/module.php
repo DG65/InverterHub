@@ -73,9 +73,23 @@ class InverterHubMonitor extends IPSModule
 
     private const IRR_COLOR = '#ffc21a'; // sonnengelb
 
+    // „Was ist neu"-Banner: NEWS_VERSION hochzählen, wenn nach einem Update ein
+    // Hinweis erscheinen soll. Das Attribut startet leer, damit das Banner auch
+    // bei bestehenden Instanzen nach dem Update erscheint; nach „Verstanden"
+    // (oder solange die Version passt) bleibt es aus.
+    private const NEWS_VERSION = '0.44';
+    private const NEWS_ITEMS = [
+        'Konfiguration: keine Kurven-Tabelle mehr — InverterHub-Instanz wählen und die gewünschten Werte einfach ankreuzen (Farben/Achsen voreingestellt).',
+        'Seitliche Reiter: Leistung & Energie · PV & Einstrahlung · MPP-Tracker · Batterie · Diagnose — jede Ansicht mit passenden Achsen.',
+        'Zeiträume: Tag · Woche · Monat · Jahr · Gesamt · Benutzerdefiniert (freier Von–Bis-Bereich).',
+        'PV & Einstrahlung / MPP-Tracker: berechnete Erwartungswerte (gestrichelt) aus Einstrahlung × Generatorparametern der PV-Prognose — Soll/Ist-Vergleich für Verschmutzungs-/Defekterkennung.',
+        'Tag-Verlauf jetzt in kW, Tooltip mit vollem Datum und Einheiten.',
+    ];
+
     public function Create()
     {
         parent::Create();
+        $this->RegisterAttributeString('SeenNews', '');
         $this->RegisterPropertyInteger('SourceInstance', 0);
         foreach (self::CATALOG as $key => $def) {
             $this->RegisterPropertyBoolean('show_' . $key, !empty($def['default']));
@@ -126,6 +140,14 @@ class InverterHubMonitor extends IPSModule
         $this->UpdateVisualizationValue($this->BuildPayload());
     }
 
+    // Button „Verstanden" im „Was ist neu"-Banner: merkt die gesehene Version
+    // und blendet das Banner sofort aus.
+    public function AckNews()
+    {
+        $this->WriteAttributeString('SeenNews', self::NEWS_VERSION);
+        $this->UpdateFormField('NewsPanel', 'visible', false);
+    }
+
     public function GetVisualizationTile()
     {
         $html = file_get_contents(__DIR__ . '/module.html');
@@ -141,6 +163,18 @@ class InverterHubMonitor extends IPSModule
     {
         $src = $this->ReadPropertyInteger('SourceInstance');
         $elements = [];
+
+        // „Was ist neu"-Banner nach einem Update (nicht bei Neuinstallation).
+        if ($this->ReadAttributeString('SeenNews') !== self::NEWS_VERSION) {
+            $newsItems = [
+                ['type' => 'Label', 'caption' => '🆕 Neu in diesem Modul — bitte kurz ansehen und die Einstellungen unten prüfen:'],
+            ];
+            foreach (self::NEWS_ITEMS as $line) {
+                $newsItems[] = ['type' => 'Label', 'caption' => '• ' . $line];
+            }
+            $newsItems[] = ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'IHUBMON_AckNews($id);'];
+            $elements[] = ['type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'caption' => '🆕 Neu in Version ' . self::NEWS_VERSION, 'expanded' => true, 'items' => $newsItems];
+        }
 
         $elements[] = [
             'type' => 'ExpansionPanel', 'caption' => '📖 Dokumentation & Hilfe', 'expanded' => false,
