@@ -180,7 +180,11 @@
      und kein Repaint-Aussetzer beim Vergrößern. Intensität = Opacity des Kreises
      (leistungsabhängig, weich animiert). */
   .node-glow {
-    fill: none; opacity: 0;
+    /* fill wird per Inline-Style (attachGlow) auf den Verlauf gesetzt - bewusst
+       NICHT hier als fill:none, sonst schlägt die Stylesheet-Regel das
+       fill-Attribut und Safari zeigt statt des Verlaufs nur den darunter-
+       liegenden Kantenring. */
+    opacity: 0;
     transition: opacity var(--trans) var(--ease);
   }
   /* Ring = nur die farbige Kante; die gewölbte Fläche liegt als eigenes
@@ -386,7 +390,9 @@ function attachGlow(glowEl) {
   stops.forEach(function (s) { grad.appendChild(s); });
   if (defs) { defs.appendChild(grad); }
   glowEl.setAttribute('r', (DESIGN_R * 1.9).toFixed(1)); // Halo reicht über den Knotenrand hinaus
-  glowEl.setAttribute('fill', 'url(#' + id + ')');
+  // Inline-Style statt Attribut: schlägt die .node-glow-Stylesheet-Regel in
+  // ALLEN Browsern (Safari ignorierte ein fill-Attribut zugunsten des CSS).
+  glowEl.style.fill = 'url(#' + id + ')';
   glowEl._glowStops = [stops[2], stops[3], stops[4]]; // farb-/fadetragende Stops
   return glowEl;
 }

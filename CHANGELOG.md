@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.56.2-beta.1 (2026-07-20)
+
+- **Kachel: Corona in Safari war nur ein Ring statt Verlauf.** Der Verlauf wurde per
+  fill-Attribut gesetzt, während die Stylesheet-Regel `.node-glow { fill: none }` galt -
+  CSS schlägt das Attribut, daher zeigte Safari nur den darunterliegenden farbigen
+  Kantenring. Der Verlauf wird jetzt als Inline-Style gesetzt (schlägt die Regel in allen
+  Browsern); `fill:none` wurde aus der Regel entfernt. Damit erscheint der weiche Hof auch
+  in Safari.
+
 ## 0.56.1-beta.1 (2026-07-20)
 
 - **Kachel: „halber Inhalt weg" beim Zoomen behoben.** Die SVG-viewBox wurde bisher
