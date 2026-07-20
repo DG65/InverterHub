@@ -935,13 +935,23 @@ class SungrowDriver implements InverterDriverInterface
 
     public function readFast($mb, $hub)
     {
+        // String-Wechselrichter (SG-CX/„P2") haben den 13000er-Hybrid-Block NICHT
+        // (Modbus-Exception) und legen ihre Daten ausschließlich im 5000er-Block
+        // ab - mit gegenüber den Hybrid-Modellen um 1 nach unten verschobenen
+        // Adressen (Protokoll-Adresse = Sungrow-Doku − 1) und 32-Bit-Werten mit
+        // niederwertigem Wort zuerst. Dafür ein eigener Lesepfad.
+        $probe13000 = $mb->readInput(13000, 2);
+        if ($probe13000 === null) {
+            return $this->readFastString($mb, $hub);
+        }
+
         $dc      = $mb->readInput(5011, 12);   // 5011-5022 (MPPT1-3 + DC total + Grid Volt)
         $mppt4   = $mb->readInput(5115, 2);    // 5115-5116
         $reactive= $mb->readInput(5033, 4);    // 5033-5036 (reactive/PF/freq)
         $battery = $mb->readInput(5214, 2);    // 5214-5215 Bat power wide range
         $meterTotal = $mb->readInput(5601, 2); // 5601-5602 Meter Active Power (Gesamt, real bestätigt)
         $meter   = $mb->readInput(5603, 6);    // 5603,5605,5607 (+ Reserve dazwischen) — unbestätigt
-        $running = $mb->readInput(13000, 2);   // 13000 running state + 13001 power flow
+        $running = $probe13000;                // 13000 running state + 13001 power flow
         $freqhi  = $mb->readInput(5242, 1);    // 5242 high precision freq
         $sum     = $mb->readInput(13034, 2);   // 13034-13035 total active power
 
@@ -1024,8 +1034,60 @@ class SungrowDriver implements InverterDriverInterface
         return true;
     }
 
+    // String-Wechselrichter (SG-CX/„P2"): alle Werte aus dem 5000er-Block.
+    // Protokoll-Adresse = Sungrow-Doku − 1; 32-Bit „sw" (niederwertiges Wort
+    // zuerst). Adressen live an einem SG125CX-P2 verifiziert.
+    private function readFastString($mb, $hub)
+    {
+        $b = $mb->readInput(5000, 40); // 5000..5039
+        $hub->SetVarBool('connected', $b !== null);
+        if ($b === null) {
+            return false;
+        }
+        // 32-Bit, niederwertiges Wort zuerst.
+        $u32 = function ($i) use ($b) { return ($b[$i] ?? 0) + (($b[$i + 1] ?? 0) << 16); };
+        $s32 = function ($i) use ($b) { $v = ($b[$i] ?? 0) + (($b[$i + 1] ?? 0) << 16); return ($v >= 0x80000000) ? $v - 0x100000000 : $v; };
+        $s16 = function ($i) use ($b) { $v = $b[$i] ?? 0; return ($v >= 0x8000) ? $v - 0x10000 : $v; };
+
+        $hub->SetVarFloat('pv_total', (float)$u32(16));   // 5016-5017 DC-Gesamtleistung (W)
+        $hub->SetVarFloat('ac_power', (float)$u32(30));   // 5030-5031 Wirkleistung (W)
+
+        $riso = $mb->readInput(5071, 1);                  // 5071 Isolationswiderstand (kΩ)
+        if ($riso !== null) {
+            $hub->SetVarFloat('riso', (float)$mb->u16($riso, 0));
+        }
+
+        if ($hub->GetPropBool('GroupPV')) {
+            $hub->SetVarFloat('mppt1_volt', ($b[10] ?? 0) / 10.0);
+            $hub->SetVarFloat('mppt1_curr', ($b[11] ?? 0) / 10.0);
+            $hub->SetVarFloat('mppt2_volt', ($b[12] ?? 0) / 10.0);
+            $hub->SetVarFloat('mppt2_curr', ($b[13] ?? 0) / 10.0);
+            $hub->SetVarFloat('mppt3_volt', ($b[14] ?? 0) / 10.0);
+            $hub->SetVarFloat('mppt3_curr', ($b[15] ?? 0) / 10.0);
+        }
+
+        if ($hub->GetPropBool('GroupGrid')) {
+            $hub->SetVarFloat('grid_v1', ($b[18] ?? 0) / 10.0);  // 5018-5020 Phasen U
+            $hub->SetVarFloat('grid_v2', ($b[19] ?? 0) / 10.0);
+            $hub->SetVarFloat('grid_v3', ($b[20] ?? 0) / 10.0);
+            $hub->SetVarFloat('grid_reactive', (float)$s32(32));  // 5032-5033 Blindleistung
+            $hub->SetVarFloat('power_factor',  $s16(34) / 1000.0);// 5034 Power Factor
+            $hub->SetVarFloat('grid_freq',     ($b[35] ?? 0) / 10.0); // 5035 Frequenz (×0,1)
+        }
+
+        if ($hub->GetPropBool('GroupEnergy')) {
+            $hub->SetVarFloat('e_pv_day',   ($b[2] ?? 0) / 10.0); // 5002 Tagesertrag (×0,1 kWh)
+            $hub->SetVarFloat('e_pv_total', (float)$u32(3));       // 5003-5004 Gesamtertrag (kWh)
+        }
+
+        return true;
+    }
+
     public function readSlow($mb, $hub)
     {
+        if ($mb->readInput(13000, 1) === null) {
+            return; // String-WR: Energie kommt aus readFastString (5000er-Block)
+        }
         if ($hub->GetPropBool('GroupEnergy')) {
             $e = $mb->readInput(13002, 11); // 13002-13012
             if ($e !== null) {
@@ -1039,12 +1101,18 @@ class SungrowDriver implements InverterDriverInterface
 
     public function readDeviceInfo($mb, $hub)
     {
-        $dev = $mb->readInput(5000, 2); // 5000-5001
+        // String-WR (SG-CX/„P2"): Gerätetyp 4999, Nennleistung 5000 (×0,1 kW).
+        // Hybrid-Modelle: Gerätetyp 5000, Nennleistung 5001.
+        if ($mb->readInput(13000, 1) === null) {
+            $dev = $mb->readInput(4999, 2); // 4999 Typ, 5000 Nennleistung
+        } else {
+            $dev = $mb->readInput(5000, 2); // 5000 Typ, 5001 Nennleistung
+        }
         if ($dev !== null) {
             $hub->SetVarInt('dev_type',    $mb->u16($dev, 0));
             $hub->SetVarInt('dev_rated_w', $mb->u16($dev, 1) * 100);
         }
-        $sn = $mb->readInput(4989, 10); // 4990-4999 UTF-8
+        $sn = $mb->readInput(4989, 10); // Seriennummer (UTF-8)
         if ($sn !== null) {
             $hub->SetVarStr('dev_sn', $mb->readStr($sn, 0, 10));
         }

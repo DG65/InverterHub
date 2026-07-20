@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.51.0-beta.1 (2026-07-20)
+
+- **Sungrow: String-Wechselrichter (SG-CX / „P2"-Plattform) unterstützt.** Diese Modelle haben
+  den 13000er-Hybrid-Registerblock nicht und legen alle Werte im 5000er-Block ab, mit um 1 nach
+  unten verschobenen Adressen (Protokoll = Doku − 1) und 32-Bit-Werten mit niederwertigem Wort
+  zuerst. Der Treiber erkennt das automatisch (13000-Block liefert eine Modbus-Exception) und
+  liest dann den 5000er-Block: DC-/AC-Leistung, MPPT 1-3, Phasenspannungen, Frequenz, Power
+  Factor, Blindleistung, Tages-/Gesamtertrag, Isolationswiderstand, Gerätetyp/Nennleistung.
+  Hybrid-Modelle (SH) sind unverändert. Adressen an einem SG125CX-P2 verifiziert.
+
 ## 0.50.1-beta.1 (2026-07-20)
 
 - **Discovery: Hersteller-Erkennung schonender für Single-Connection-Geräte (Sungrow WiNet-S).**
