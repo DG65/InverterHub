@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.42.1-beta.1 (2026-07-20)
+
+- **Monitoring: eigener Reiter „PV & Einstrahlung".** Fokus-Ansicht nur mit PV-Erzeugung
+  (Knallrot, linke Achse W) und Einstrahlungssensor (Sonnengelb, rechte Achse W/m²) - die
+  eigentliche Verschmutzungs-/Defekterkennung, ohne störende Nebenkurven. Der Reiter
+  „PV & Strings" bleibt für die MPPT-Details. AC-Wirkleistung wechselt die Farbe (Violett),
+  damit sie nicht mehr mit dem jetzt knallroten PV kollidiert.
+
 ## 0.42.0-beta.1 (2026-07-20)
 
 - **Monitoring: seitliche Reiter statt Werte-Überlagerung.** Bisher trafen alle Kurven auf

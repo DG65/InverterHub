@@ -39,7 +39,7 @@ class InverterHubMonitor extends IPSModule
     // „groups" => in welchen seitlichen Reitern der Wert erscheint (ein Wert
     //   kann in mehreren Reitern auftauchen, z. B. PV in „Leistung" und „PV").
     private const CATALOG = [
-        'pv'      => ['label' => 'PV-Erzeugung',       'power' => ['pv_total'],                 'energy' => ['e_pv_total'],                       'color' => '#e0a020', 'axis' => 'left',  'unit' => 'W',    'default' => true,  'groups' => ['energy', 'pv']],
+        'pv'      => ['label' => 'PV-Erzeugung',       'power' => ['pv_total'],                 'energy' => ['e_pv_total'],                       'color' => '#e53935', 'axis' => 'left',  'unit' => 'W',    'default' => true,  'groups' => ['energy', 'solar', 'pv']],
         'load'    => ['label' => 'Verbrauch',          'power' => [],                            'energy' => ['e_load_total', 'e_load_day'],        'color' => '#f0883e', 'axis' => 'left',  'unit' => 'W',    'default' => true,  'groups' => ['energy']],
         'gridbuy' => ['label' => 'Netzbezug',          'power' => [],                            'energy' => ['e_buy_total', 'e_buy_day'],          'color' => '#4aa3e0', 'axis' => 'left',  'unit' => 'W',    'default' => true,  'groups' => ['energy']],
         'gridsell'=> ['label' => 'Einspeisung',        'power' => [],                            'energy' => ['e_sell_total', 'e_sell_day'],        'color' => '#26a69a', 'axis' => 'left',  'unit' => 'W',    'default' => true,  'groups' => ['energy']],
@@ -47,7 +47,7 @@ class InverterHubMonitor extends IPSModule
         'bcharge' => ['label' => 'Batterie laden',     'power' => [],                            'energy' => ['e_charge_total', 'e_charge_day'],    'color' => '#5fcb6b', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['energy', 'battery']],
         'bdisch'  => ['label' => 'Batterie entladen',  'power' => [],                            'energy' => ['e_disch_total', 'e_disch_day'],      'color' => '#2e7d32', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['energy', 'battery']],
         'bat'     => ['label' => 'Batterie-Leistung',  'power' => ['bat_total_pwr', 'bat_power'], 'energy' => [],                                   'color' => '#43a047', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['battery']],
-        'ac'      => ['label' => 'AC-Wirkleistung',    'power' => ['ac_power'],                  'energy' => [],                                    'color' => '#e05b4a', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['energy']],
+        'ac'      => ['label' => 'AC-Wirkleistung',    'power' => ['ac_power'],                  'energy' => [],                                    'color' => '#ab47bc', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['energy']],
         'inv'     => ['label' => 'Inverter gesamt',    'power' => ['inv_total'],                 'energy' => [],                                    'color' => '#c2185b', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['pv']],
         'mppt1'   => ['label' => 'MPPT 1',             'power' => ['mppt1_power'],               'energy' => [],                                    'color' => '#f4a742', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['pv']],
         'mppt2'   => ['label' => 'MPPT 2',             'power' => ['mppt2_power'],               'energy' => [],                                    'color' => '#f47a42', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['pv']],
@@ -62,12 +62,13 @@ class InverterHubMonitor extends IPSModule
     // mindestens einer seiner Werte angekreuzt/vorhanden ist.
     private const TABS = [
         'energy'  => 'Leistung & Energie',
+        'solar'   => 'PV & Einstrahlung',
         'pv'      => 'PV & Strings',
         'battery' => 'Batterie',
         'diag'    => 'Diagnose',
     ];
 
-    private const IRR_COLOR = '#ffb300';
+    private const IRR_COLOR = '#ffc21a'; // sonnengelb
 
     public function Create()
     {
@@ -250,7 +251,7 @@ class InverterHubMonitor extends IPSModule
                 'axis'      => 'right',
                 'unit'      => 'W/m²',
                 'noEnergy'  => false,
-                'groups'    => ['pv'],
+                'groups'    => ['solar', 'pv'],
                 'isIrr'     => true,
                 'powerVid'  => $irr,   // wird zu kWh/m² integriert
                 'energyVid' => 0,
