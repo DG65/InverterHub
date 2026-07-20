@@ -1082,10 +1082,12 @@ class SungrowDriver implements InverterDriverInterface
             $hub->SetVarFloat('mppt2_curr', ($b[13] ?? 0) / 10.0);
             $hub->SetVarFloat('mppt3_volt', ($b[14] ?? 0) / 10.0);
             $hub->SetVarFloat('mppt3_curr', ($b[15] ?? 0) / 10.0);
-            // MPPT 4-12 im erweiterten Block 5114-5136 (Lücke 5124-5128).
-            $ext = $mb->readInput(5114, 23); // 5114..5136
+            // MPPT 4-12 im erweiterten Block. AB 5100 lesen (dokumentierter
+            // Blockanfang) - ein Read direkt ab 5114 wird vom WR abgelehnt.
+            // V-Register: MPPT4 5114 … relative Offsets zu 5100 (Lücke 5124-5128).
+            $ext = $mb->readInput(5100, 50); // 5100..5149
             if ($ext !== null) {
-                $map = [4 => 0, 5 => 2, 6 => 4, 7 => 6, 8 => 8, 9 => 15, 10 => 17, 11 => 19, 12 => 21];
+                $map = [4 => 14, 5 => 16, 6 => 18, 7 => 20, 8 => 22, 9 => 29, 10 => 31, 11 => 33, 12 => 35];
                 foreach ($map as $n => $vi) {
                     $hub->SetVarFloat("mppt{$n}_volt", ($ext[$vi] ?? 0) / 10.0);
                     $hub->SetVarFloat("mppt{$n}_curr", ($ext[$vi + 1] ?? 0) / 10.0);

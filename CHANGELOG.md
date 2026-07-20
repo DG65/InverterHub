@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.51.3-beta.1 (2026-07-20)
+
+- **Sungrow String: MPPT 4-12 kamen nicht an.** Der erweiterte MPPT-Block wird jetzt ab dem
+  dokumentierten Blockanfang 5100 gelesen (ein Read direkt ab 5114 wird vom WR abgelehnt -->
+  MPPT 4-12 blieben 0). Register-Offsets entsprechend angepasst.
+
 ## 0.51.2-beta.1 (2026-07-20)
 
 - **Sungrow String: Isolationswiderstand (Riso).** „Isolationsimpedanz gegen Masse" liegt bei
