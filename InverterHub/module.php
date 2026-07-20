@@ -2187,17 +2187,19 @@ class FroniusDriver implements InverterDriverInterface
                 'exp' => $client->u32($blk, 36) * $sf / 1000.0,
             ];
         }
-        // Float-Modelle 21x: TotWhExp @float-Offset 60, TotWhImp @68 (je 2 Reg.).
+        // Float-Modelle 21x (je Messwert 2 Register): TotWhExp @58, TotWhImp @66.
+        // WICHTIG: 58/66 sind die GESAMT-Zähler; 60/68 wären TotWhExpPhA/ImpPhA
+        // (Per-Phase), die viele Meter nicht füllen -> lieferten fälschlich 0 Wh.
         $meter = $this->findModel($client, 211) ?: $this->findModel($client, 212) ?: $this->findModel($client, 213);
         if ($meter !== null) {
             [$base, $len] = $meter;
-            $blk = $client->readHolding($base, min($len, 72));
-            if ($blk === null || min($len, 72) < 70) {
+            $blk = $client->readHolding($base, min($len, 70));
+            if ($blk === null || min($len, 70) < 68) {
                 return null;
             }
             return [
-                'imp' => $client->readFloat32($blk, 68) / 1000.0,
-                'exp' => $client->readFloat32($blk, 60) / 1000.0,
+                'imp' => $client->readFloat32($blk, 66) / 1000.0,
+                'exp' => $client->readFloat32($blk, 58) / 1000.0,
             ];
         }
         return null;
@@ -3626,11 +3628,17 @@ class InverterHub extends IPSModule
     ];
 
     private $driver = null;
+    // true, wenn der „Energie in Wh"-Schalter seit dem letzten ApplyChanges
+    // umgelegt wurde → dann (und nur dann) Energie-Profile neu setzen.
+    private $reprofileEnergy = false;
 
     public function Create()
     {
         parent::Create();
         $this->RegisterAttributeString('SeenNews', '');
+        // Merkt den zuletzt angewandten Zustand des „Energie in Wh"-Schalters,
+        // um Energie-Profile nur bei echter Umstellung neu zu setzen.
+        $this->RegisterAttributeBoolean('LastEnergyUnitWh', false);
 
         $this->RegisterPropertyBoolean('Active', true);
         $this->RegisterPropertyString('Manufacturer', 'goodwe');
@@ -3703,7 +3711,13 @@ class InverterHub extends IPSModule
         parent::ApplyChanges();
 
         $this->CreateProfiles();
+        // Energie-Profile nur neu setzen, wenn der Wh-Schalter umgelegt wurde -
+        // sonst würde jedes „Übernehmen" eine vom Nutzer gewählte Presentation
+        // (IPS 7 „Wertanzeige") auf das Legacy-Profil zurücksetzen.
+        $wh = $this->ReadPropertyBoolean('EnergyUnitWh');
+        $this->reprofileEnergy = ($this->ReadAttributeBoolean('LastEnergyUnitWh') !== $wh);
         $this->RegisterVariables();
+        $this->WriteAttributeBoolean('LastEnergyUnitWh', $wh);
 
         if (!$this->ReadPropertyBoolean('Active')) {
             $this->SetStatus(104);
@@ -4150,26 +4164,33 @@ class InverterHub extends IPSModule
             @IPS_DeleteVariable($vid);
             $vid = 0;
         }
+        $created = false;
         if (!$vid) {
             $vid = IPS_CreateVariable($vtype);
             IPS_SetIdent($vid, $ident);
+            $created = true;
         }
 
         $catID = $this->EnsureCategory($group);
         IPS_SetParent($vid, $catID);
         IPS_SetPosition($vid, $pos);
         IPS_SetName($vid, $caption);
+
         // Energie in Wh: Statt des kWh-Standardprofils ~Electricity das Wh-
         // Profil setzen. Die Skalierung des Werts (×1000) übernimmt SetVarFloat.
-        if ($profile === '~Electricity' && $this->ReadPropertyBoolean('EnergyUnitWh')) {
+        $isEnergy = ($profile === '~Electricity');
+        if ($isEnergy && $this->ReadPropertyBoolean('EnergyUnitWh')) {
             $profile = 'IHB.Wh';
         }
-        // Profil NUR setzen, wenn es sich tatsächlich ändert. Ein erneutes
-        // Setzen bei jedem „Übernehmen" kann eine vom Nutzer gewählte (neue)
-        // Darstellung der Variable auf die Profil-Vorgabe zurücksetzen - das
-        // vermeiden wir so.
-        if ($profile !== '' && @IPS_GetVariable($vid)['VariableCustomProfile'] !== $profile) {
-            IPS_SetVariableCustomProfile($vid, $profile);
+        // Profil NUR bei Neuanlage setzen (bzw. bei einer echten Wh-Umstellung
+        // für Energie-Variablen). Ab IPS 7 leert eine vom Nutzer gewählte
+        // Presentation („Wertanzeige") das CustomProfile; würden wir es bei
+        // jedem „Übernehmen" neu setzen, sprängen die Variablen zurück auf
+        // „Legacy". Bestehende Variablen fassen wir daher nicht mehr an.
+        if ($profile !== '' && ($created || ($this->reprofileEnergy && $isEnergy))) {
+            if (@IPS_GetVariable($vid)['VariableCustomProfile'] !== $profile) {
+                IPS_SetVariableCustomProfile($vid, $profile);
+            }
         }
         if ($reg !== '') {
             IPS_SetInfo($vid, $reg);
@@ -4273,14 +4294,23 @@ class InverterHub extends IPSModule
         }
         $vid = $this->FindVarByIdent($ident);
         if ($vid) {
-            // Energie in Wh: Die Treiber liefern kWh. Trägt die Zielvariable das
-            // Wh-Profil (vom Nutzer aktiviert), auf Wh hochrechnen.
-            if ($this->ReadPropertyBoolean('EnergyUnitWh')
-                && @IPS_GetVariable($vid)['VariableCustomProfile'] === 'IHB.Wh') {
+            // Energie in Wh: Die Treiber liefern kWh. Ist der Schalter aktiv und
+            // handelt es sich um eine Energie-Variable, auf Wh hochrechnen. Die
+            // Erkennung erfolgt am Ident (nicht am Profil), damit eine vom Nutzer
+            // geänderte Presentation die Skalierung nicht aushebelt.
+            if ($this->ReadPropertyBoolean('EnergyUnitWh') && $this->IsEnergyIdent($ident)) {
                 $value *= 1000.0;
             }
             SetValueFloat($vid, $value);
         }
+    }
+
+    // Energie-Zähler-Variablen (kWh), die der Wh-Schalter auf Wh hochrechnet.
+    // Deckt alle ~Electricity-Idents ab: e_* plus die wenigen Ausnahmen.
+    private function IsEnergyIdent(string $ident): bool
+    {
+        return strncmp($ident, 'e_', 2) === 0
+            || in_array($ident, ['meter_imp', 'meter_exp', 'home_total', 'bat_capacity'], true);
     }
 
     public function SetVarInt(string $ident, int $value)

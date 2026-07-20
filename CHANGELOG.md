@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.48.0-beta.1 (2026-07-20)
+
+- **Fronius: Smart-Meter-Energiezähler lieferten 0 Wh (Float-Meter).** Bei den Float-Metern
+  (SunSpec-Modelle 211/213, u. a. neuere Fronius/GEN24) wurden versehentlich die Per-Phase-
+  Register `TotWhExpPhA`/`TotWhImpPhA` (Offset 60/68) statt der Gesamtzähler `TotWhExp`/`TotWhImp`
+  (Offset 58/66) gelesen — viele Meter füllen die Per-Phase-Register nicht, daher exakt 0 Wh.
+  Offsets korrigiert; Bezug/Einspeisung gesamt kommen nun an.
+- **Variablen-Profile sprangen bei „Übernehmen" auf „Legacy" zurück.** Ab IPS 7 leert eine vom
+  Nutzer gewählte Presentation („Wertanzeige") das CustomProfile; das Modul setzte es bei jedem
+  ApplyChanges neu und erzwang so wieder „Legacy". Profile werden jetzt **nur bei Neuanlage**
+  einer Variable gesetzt (und gezielt beim Umschalten des Wh-Schalters). Die Wh-Skalierung hängt
+  nicht mehr am Profil, sondern am Ident — eine geänderte Presentation hebelt sie nicht mehr aus.
+
 ## 0.47.3-beta.1 (2026-07-20)
 
 - **Monitoring: Highcharts-Zoom gehärtet.** Veralteten `zoomType` entfernt (kollidiert in neuen
