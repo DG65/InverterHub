@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.39.1-beta.1 (2026-07-19)
+
+- **Monitoring: X-Achse auf das Produktionsfenster begrenzt.** Statt der vollen 24 Stunden
+  zeigt das Verlaufsdiagramm jetzt nur den Zeitraum mit PV-Produktion (Sonnenaufgang bis
+  -untergang) plus je 1 Stunde davor und danach. Das Fenster wird automatisch aus den Kurven
+  ermittelt, die nachts auf ~0 fallen (Leistung/Einstrahlung); Kurven wie Temperatur oder
+  Spannung beeinflussen es nicht.
+
+
 ## 0.39.0-beta.1 (2026-07-19)
 
 - **Neues Modul: InverterHub Monitoring (Stufe 1).** Monitoring-Kachel mit Intraday-Zeitreihen
