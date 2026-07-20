@@ -1068,7 +1068,8 @@ class SungrowDriver implements InverterDriverInterface
         $hub->SetVarFloat('pv_total', (float)$u32(16));   // 5016-5017 DC-Gesamtleistung (W)
         $hub->SetVarFloat('ac_power', (float)$u32(30));   // 5030-5031 Wirkleistung (W)
 
-        $riso = $mb->readInput(5071, 1);                  // 5071 Isolationswiderstand (kΩ)
+        // Isolationsimpedanz gegen Masse (kΩ) - String-Modelle bei 5070.
+        $riso = $mb->readInput(5070, 1);
         if ($riso !== null) {
             $hub->SetVarFloat('riso', (float)$mb->u16($riso, 0));
         }

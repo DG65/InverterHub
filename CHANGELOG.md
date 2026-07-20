@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.51.2-beta.1 (2026-07-20)
+
+- **Sungrow String: Isolationswiderstand (Riso).** „Isolationsimpedanz gegen Masse" liegt bei
+  String-Modellen (SG-CX) auf Register 5070 (nicht 5071). Kommt jetzt korrekt an (z. B. 696 kΩ).
+
 ## 0.51.1-beta.1 (2026-07-20)
 
 - **Sungrow String (SG-CX): bis zu 12 MPP-Tracker.** Die großen CX-Modelle haben bis zu 12
