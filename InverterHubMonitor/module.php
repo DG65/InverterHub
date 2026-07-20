@@ -506,9 +506,9 @@ class InverterHubMonitor extends IPSModule
                     foreach ($pts as &$pt) { $pt[1] = round($pt[1] / 1000.0, 3); }
                     unset($pt);
                 } elseif ($s['unit'] === '%') {
-                    // SOC o. Ä.: nur ganze Prozent → kein Nachkomma-Zittern.
-                    foreach ($pts as &$pt) { $pt[1] = round($pt[1]); }
-                    unset($pt);
+                    // SOC o. Ä.: BMS-Rauschen glätten (gleitender Mittelwert) →
+                    // ruhige Kurve statt Zackenmuster.
+                    $pts = $this->SmoothPoints($pts, 7);
                 }
                 $rows[] = $pts;
             }
@@ -664,6 +664,26 @@ class InverterHubMonitor extends IPSModule
             $val *= $scale; // berechnete Serien: × kWp·PR·Faktor
             if (!is_finite($val) || $val < 0) { $val = 0.0; }
             $out[date('Y-m-d', $ts)] = round($val, 2);
+        }
+        return $out;
+    }
+
+    // Zentrierter gleitender Mittelwert über $win Punkte (glättet Rauschen,
+    // z. B. beim Batterie-SOC). Zeitstempel bleiben erhalten.
+    private function SmoothPoints(array $pts, int $win): array
+    {
+        $n = count($pts);
+        if ($n < 3 || $win < 2) {
+            return $pts;
+        }
+        $half = intdiv($win, 2);
+        $out = [];
+        for ($i = 0; $i < $n; $i++) {
+            $lo = max(0, $i - $half);
+            $hi = min($n - 1, $i + $half);
+            $sum = 0.0; $c = 0;
+            for ($j = $lo; $j <= $hi; $j++) { $sum += $pts[$j][1]; $c++; }
+            $out[] = [$pts[$i][0], round($sum / $c, 1)];
         }
         return $out;
     }

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.47.1-beta.1 (2026-07-20)
+
+- **Monitoring: Batterie-SOC geglättet.** Statt des reinen Integer-Rundens werden „%"-Kurven
+  (z. B. SOC) im Tagesverlauf per gleitendem Mittelwert (7 Punkte ≈ 35 min) geglättet — das
+  BMS-typische Zacken-Rauschen (±1–2 %) verschwindet, der Verlauf bleibt erhalten.
+
 ## 0.47.0-beta.1 (2026-07-20)
 
 - **Monitoring: Diagramme zoombar.** Highcharts: mit der Maus über die x-Achse ziehen oder
