@@ -5,7 +5,7 @@
       "caption": "📖 Dokumentation & Hilfe",
       "expanded": false,
       "items": [
-        { "type": "Label", "caption": "Monitoring-Kachel: stellt archivierte Variablen als Intraday-Zeitreihe über einen wählbaren Tag dar (Verlauf, ~5-Minuten-Auflösung). In der Kachel mit ◄ ► oder dem Kalender den Tag wählen (letzte 8 Tage)." },
+        { "type": "Label", "caption": "Monitoring-Kachel mit mehreren Ansichten (in der Kachel umschaltbar): „Tag (Verlauf)“ zeigt die Intraday-Zeitreihe (~5-Minuten), „Monat (Energie)“ und „Jahr (Energie)“ zeigen Energie-Balken je Tag bzw. Monat. Die Energie wird aus der Leistungskurve abgeleitet (Ø-Leistung × Zeit). Navigation mit ◄ ► oder Kalender/Auswahl (letzte 8 Tage / 12 Monate / 5 Jahre)." },
         { "type": "Label", "caption": "Für die Erkennung von Verschmutzung/Defekten: eine PV-Leistungs-Variable auf die linke Achse und einen Einstrahlungssensor (W/m²) auf die rechte Achse legen. An einem sauberen Tag laufen beide Kurven proportional; weicht die Leistung nach unten ab, deutet das auf Verschmutzung oder einen Defekt hin." },
         { "type": "Label", "caption": "Voraussetzung: Die Variablen sind archiviert (Logging aktiv). Als Engine ist Highcharts oder ECharts wählbar." }
       ]

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.40.0-beta.1 (2026-07-19)
+
+- **Monitoring Stufe 2: Wochen-/Monats-/Jahres-Ansicht (Energie-Balken).** Die Monitoring-
+  Kachel hat jetzt einen Ansichts-Umschalter (wie beim Sankey): „Tag (Verlauf)" zeigt die
+  Intraday-Zeitreihe, „Monat (Energie)" die Tages-Energie als Balken über den Monat, „Jahr
+  (Energie)" die Monats-Energie als Balken über das Jahr. Die Energie wird direkt aus der
+  Leistungskurve abgeleitet (Ø-Leistung × Zeit) - es sind keine separaten Zählervariablen
+  nötig; eine Einstrahlungskurve wird zur Einstrahlungssumme (kWh/m²). Navigation je Typ per
+  ◄ ► und Kalender/Monats-Picker/Jahres-Auswahl (letzte 8 Tage / 12 Monate / 5 Jahre).
+
+
 ## 0.39.1-beta.1 (2026-07-19)
 
 - **Monitoring: X-Achse auf das Produktionsfenster begrenzt.** Statt der vollen 24 Stunden
