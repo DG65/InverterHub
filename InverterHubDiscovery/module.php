@@ -531,19 +531,57 @@ class InverterHubDiscovery extends IPSModule
 
     private function identifyVendor($ip, $port)
     {
-        foreach (self::VENDOR_UNIT_IDS as $vendor => $unitIds) {
-            foreach ($unitIds as $unitId) {
-                if ($this->probeVendor($vendor, $ip, $port, $unitId)) {
-                    return [
-                        'ip'     => $ip,
-                        'unitId' => $unitId,
-                        'vendor' => $vendor,
-                        'label'  => self::VENDOR_LABELS[$vendor],
-                    ];
+        // Alle Probes dieser IP über EINE Verbindung (schont Single-Connection-
+        // Geräte wie den Sungrow WiNet-S, die sonst nach wenigen Reconnects
+        // ablehnen und dann gar nicht erkannt werden).
+        $this->beginProbe($ip, $port, 3.0);
+        try {
+            // Bekannte Nicht-Wechselrichter vorab ausschließen: Janitza-Messgeräte
+            // (19000er-Karte) erfüllen sonst lockere Hersteller-Kriterien zufällig
+            // (real: UMG604 als Deye/Solplanet, PAC2200 als SolaX erkannt).
+            if ($this->isJanitzaMeter($ip, $port, 1)) {
+                return null;
+            }
+            foreach (self::VENDOR_UNIT_IDS as $vendor => $unitIds) {
+                foreach ($unitIds as $unitId) {
+                    if ($this->probeVendor($vendor, $ip, $port, $unitId)) {
+                        return [
+                            'ip'     => $ip,
+                            'unitId' => $unitId,
+                            'vendor' => $vendor,
+                            'label'  => self::VENDOR_LABELS[$vendor],
+                        ];
+                    }
                 }
             }
+            return null;
+        } finally {
+            $this->endProbe();
         }
-        return null;
+    }
+
+    // Janitza-Messgerät (klassische 19000er-Karte): Float32 Frequenz @19050
+    // (45-65 Hz) UND Spannung @19000 (30-500 V). Beides zusammen ist ein
+    // eindeutiges Zähler-Merkmal, das kein Wechselrichter dort trägt.
+    private function isJanitzaMeter($ip, $port, $unitId)
+    {
+        $f = $this->readFloatHolding($ip, $port, $unitId, 19050);
+        if ($f === null || $f < 45.0 || $f > 65.0) {
+            return false;
+        }
+        $u = $this->readFloatHolding($ip, $port, $unitId, 19000);
+        return ($u !== null && $u >= 30.0 && $u <= 500.0);
+    }
+
+    private function readFloatHolding($ip, $port, $unitId, $reg)
+    {
+        $r = $this->readHolding($ip, $port, $unitId, $reg, 2, 1.0);
+        if ($r === null || count($r) < 2) {
+            return null;
+        }
+        $raw = pack('nn', $r[0] & 0xFFFF, $r[1] & 0xFFFF); // Big-Endian (ABCD)
+        $f = unpack('G', $raw)[1] ?? null;
+        return ($f !== null && is_finite($f)) ? (float)$f : null;
     }
 
     // Ein einzelnes "Register > 0"-Kriterium ist zu schwach — Zähler,
@@ -760,20 +798,46 @@ class InverterHubDiscovery extends IPSModule
     // aufeinanderfolgende Verbindungen ab. Statt mit Retrys mehr Verbindungen
     // zu erzeugen (was es verschlimmert), lassen wir zwischen den Verbindungen
     // etwas Zeit, damit das Gerät die nächste wieder annimmt.
+    // Batch-Modus: eine Verbindung für alle Probes einer IP (Sungrow WiNet-S
+    // erlaubt nur eine Modbus-Verbindung und lehnt schnelle Reconnects ab).
+    private $probeSock = null;
+
+    private function beginProbe($host, $port, $timeout)
+    {
+        $this->endProbe();
+        $s = @fsockopen($host, $port, $errno, $errstr, $timeout);
+        if ($s !== false) {
+            stream_set_timeout($s, $timeout);
+            $this->probeSock = $s;
+        }
+    }
+
+    private function endProbe()
+    {
+        if ($this->probeSock !== null) {
+            @fclose($this->probeSock);
+            $this->probeSock = null;
+        }
+    }
+
     private function modbusRead($host, $port, $unitId, $fc, $startReg, $count, $timeout)
     {
         $r = $this->modbusReadOnce($host, $port, $unitId, $fc, $startReg, $count, $timeout);
-        usleep(120000); // 120 ms Luft vor der nächsten Verbindung
+        if ($this->probeSock === null) {
+            usleep(120000); // Nur im Per-Read-Modus: 120 ms Luft vor Reconnect.
+        }
         return $r;
     }
 
     private function modbusReadOnce($host, $port, $unitId, $fc, $startReg, $count, $timeout)
     {
-        $sock = @fsockopen($host, $port, $errno, $errstr, $timeout);
+        $sock = $this->probeSock ?: @fsockopen($host, $port, $errno, $errstr, $timeout);
         if ($sock === false) {
             return null;
         }
-        stream_set_timeout($sock, $timeout);
+        if ($this->probeSock === null) {
+            stream_set_timeout($sock, $timeout);
+        }
 
         $tid  = mt_rand(1, 65535);
         $pdu  = pack('Cnn', $fc, $startReg, $count);
@@ -790,13 +854,18 @@ class InverterHubDiscovery extends IPSModule
             }
             $response .= $chunk;
             if (strlen($response) >= 9) {
+                if (ord($response[7]) & 0x80) {
+                    break; // Modbus-Exception (9-Byte-Antwort)
+                }
                 $byteCount = ord($response[8]);
                 if (strlen($response) >= 9 + $byteCount) {
                     break;
                 }
             }
         }
-        fclose($sock);
+        if ($this->probeSock === null) {
+            fclose($sock);
+        }
 
         if (strlen($response) < 9) {
             return null;

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.53.0-beta.1 (2026-07-20)
+
+- **Discovery: Batch-Modus + Janitza-Ausschluss.** Die Hersteller-Erkennung oeffnet jetzt EINE
+  Verbindung je IP fuer alle Probes (statt pro Read eine neue) - damit werden Single-Connection-
+  Geraete wie der Sungrow WiNet-S ueberhaupt erst zuverlaessig erkannt. Janitza-Messgeraete
+  (19000er-Karte: Frequenz 19050 + Spannung 19000) werden vorab erkannt und uebersprungen, statt
+  zufaellig als Wechselrichter (zuletzt Solplanet, davor Deye/SolaX) zu erscheinen. Lese-Schleife
+  bricht bei Modbus-Exceptions sofort ab (kein 3-s-Timeout je Fehlprobe).
+
 ## 0.52.1-beta.1 (2026-07-20)
 
 - **Sungrow String: Phasenstroeme.** Netz Strom L1/L2/L3 (Register 5021-5023) ergaenzt -
