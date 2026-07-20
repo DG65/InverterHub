@@ -307,8 +307,8 @@
     <circle class="node-face" r="56"/>
     <circle class="node-ring" r="56"/>
     <circle class="node-bevel" r="56"/>
-    <ellipse class="node-highlight" cx="-16.8" cy="-26.9" rx="40" ry="23"/>
-    <ellipse class="node-spec" cx="-24.6" cy="-30.8" rx="17" ry="9.5"/>
+    <circle class="node-highlight" r="40" transform="translate(-16.8,-26.9) scale(1,0.575)"/>
+    <circle class="node-spec" r="17" transform="translate(-24.6,-30.8) scale(1,0.559)"/>
     <g id="center-icon" class="node-icon" transform="translate(0,-30)" stroke-width="2" fill="none" filter="url(#relief)">
       <polygon points="0,-12 13.6,-0.8 13.6,12 -13.6,12 -13.6,-0.8" data-hollow="1"/>
     </g>
@@ -478,19 +478,22 @@ function makeCoinShadow(r) {
 function makeBevel(r) {
   return el('circle', { class: 'node-bevel', r: r });
 }
-// Weiches, großes Glanzlicht oben links (diffuse Wölbung).
+// Weiches, großes Glanzlicht oben links (diffuse Wölbung). Als KREIS mit
+// radialem Verlauf gezeichnet und per scale(1,ry/rx) zur Ellipse gestaucht -
+// so bleibt die Verlaufsmechanik quadratisch (Safari rendert einen
+// objectBoundingBox-Verlauf auf nicht-quadratischer Box hart statt weich).
 function makeHighlight(r) {
-  return el('ellipse', {
-    class: 'node-highlight',
-    cx: -r * 0.30, cy: -r * 0.48, rx: r * 0.72, ry: r * 0.41,
-  });
+  const c = el('circle', { class: 'node-highlight', r: r * 0.72 });
+  c.setAttribute('transform',
+    'translate(' + (-r * 0.30) + ',' + (-r * 0.48) + ') scale(1,0.57)');
+  return c;
 }
-// Kleiner, knackiger Glint auf der Kante oben-links.
+// Kleiner, knackiger Glint auf der Kante oben-links (ebenfalls Kreis+Stauchung).
 function makeSpecular(r) {
-  return el('ellipse', {
-    class: 'node-spec',
-    cx: -r * 0.44, cy: -r * 0.55, rx: r * 0.30, ry: r * 0.165,
-  });
+  const c = el('circle', { class: 'node-spec', r: r * 0.30 });
+  c.setAttribute('transform',
+    'translate(' + (-r * 0.44) + ',' + (-r * 0.55) + ') scale(1,0.55)');
+  return c;
 }
 
 // <marker>-Inhalte erben KEINE Farbe von der referenzierenden Linie (kein

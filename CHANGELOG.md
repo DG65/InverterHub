@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.56.5-beta.1 (2026-07-20)
+
+- **Kachel: Münz-Glanzlichter in Safari wieder weich.** Nach der Umstellung auf Verläufe
+  waren die Glanzlichter in Safari harte Ellipsen-Blobs: Safari rendert einen
+  `objectBoundingBox`-Radialverlauf auf einer nicht-quadratischen (elliptischen) Box hart
+  statt weich - anders als auf einem Kreis (dort funktionierte es, wie bei der Corona). Die
+  Glanzlichter werden jetzt als Kreis mit Verlauf gezeichnet und per `transform: scale` zur
+  Ellipse gestaucht; der weiche Randabfall bleibt dabei erhalten. In allen Browsern weich.
+
 ## 0.56.4-beta.1 (2026-07-20)
 
 - **Kachel: Münz-Glanzlichter und -Schatten als Vektor-Verläufe.** Das große Glanzlicht,
