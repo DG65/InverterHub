@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.43.0-beta.1 (2026-07-20)
+
+- **Monitoring: Zeiträume Woche, Gesamt und Benutzerdefiniert ergänzt.** Zusätzlich zu Tag/
+  Monat/Jahr gibt es jetzt „Woche (Energie)" (Tages-Balken Mo–So, ◄ ► über 26 Wochen bzw.
+  Wochen-Auswahl), „Gesamt (Energie)" (ein Balken je Jahr seit Beginn der Aufzeichnung) und
+  „Benutzerdefiniert" (frei wählbarer Von–Bis-Bereich per zwei Kalenderfeldern, Tages-Balken).
+- **Energie-Berechnung vereinheitlicht.** Alle Energie-Ansichten leiten sich jetzt aus einer
+  gemeinsamen Tages-Basis ab (ein Archivdurchlauf je Wert statt separater Monats-/Jahres-
+  Abfragen) — schneller und konsistent. Die automatische Zählertyp-Erkennung (Lifetime vs.
+  Tagesreset) bleibt.
+
 ## 0.42.1-beta.1 (2026-07-20)
 
 - **Monitoring: eigener Reiter „PV & Einstrahlung".** Fokus-Ansicht nur mit PV-Erzeugung

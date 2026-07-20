@@ -26,8 +26,10 @@ class InverterHubMonitor extends IPSModule
     private const ARCHIVE_GUID   = '{43192F0B-135B-4CE7-A0A7-1475603F3060}';
     private const INVERTERHUB_GUID = '{BBE2C593-1A91-426D-A714-29A9C7E87589}';
     private const WINDOW_DAYS   = 8;    // navigierbares Tages-Fenster (Verlauf)
+    private const WINDOW_WEEKS  = 26;   // Wochen-Fenster (Energie-Balken)
     private const WINDOW_MONTHS = 12;   // Monats-Fenster (Energie-Balken)
     private const WINDOW_YEARS  = 5;    // Jahres-Fenster (Energie-Balken)
+    private const SPAN_YEARS    = 5;    // max. Tiefe für „Gesamt"/Benutzerdefiniert
     private const AGG_5MIN = 5;         // IP-Symcon-Aggregationsstufe 5-Minuten
     private const AGG_DAY  = 1;         // täglich
 
@@ -309,16 +311,19 @@ class InverterHubMonitor extends IPSModule
                 continue;
             }
             if ($dayLeft === '') { $dayLeft = $dayRight !== '' ? $dayRight : 'W'; }
-            $types = $hasEnergy ? ['day', 'month', 'year'] : ['day'];
+            $types = $hasEnergy ? ['day', 'week', 'month', 'year', 'all', 'custom'] : ['day'];
             $tabs[] = [
                 'key'   => $gkey,
                 'label' => $glabel,
                 'idx'   => $idx,
                 'types' => $types,
                 'units' => [
-                    'day'   => ['left' => $dayLeft, 'right' => $dayRight],
-                    'month' => ['left' => 'kWh',    'right' => $eRight],
-                    'year'  => ['left' => 'kWh',    'right' => $eRight],
+                    'day'    => ['left' => $dayLeft, 'right' => $dayRight],
+                    'week'   => ['left' => 'kWh',    'right' => $eRight],
+                    'month'  => ['left' => 'kWh',    'right' => $eRight],
+                    'year'   => ['left' => 'kWh',    'right' => $eRight],
+                    'all'    => ['left' => 'kWh',    'right' => $eRight],
+                    'custom' => ['left' => 'kWh',    'right' => $eRight],
                 ],
             ];
         }
@@ -335,34 +340,83 @@ class InverterHubMonitor extends IPSModule
             $dayPeriods[] = ['id' => date('Y-m-d', $start), 'range' => date('d.m.Y', $start), 'series' => $rows];
         }
 
+        // --- Energie-Basis: Tages-kWh je Serie über die gesamte Spanne ---
+        // Ein Archivdurchlauf je Serie; daraus werden Woche/Monat/Jahr/Gesamt/
+        // Benutzerdefiniert abgeleitet.
+        $spanStart = strtotime('-' . self::SPAN_YEARS . ' years', strtotime(date('Y-01-01 00:00:00')));
+        $now = time();
+        $daily = [];      // [seriesIdx]['Y-m-d'] => kWh
+        $monthSum = [];   // [seriesIdx]['Y-m']   => kWh
+        $yearSum = [];    // [seriesIdx]['Y']     => kWh
+        $allDates = [];   // 'Y-m-d' => 1 (Vereinigung)
+        $minYear = (int)date('Y');
+        foreach ($series as $i => $s) {
+            $map = $this->ComputeDailyMap($aid, $s, $spanStart, $now);
+            $daily[$i] = $map;
+            $monthSum[$i] = []; $yearSum[$i] = [];
+            foreach ($map as $d => $v) {
+                $ym = substr($d, 0, 7); $y = substr($d, 0, 4);
+                $monthSum[$i][$ym] = ($monthSum[$i][$ym] ?? 0.0) + $v;
+                $yearSum[$i][$y]   = ($yearSum[$i][$y] ?? 0.0) + $v;
+                $allDates[$d] = 1;
+                if ((int)$y < $minYear) { $minYear = (int)$y; }
+            }
+        }
+        $mNames = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+        $wNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+
+        // --- Energie je Woche (Tages-Balken, Mo–So) ---
+        $weekPeriods = [];
+        $wBase = strtotime('monday this week 00:00:00');
+        for ($k = 0; $k < self::WINDOW_WEEKS; $k++) {
+            $wStart = strtotime("-{$k} weeks", $wBase);
+            $dates = []; for ($d = 0; $d < 7; $d++) { $dates[] = date('Y-m-d', $wStart + $d * 86400); }
+            $rows = [];
+            foreach ($series as $i => $s) { $rows[] = array_map(function ($dd) use ($daily, $i) { return $daily[$i][$dd] ?? null; }, $dates); }
+            $we = $wStart + 6 * 86400;
+            $weekPeriods[] = ['id' => date('o-\WW', $wStart), 'range' => 'KW ' . date('W', $wStart) . ' · ' . date('d.m.', $wStart) . '–' . date('d.m.Y', $we), 'cats' => $wNames, 'series' => $rows];
+        }
+
         // --- Energie je Monat (Tages-Balken) ---
         $monthPeriods = [];
         $mBase = strtotime(date('Y-m-01 00:00:00'));
         for ($k = 0; $k < self::WINDOW_MONTHS; $k++) {
             $mStart = strtotime("-{$k} months", $mBase);
-            $mEnd   = min(time(), strtotime('+1 month', $mStart));
             $days   = (int)date('t', $mStart);
-            $cats = [];
-            for ($d = 1; $d <= $days; $d++) { $cats[] = (string)$d; }
+            $cats = []; $dates = [];
+            for ($d = 1; $d <= $days; $d++) { $cats[] = (string)$d; $dates[] = date('Y-m-d', strtotime("+" . ($d - 1) . " days", $mStart)); }
             $rows = [];
-            foreach ($series as $s) {
-                $rows[] = $this->EnergyBars($aid, $s, $mStart, $mEnd, $days, 'j');
-            }
+            foreach ($series as $i => $s) { $rows[] = array_map(function ($dd) use ($daily, $i) { return $daily[$i][$dd] ?? null; }, $dates); }
             $monthPeriods[] = ['id' => date('Y-m', $mStart), 'range' => $this->MonthName((int)date('n', $mStart)) . ' ' . date('Y', $mStart), 'cats' => $cats, 'series' => $rows];
         }
 
         // --- Energie je Jahr (Monats-Balken) ---
         $yearPeriods = [];
-        $yBase = strtotime(date('Y-01-01 00:00:00'));
-        $mNames = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
         for ($k = 0; $k < self::WINDOW_YEARS; $k++) {
-            $yStart = strtotime("-{$k} years", $yBase);
-            $yEnd   = min(time(), strtotime('+1 year', $yStart));
+            $y = (int)date('Y') - $k;
             $rows = [];
-            foreach ($series as $s) {
-                $rows[] = $this->EnergyBars($aid, $s, $yStart, $yEnd, 12, 'n');
+            foreach ($series as $i => $s) {
+                $arr = []; for ($m = 1; $m <= 12; $m++) { $arr[] = $monthSum[$i][sprintf('%04d-%02d', $y, $m)] ?? null; }
+                $rows[] = $arr;
             }
-            $yearPeriods[] = ['id' => date('Y', $yStart), 'range' => date('Y', $yStart), 'cats' => $mNames, 'series' => $rows];
+            $yearPeriods[] = ['id' => (string)$y, 'range' => (string)$y, 'cats' => $mNames, 'series' => $rows];
+        }
+
+        // --- Gesamt (seit Anbeginn): ein Balken je Jahr ---
+        $allCats = []; $allRows = [];
+        for ($y = $minYear; $y <= (int)date('Y'); $y++) { $allCats[] = (string)$y; }
+        foreach ($series as $i => $s) {
+            $arr = []; foreach ($allCats as $yy) { $arr[] = $yearSum[$i][$yy] ?? null; }
+            $allRows[] = $arr;
+        }
+        $allPeriods = [['id' => 'all', 'range' => (count($allCats) ? $allCats[0] . '–' . end($allCats) : 'Gesamt'), 'cats' => $allCats, 'series' => $allRows]];
+
+        // --- Benutzerdefiniert: Tageswerte zum freien Von–Bis-Filtern im Webfront ---
+        ksort($allDates);
+        $customDaily = [];
+        foreach (array_keys($allDates) as $d) {
+            $v = []; foreach ($series as $i => $s) { $v[] = $daily[$i][$d] ?? null; }
+            $customDaily[] = ['d' => $d, 'v' => $v];
         }
 
         return json_encode(array_merge($style, [
@@ -372,36 +426,36 @@ class InverterHubMonitor extends IPSModule
             'seriesMeta'  => $meta,
             'tabs'        => $tabs,
             'types'       => [
-                'day'   => ['mode' => 'line', 'periods' => $dayPeriods],
-                'month' => ['mode' => 'bar',  'periods' => $monthPeriods],
-                'year'  => ['mode' => 'bar',  'periods' => $yearPeriods],
+                'day'    => ['mode' => 'line', 'periods' => $dayPeriods],
+                'week'   => ['mode' => 'bar',  'periods' => $weekPeriods],
+                'month'  => ['mode' => 'bar',  'periods' => $monthPeriods],
+                'year'   => ['mode' => 'bar',  'periods' => $yearPeriods],
+                'all'    => ['mode' => 'bar',  'periods' => $allPeriods],
+                'custom' => ['mode' => 'bar',  'daily' => $customDaily, 'from' => date('Y-m-01'), 'to' => date('Y-m-d')],
             ],
         ]));
     }
 
-    // Energie-Balken über TÄGLICHE Buckets, aufsummiert je Slot.
-    // Zähler (energyVid): der Zählertyp wird automatisch erkannt
+    // Tages-Energie (kWh) je Kalendertag als ['Y-m-d' => kWh].
+    // Zähler (energyVid): Zählertyp automatisch erkannt
     //   • Lifetime-Zähler (Min≈Max, läuft hoch): Zuwachs = Max[i]−Max[i-1]
     //     (der erste Bucket wird verworfen → kein „Geburtswert"-Spike).
     //   • Tagesreset-Zähler (Min≈0 je Tag): Zuwachs = Max−Min.
-    // Reine Leistung (powerVid): Ø-Leistung × 24 h / 1000.
-    // $slot = 'j' (Tag→Monatsansicht) oder 'n' (Monat→Jahresansicht, akkumuliert).
-    private function EnergyBars(int $aid, array $s, int $start, int $end, int $count, string $slot): array
+    // Reine Leistung (powerVid): Ø-Leistung × 24 h / 1000. „noEnergy" → leer.
+    private function ComputeDailyMap(int $aid, array $s, int $start, int $end): array
     {
-        $out = array_fill(0, $count, null);
         if (!empty($s['noEnergy'])) {
-            return $out;
+            return [];
         }
         $counter = ($s['energyVid'] > 0);
         $vid = $counter ? $s['energyVid'] : $s['powerVid'];
         if ($vid <= 0 || !IPS_VariableExists($vid) || !@AC_GetLoggingStatus($aid, $vid)) {
-            return $out;
+            return [];
         }
         $data = @AC_GetAggregatedValues($aid, $vid, self::AGG_DAY, $start, $end, 0);
         if (!is_array($data) || count($data) === 0) {
-            return $out;
+            return [];
         }
-        // Buckets aufsteigend (Archiv liefert neueste zuerst).
         usort($data, function ($a, $b) { return (int)$a['TimeStamp'] <=> (int)$b['TimeStamp']; });
 
         // Zählertyp bestimmen: Median von Min/Max. Nah 1 → Lifetime, nah 0 → Reset.
@@ -418,7 +472,7 @@ class InverterHubMonitor extends IPSModule
             }
         }
 
-        $prevMax = null;
+        $out = []; $prevMax = null;
         foreach ($data as $row) {
             $ts = (int)$row['TimeStamp'];
             $mx = (float)$row['Max'];
@@ -432,10 +486,7 @@ class InverterHubMonitor extends IPSModule
             }
             if ($val === null) { continue; }
             if (!is_finite($val) || $val < 0) { $val = 0.0; }
-            $idx = (int)date($slot, $ts) - 1; // 1-basiert → 0-basiert
-            if ($idx >= 0 && $idx < $count) {
-                $out[$idx] = round((($out[$idx] ?? 0.0) + $val), 2);
-            }
+            $out[date('Y-m-d', $ts)] = round($val, 2);
         }
         return $out;
     }

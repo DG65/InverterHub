@@ -41,9 +41,11 @@
     // und Ansichtswechsel erhalten, damit die Auswahl nicht zurückgesetzt wird.
     var vis = {};
     function isVisible(label) { return vis[label] !== false; }
-    var ORDER = ['day', 'month', 'year'];
-    var TYPENAME = { day: 'Tag (Verlauf)', month: 'Monat (Energie)', year: 'Jahr (Energie)' };
-    var INPUT_TYPE = { day: 'date', month: 'month' };
+    var customFrom = null, customTo = null;
+    var ORDER = ['day', 'week', 'month', 'year', 'all', 'custom'];
+    var TYPENAME = { day: 'Tag (Verlauf)', week: 'Woche (Energie)', month: 'Monat (Energie)', year: 'Jahr (Energie)', all: 'Gesamt (Energie)', custom: 'Benutzerdefiniert' };
+    var INPUT_TYPE = { day: 'date', week: 'week', month: 'month' };
+    function fmtDE(iso) { return iso ? (iso.slice(8, 10) + '.' + iso.slice(5, 7) + '.' + iso.slice(0, 4)) : ''; }
 
     function handleMessage(payload) {
       var data = (typeof payload === 'string') ? JSON.parse(payload) : payload;
@@ -65,7 +67,7 @@
       buildTabs(data);
       buildTypeSelect(data);
       if (!curType || activeTab().types.indexOf(curType) < 0) { curType = activeTab().types[0]; curIdx = 0; }
-      if (curIdx >= data.types[curType].periods.length) { curIdx = 0; }
+      if (curIdx >= periods().length) { curIdx = 0; }
       document.getElementById('type').value = curType;
       buildPicker();
       render();
@@ -101,16 +103,52 @@
     function periods() { return (lastData.types[curType] || {}).periods || []; }
     function idxById(arr, id) { for (var i = 0; i < arr.length; i++) { if (arr[i].id === id) { return i; } } return -1; }
 
+    // Aktuell darzustellende Periode. „custom" wird aus den mitgelieferten
+    // Tageswerten und dem gewählten Von–Bis-Bereich synthetisiert.
+    function activePeriod() { return (curType === 'custom') ? synthCustom() : (periods()[curIdx] || null); }
+    function synthCustom() {
+      var c = lastData.types.custom || {}, meta = lastData.seriesMeta;
+      if (!customFrom) { customFrom = c.from; } if (!customTo) { customTo = c.to; }
+      var cats = [], series = meta.map(function () { return []; });
+      (c.daily || []).forEach(function (row) {
+        if (row.d >= customFrom && row.d <= customTo) {
+          cats.push(fmtDE(row.d).slice(0, 6));
+          meta.forEach(function (m, s) { series[s].push(row.v[s] != null ? row.v[s] : null); });
+        }
+      });
+      return { cats: cats, series: series, range: fmtDE(customFrom) + ' – ' + fmtDE(customTo) };
+    }
+
     function buildTypeSelect(data) {
       var sel = document.getElementById('type'), html = '', allow = activeTab().types;
-      ORDER.forEach(function (t) { if (allow.indexOf(t) >= 0 && data.types[t] && data.types[t].periods.length) { html += '<option value="' + t + '">' + (TYPENAME[t] || t) + '</option>'; } });
+      ORDER.forEach(function (t) { var dt = data.types[t]; if (allow.indexOf(t) >= 0 && dt && (dt.periods ? dt.periods.length : (dt.daily && dt.daily.length))) { html += '<option value="' + t + '">' + (TYPENAME[t] || t) + '</option>'; } });
       sel.innerHTML = html;
       sel.style.display = (sel.options.length <= 1) ? 'none' : '';
       sel.onchange = function () { curType = this.value; curIdx = 0; buildPicker(); render(); };
     }
 
     function buildPicker() {
-      var arr = periods(), wrap = document.getElementById('pickwrap'), single = arr.length <= 1;
+      var wrap = document.getElementById('pickwrap');
+      // Benutzerdefiniert: zwei Datumsfelder Von–Bis.
+      if (curType === 'custom') {
+        var c = lastData.types.custom || {};
+        if (!customFrom) { customFrom = c.from; } if (!customTo) { customTo = c.to; }
+        document.getElementById('prev').style.display = 'none';
+        document.getElementById('next').style.display = 'none';
+        wrap.innerHTML = '';
+        var lo = (c.daily && c.daily.length) ? c.daily[0].d : '', hi = (c.daily && c.daily.length) ? c.daily[c.daily.length - 1].d : '';
+        var mk = function (val, isFrom) {
+          var el = document.createElement('input'); el.type = 'date'; el.className = 'pick'; el.value = val;
+          if (lo) { el.min = lo; } if (hi) { el.max = hi; }
+          el.onchange = function () { if (isFrom) { customFrom = this.value; } else { customTo = this.value; } if (customFrom > customTo) { if (isFrom) { customTo = customFrom; } else { customFrom = customTo; } } buildPicker(); render(); };
+          return el;
+        };
+        wrap.appendChild(mk(customFrom, true));
+        var dash = document.createElement('span'); dash.className = 'rangeTxt'; dash.textContent = '–'; wrap.appendChild(dash);
+        wrap.appendChild(mk(customTo, false));
+        applyTheme(lastData); return;
+      }
+      var arr = periods(), single = arr.length <= 1;
       document.getElementById('prev').style.display = single ? 'none' : '';
       document.getElementById('next').style.display = single ? 'none' : '';
       wrap.innerHTML = '';
@@ -133,6 +171,7 @@
     }
 
     function syncNav() {
+      if (curType === 'custom') { return; }
       var arr = periods(), el = document.querySelector('#pickwrap .pick');
       if (el) { if (el.tagName === 'SELECT') { el.value = curIdx; } else { el.value = arr[curIdx].id; } }
       document.getElementById('prev').disabled = (curIdx >= arr.length - 1);
@@ -142,7 +181,7 @@
     function render() {
       syncNav(); sizeChart();
       var engine = (lastData.engine === 'highcharts') ? 'highcharts' : 'echarts';
-      var p = periods()[curIdx], idx = activeTab().idx;
+      var p = activePeriod(), idx = activeTab().idx;
       var has = p && idx.some(function (i) { var s = p.series[i]; return s && s.length; });
       var el = document.getElementById('chart');
       if (!has) { destroyChart(); el.innerHTML = '<div class="empty">Keine Archivdaten für diesen Zeitraum</div>'; return; }
@@ -210,7 +249,7 @@
 
     // ---- Highcharts ----
     function buildHC() {
-      var T = theme(), tp = lastData.types[curType], p = tp.periods[curIdx], el = document.getElementById('chart');
+      var T = theme(), tp = lastData.types[curType], p = activePeriod(), el = document.getElementById('chart');
       var tab = activeTab(), units = tab.units[curType] || { left: '', right: '' };
       var bar = (tp.mode === 'bar');
       var series = tab.idx.map(function (i) {
@@ -238,7 +277,7 @@
 
     // ---- ECharts ----
     function buildEC() {
-      var T = theme(), tp = lastData.types[curType], p = tp.periods[curIdx], el = document.getElementById('chart');
+      var T = theme(), tp = lastData.types[curType], p = activePeriod(), el = document.getElementById('chart');
       var tab = activeTab(), units = tab.units[curType] || { left: '', right: '' }, meta = lastData.seriesMeta;
       var bar = (tp.mode === 'bar');
       var series = tab.idx.map(function (i) {
