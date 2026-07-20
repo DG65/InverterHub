@@ -329,6 +329,12 @@ class InverterHubDiscovery extends IPSModule
         if (@IPS_GetObjectIDByIdent('ScanAbort', $this->InstanceID)) {
             $this->SetValue('ScanAbort', false);
         }
+        // Alte Suchergebnisse sofort leeren, damit sie nicht mit den neuen
+        // verwechselt werden (bisher wurde die Liste erst am Scan-Ende neu
+        // geschrieben - bei einem ergebnislosen/abgebrochenen Scan blieben die
+        // alten Treffer sichtbar).
+        $this->WriteAttributeString('ResultsJSON', '[]');
+        @$this->UpdateFormField('DiscoveryList', 'values', []);
         // Start-Button aus, Abbrechen-Button ein (am Scan-Ende stellt ReloadForm
         // die Ausgangslage wieder her).
         @$this->UpdateFormField('BtnScan', 'visible', false);

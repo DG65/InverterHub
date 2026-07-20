@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.49.4-beta.1 (2026-07-20)
+
+- **Discovery: alte Suchergebnisse werden beim Scan-Start geleert.** Bisher wurde die
+  Ergebnisliste erst am Scan-Ende neu geschrieben — bei einem ergebnislosen oder abgebrochenen
+  Scan blieben die alten Treffer stehen und wirkten wie neue. Jetzt ist die Liste ab dem Klick
+  auf „Netzwerk durchsuchen" sofort leer.
+
 ## 0.49.3-beta.1 (2026-07-20)
 
 - **Discovery: robuster gegen „zickige" Modbus-Server (Sungrow WiNet-S).** Die Scan-Reads
