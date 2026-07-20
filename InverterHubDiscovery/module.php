@@ -12,6 +12,15 @@
 class InverterHubDiscovery extends IPSModule
 {
     private const INVERTERHUB_GUID = '{BBE2C593-1A91-426D-A714-29A9C7E87589}';
+    // MeterHub-Zählermodul: Ist es installiert, bietet die Suche gefundene
+    // Energiezähler gleich als MeterHub-Instanz zum Anlegen an (kombinierter
+    // Scan: Wechselrichter + Zähler in einem Durchgang).
+    private const METERHUB_GUID = '{BAB8E05C-9150-43B9-9F2B-E5215FA54F0A}';
+    private const METER_LABELS = [
+        'siemens_pac2200' => 'Siemens PAC2200',
+        'janitza_umg604'  => 'Janitza UMG (klassische Map)',
+        'janitza_umg800'  => 'Janitza UMG 800',
+    ];
 
     // Kandidaten je Hersteller: Unit-IDs, die typischerweise/dokumentiert
     // Standard sind (kleine Liste statt vollem 1-247-Bereich).
@@ -152,13 +161,20 @@ class InverterHubDiscovery extends IPSModule
                 $instanceName = $r['label'] . ' ' . $nr;
             }
 
-            $values[] = [
-                'name'         => $r['label'] . ' @ ' . $r['ip'] . ' (Unit ' . $r['unitId'] . ')',
-                'manufacturer' => $r['label'],
-                'ip'           => $r['ip'],
-                'unitId'       => $r['unitId'],
-                'instanceID'   => $existing[$key] ?? 0,
-                'create'       => [
+            // Zähler → MeterHub-Instanz, Wechselrichter → InverterHub-Instanz.
+            if (($r['kind'] ?? 'inverter') === 'meter') {
+                $create = [
+                    'moduleID'      => self::METERHUB_GUID,
+                    'name'          => $instanceName,
+                    'configuration' => [
+                        'Host'   => $r['ip'],
+                        'Port'   => $this->ReadPropertyInteger('Port'),
+                        'UnitId' => $r['unitId'],
+                        'Meter'  => $r['meter'],
+                    ],
+                ];
+            } else {
+                $create = [
                     'moduleID'      => self::INVERTERHUB_GUID,
                     'name'          => $instanceName,
                     'configuration' => [
@@ -167,7 +183,16 @@ class InverterHubDiscovery extends IPSModule
                         'UnitId'       => $r['unitId'],
                         'Manufacturer' => $r['vendor'],
                     ],
-                ],
+                ];
+            }
+
+            $values[] = [
+                'name'         => $r['label'] . ' @ ' . $r['ip'] . ' (Unit ' . $r['unitId'] . ')',
+                'manufacturer' => $r['label'],
+                'ip'           => $r['ip'],
+                'unitId'       => $r['unitId'],
+                'instanceID'   => $existing[$key] ?? 0,
+                'create'       => $create,
             ];
         }
 
@@ -182,6 +207,7 @@ class InverterHubDiscovery extends IPSModule
                         ['type' => 'Label', 'caption' => 'Start- und End-IP eintragen (Vorschlag anhand des eigenen Netzwerks ist schon ausgefüllt), dann „Netzwerk durchsuchen" klicken. Gefundene Geräte erscheinen unten in der Liste — Klick auf „Erstellen" legt eine InverterHub-Instanz mit vorausgefüllter IP-Adresse, Unit-ID und Hersteller an.'],
                         ['type' => 'Label', 'caption' => 'Der Scan prüft nur wenige dokumentierte Standard-Unit-IDs je Hersteller, keinen vollen 1-247-Bereich — bei exotisch konfigurierter Unit-ID bitte die InverterHub-Instanz manuell anlegen.'],
                         ['type' => 'Label', 'caption' => 'Wird ein bekannter Wechselrichter nicht gefunden: einen SCHMALEN Bereich (bis 64 Adressen, z. B. .30–.45) um dessen IP scannen. Kleine Bereiche nutzen einen langsameren, aber zuverlässigen Portcheck — der große Subnetz-Scan kann unter Windows oder bei langsam antwortenden Geräten (z. B. Sungrow WiNet-S) offene Ports übersehen.'],
+                        ['type' => 'Label', 'caption' => 'Kombinierter Scan: Ist zusätzlich das Modul „MeterHub" installiert, findet die Suche auch Energiezähler (Janitza, Siemens PAC) und legt sie per „Erstellen" gleich als MeterHub-Instanz an — Wechselrichter und Zähler in einem Durchgang.'],
                         ['type' => 'Label', 'caption' => 'Hinweis: „Filter"/„Aktualisieren" oberhalb und „Erstellen"/„Alle erstellen" unterhalb der Tabelle sind fester Bestandteil der IP-Symcon-Konfigurator-Ansicht selbst — ihre Position lässt sich modulseitig nicht verändern.'],
                     ],
                 ],
@@ -386,17 +412,19 @@ class InverterHubDiscovery extends IPSModule
         $this->ReloadForm();
     }
 
-    // Gleicht Suchergebnisse gegen bereits existierende InverterHub-Instanzen
-    // ab (Host+UnitId), damit bereits angelegte Wechselrichter in der
+    // Gleicht Suchergebnisse gegen bereits existierende InverterHub- UND
+    // MeterHub-Instanzen ab (Host+UnitId), damit bereits angelegte Geräte in der
     // Ergebnisliste als solche erkannt werden (InstanzID statt "Kein(e)").
     private function findExistingInstances()
     {
         $map = [];
-        foreach (IPS_GetInstanceListByModuleID(self::INVERTERHUB_GUID) as $iid) {
-            $host   = @IPS_GetProperty($iid, 'Host');
-            $unitId = @IPS_GetProperty($iid, 'UnitId');
-            if ($host !== false && $host !== null && $host !== '') {
-                $map[$host . '|' . $unitId] = $iid;
+        foreach ([self::INVERTERHUB_GUID, self::METERHUB_GUID] as $guid) {
+            foreach (IPS_GetInstanceListByModuleID($guid) as $iid) {
+                $host   = @IPS_GetProperty($iid, 'Host');
+                $unitId = @IPS_GetProperty($iid, 'UnitId');
+                if ($host !== false && $host !== null && $host !== '') {
+                    $map[$host . '|' . $unitId] = $iid;
+                }
             }
         }
         return $map;
@@ -536,16 +564,29 @@ class InverterHubDiscovery extends IPSModule
         // ablehnen und dann gar nicht erkannt werden).
         $this->beginProbe($ip, $port, 3.0);
         try {
-            // Bekannte Nicht-Wechselrichter vorab ausschließen: Janitza-Messgeräte
-            // (19000er-Karte) erfüllen sonst lockere Hersteller-Kriterien zufällig
-            // (real: UMG604 als Deye/Solplanet, PAC2200 als SolaX erkannt).
-            if ($this->isJanitzaMeter($ip, $port, 1)) {
+            // Energiezähler zuerst: Sie erfüllen sonst lockere Hersteller-
+            // Kriterien zufällig (real: UMG604 als Deye/Solplanet, PAC2200 als
+            // SolaX). Ist MeterHub installiert, wird der Zähler als MeterHub-
+            // Instanz angeboten; sonst nur übersprungen (kein Wechselrichter).
+            $meter = $this->identifyMeter($ip, $port);
+            if ($meter !== null) {
+                if ($this->meterHubInstalled()) {
+                    return [
+                        'kind'   => 'meter',
+                        'ip'     => $ip,
+                        'unitId' => $meter['unitId'],
+                        'vendor' => $meter['meter'],
+                        'label'  => self::METER_LABELS[$meter['meter']] ?? $meter['meter'],
+                        'meter'  => $meter['meter'],
+                    ];
+                }
                 return null;
             }
             foreach (self::VENDOR_UNIT_IDS as $vendor => $unitIds) {
                 foreach ($unitIds as $unitId) {
                     if ($this->probeVendor($vendor, $ip, $port, $unitId)) {
                         return [
+                            'kind'   => 'inverter',
                             'ip'     => $ip,
                             'unitId' => $unitId,
                             'vendor' => $vendor,
@@ -558,6 +599,40 @@ class InverterHubDiscovery extends IPSModule
         } finally {
             $this->endProbe();
         }
+    }
+
+    private function meterHubInstalled()
+    {
+        return function_exists('IPS_ModuleExists') ? IPS_ModuleExists(self::METERHUB_GUID) : false;
+    }
+
+    // Erkennt die von MeterHub unterstützten Energiezähler (klassische Janitza-
+    // 19000er-Karte, Janitza UMG 800, Siemens PAC2200) anhand plausibler Float-
+    // Frequenz + Spannung. Rückgabe ['meter','unitId'] oder null.
+    private function identifyMeter($ip, $port)
+    {
+        // Siemens PAC2200: Frequenz @55, Spannung L1-N @1.
+        $f = $this->readFloatHolding($ip, $port, 1, 55);
+        if ($f !== null && $f >= 45.0 && $f <= 65.0) {
+            $u = $this->readFloatHolding($ip, $port, 1, 1);
+            if ($u !== null && $u >= 30.0 && $u <= 500.0) {
+                return ['meter' => 'siemens_pac2200', 'unitId' => 1];
+            }
+        }
+        // Janitza klassisch (UMG 604 u. a.): Frequenz @19050, Spannung @19000.
+        if ($this->isJanitzaMeter($ip, $port, 1)) {
+            return ['meter' => 'janitza_umg604', 'unitId' => 1];
+        }
+        // Janitza UMG 800: Frequenz @19054; @19050 trägt hier KEINE Frequenz.
+        $f = $this->readFloatHolding($ip, $port, 1, 19054);
+        if ($f !== null && $f >= 45.0 && $f <= 65.0) {
+            $f50 = $this->readFloatHolding($ip, $port, 1, 19050);
+            $u   = $this->readFloatHolding($ip, $port, 1, 19000);
+            if (($f50 === null || $f50 < 45.0 || $f50 > 65.0) && $u !== null && $u >= 30.0 && $u <= 500.0) {
+                return ['meter' => 'janitza_umg800', 'unitId' => 1];
+            }
+        }
+        return null;
     }
 
     // Janitza-Messgerät (klassische 19000er-Karte): Float32 Frequenz @19050

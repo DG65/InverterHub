@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.54.0-beta.1 (2026-07-20)
+
+- **Discovery: kombinierter Scan (Wechselrichter + Energiezaehler).** Ist zusaetzlich das Modul
+  "MeterHub" installiert, erkennt die InverterHub-Suche auch Energiezaehler (Janitza klassisch,
+  Janitza UMG 800, Siemens PAC2200) und bietet sie in der Ergebnisliste an - ein Klick auf
+  "Erstellen" legt dann eine MeterHub-Instanz an. So findet und installiert man Wechselrichter
+  und Zaehler in einem Durchgang. Ohne MeterHub werden Zaehler wie bisher nur uebersprungen.
+
 ## 0.53.0-beta.1 (2026-07-20)
 
 - **Discovery: Batch-Modus + Janitza-Ausschluss.** Die Hersteller-Erkennung oeffnet jetzt EINE
