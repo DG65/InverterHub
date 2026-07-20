@@ -196,15 +196,18 @@
   /* --- Münz-/Schlaglicht-Ebenen (nur für aktive Knoten) --- */
   /* Dunkle Bodenschattierung leicht nach unten versetzt, damit der Kreis wie
      eine erhabene Münze über der Fläche schwebt. */
-  .coin-shadow { fill: #000; opacity: 0.5; filter: blur(8px); }
+  /* Verlauf statt blur() (Safari-scharf). Der weiche Randabfall steckt im
+     radialen Verlauf; die Elemente sind entsprechend etwas größer gezeichnet,
+     um die frühere Unschärfe-Ausdehnung zu ersetzen. */
+  .coin-shadow { fill: url(#coinShadowG); opacity: 0.55; }
   /* Metallischer Kantenanschliff: heller Lichtfang oben-links, dunkler
      Schatten unten-rechts (bevelGrad), überlagert den farbigen Ring, sodass
      die Identitätsfarbe in den Mitteltönen erhalten bleibt. */
   .node-bevel { fill: none; stroke: url(#bevelGrad); stroke-width: 5; }
   /* Weiches, großes Glanzlicht oben links (diffuse Wölbung). */
-  .node-highlight { fill: #fff; opacity: 0.13; filter: blur(6px); }
+  .node-highlight { fill: url(#glossHi); opacity: 0.5; }
   /* Kleiner, knackiger Glint - wie Licht, das auf die Münzkante trifft. */
-  .node-spec { fill: #fff; opacity: 0.30; filter: blur(2px); }
+  .node-spec { fill: url(#glossSpec); opacity: 0.55; }
 
   /* Alle Münz-Ebenen blenden weich aus, sobald der Knoten inaktiv wird -
      gesteuert allein über die Klasse .inactive am Knoten, damit Zustand und
@@ -242,6 +245,26 @@
       <stop offset="70%"  stop-color="#000000" stop-opacity="0"/>
       <stop offset="100%" stop-color="#000000" stop-opacity="0.65"/>
     </linearGradient>
+    <!-- Glanzlichter und Bodenschatten der Münzen als radiale Vektor-Verläufe
+       statt CSS-filter:blur(). blur() rasterte Safari beim Skalieren grob/körnig
+       (derselbe Effekt wie zuvor bei der Corona) - der Verlauf ist in allen
+       Browsern vektorscharf. Die Ellipsen/Kreise tragen den Verlauf als fill;
+       der weiche Randabfall ersetzt die frühere Unschärfe. -->
+    <radialGradient id="glossHi" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#ffffff" stop-opacity="0.85"/>
+      <stop offset="55%"  stop-color="#ffffff" stop-opacity="0.32"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glossSpec" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="50%"  stop-color="#ffffff" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="coinShadowG" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#000000" stop-opacity="0.9"/>
+      <stop offset="55%"  stop-color="#000000" stop-opacity="0.72"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
     <!-- Prägung (Relief) für Icons und Leistungswerte. Die Alphamaske des
        Glyphen dient als Höhenkarte: feSpecularLighting mit Licht von
        oben-links erzeugt echte, metallisch glänzende Grate auf den erhabenen
@@ -279,13 +302,13 @@
        (Nutzerwunsch), lag mittig zwischen Zentrums- und äußeren Kreisen. -->
   <circle class="ring-decor" id="ring-decor" cx="280" cy="301" r="96" style="display:none"/>
   <g id="node-center" class="node">
-    <circle class="coin-shadow" cx="0" cy="8.96" r="54.88"/>
+    <circle class="coin-shadow" cx="0" cy="8.96" r="63"/>
     <circle class="node-glow" r="56"/>
     <circle class="node-face" r="56"/>
     <circle class="node-ring" r="56"/>
     <circle class="node-bevel" r="56"/>
-    <ellipse class="node-highlight" cx="-16.8" cy="-26.9" rx="25.8" ry="14.6"/>
-    <ellipse class="node-spec" cx="-24.6" cy="-30.8" rx="11.2" ry="6.2"/>
+    <ellipse class="node-highlight" cx="-16.8" cy="-26.9" rx="40" ry="23"/>
+    <ellipse class="node-spec" cx="-24.6" cy="-30.8" rx="17" ry="9.5"/>
     <g id="center-icon" class="node-icon" transform="translate(0,-30)" stroke-width="2" fill="none" filter="url(#relief)">
       <polygon points="0,-12 13.6,-0.8 13.6,12 -13.6,12 -13.6,-0.8" data-hollow="1"/>
     </g>
@@ -449,7 +472,7 @@ function layoutStatus() { /* Overlay wird per CSS positioniert */ }
 // --- Münz-/Schlaglicht-Ebenen (nur für aktive Knoten) ---
 // Dunkle Bodenschattierung leicht nach unten versetzt - die Münze schwebt.
 function makeCoinShadow(r) {
-  return el('circle', { class: 'coin-shadow', cx: 0, cy: r * 0.16, r: r * 0.98 });
+  return el('circle', { class: 'coin-shadow', cx: 0, cy: r * 0.16, r: r * 1.13 });
 }
 // Metallischer Kantenanschliff (siehe #bevelGrad).
 function makeBevel(r) {
@@ -459,14 +482,14 @@ function makeBevel(r) {
 function makeHighlight(r) {
   return el('ellipse', {
     class: 'node-highlight',
-    cx: -r * 0.30, cy: -r * 0.48, rx: r * 0.46, ry: r * 0.26,
+    cx: -r * 0.30, cy: -r * 0.48, rx: r * 0.72, ry: r * 0.41,
   });
 }
 // Kleiner, knackiger Glint auf der Kante oben-links.
 function makeSpecular(r) {
   return el('ellipse', {
     class: 'node-spec',
-    cx: -r * 0.44, cy: -r * 0.55, rx: r * 0.2, ry: r * 0.11,
+    cx: -r * 0.44, cy: -r * 0.55, rx: r * 0.30, ry: r * 0.165,
   });
 }
 

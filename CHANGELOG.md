@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.56.4-beta.1 (2026-07-20)
+
+- **Kachel: Münz-Glanzlichter und -Schatten als Vektor-Verläufe.** Das große Glanzlicht,
+  der kleine Spitzglanz und der Bodenschatten der Kreise nutzten noch `filter: blur()` -
+  derselbe Effekt, den Safari beim Skalieren grob rasterte (wie zuvor bei der Corona). Sie
+  sind jetzt radiale SVG-Verläufe (fill) ohne Blur: in allen Browsern vektorscharf, der
+  weiche Randabfall steckt im Verlauf. Optik unverändert.
+
 ## 0.56.3-beta.1 (2026-07-20)
 
 - **Kachel: geprägte Zahlen/Icons in Safari waren körnig.** Der Relief-Filter
