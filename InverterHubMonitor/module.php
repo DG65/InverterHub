@@ -1,32 +1,75 @@
 <?php
 
 // ---------------------------------------------------------------------------
-// InverterHubMonitor — Monitoring-Kachel mit Intraday-Zeitreihen aus dem
-// IP-Symcon-Archiv (à la Meteocontrol VCOM „Tatsächliche Leistung"). Stellt
-// beliebige archivierte Variablen (z. B. PV-Leistung) zusammen mit einem
-// Einstrahlungssensor (2. Y-Achse) über einen wählbaren Tag dar - so lassen
-// sich Verschmutzung/Defekte am Abweichen von Leistung und Einstrahlung
-// erkennen. Rendering wahlweise Highcharts oder ECharts.
+// InverterHubMonitor — Monitoring-Kachel mit archivierten Werten aus einer
+// InverterHub-Instanz (à la Meteocontrol VCOM). Die Werte werden NICHT mehr
+// von Hand in einer Tabelle gepflegt, sondern:
+//   1. Man wählt die InverterHub-Instanz als Quelle.
+//   2. Man kreuzt die gewünschten Werte an (nur vorhandene/archivierte Idents
+//      werden angeboten).
+//   3. Farben, Achse und Einheit sind je Wert voreingestellt.
+// Ansichten (in der Kachel umschaltbar): „Tag (Verlauf)" = Leistungs-Zeitreihe
+// (~5-Min), „Monat/Jahr (Energie)" = Energie-Balken. Energie kommt aus dem
+// Zuwachs des Archiv-Zählers (Max−Min je Tages-Bucket) — funktioniert für
+// Lifetime- und Tagesreset-Zähler; für reine Leistungswerte wird integriert.
+// Rendering wahlweise Highcharts oder ECharts.
+//
+// Architektur-Hinweis: Die Serien werden über einen zentralen Katalog
+// (self::CATALOG) aufgelöst. Ein späterer Ausbau auf seitliche Reiter
+// (verschiedene Diagramme) kann darauf aufsetzen, indem CATALOG-Einträge
+// über ein Feld „group"/„tab" gebündelt und mehrere seriesMeta/types-Sätze
+// (ein „diagrams"-Array) an die Kachel geliefert werden.
 // ---------------------------------------------------------------------------
 
 class InverterHubMonitor extends IPSModule
 {
-    private const ARCHIVE_GUID = '{43192F0B-135B-4CE7-A0A7-1475603F3060}';
-    private const WINDOW_DAYS = 8;    // navigierbares Tages-Fenster (Verlauf)
-    private const WINDOW_MONTHS = 12; // Monats-Fenster (Energie-Balken)
-    private const WINDOW_YEARS = 5;   // Jahres-Fenster (Energie-Balken)
-    private const AGG_5MIN = 5;       // IP-Symcon-Aggregationsstufe 5-Minuten
-    private const AGG_DAY = 1;        // täglich
-    private const AGG_MONTH = 3;      // monatlich
+    private const ARCHIVE_GUID   = '{43192F0B-135B-4CE7-A0A7-1475603F3060}';
+    private const INVERTERHUB_GUID = '{BBE2C593-1A91-426D-A714-29A9C7E87589}';
+    private const WINDOW_DAYS   = 8;    // navigierbares Tages-Fenster (Verlauf)
+    private const WINDOW_MONTHS = 12;   // Monats-Fenster (Energie-Balken)
+    private const WINDOW_YEARS  = 5;    // Jahres-Fenster (Energie-Balken)
+    private const AGG_5MIN = 5;         // IP-Symcon-Aggregationsstufe 5-Minuten
+    private const AGG_DAY  = 1;         // täglich
 
-    private $defaultColors = ['#e0a020', '#2bb3c0', '#e05b4a', '#5fcb6b', '#9575cd', '#78909c'];
+    // Wert-Katalog: key => Definition. „power"/„energy" sind Kandidaten-Idents
+    // (erster in der Quelle vorhandener gewinnt). „power" speist die
+    // Verlaufs-Linie (Tag), „energy" die Energie-Balken (Monat/Jahr, Max−Min).
+    // Fehlt „energy", wird für die Energie-Balken aus der Leistung integriert.
+    // „noEnergy" => keine sinnvolle Energie (SOC/Temperatur) → nur Tages-Linie.
+    private const CATALOG = [
+        'pv'      => ['label' => 'PV-Erzeugung',       'power' => ['pv_total'],                 'energy' => ['e_pv_total'],                       'color' => '#e0a020', 'axis' => 'left',  'unit' => 'W',    'default' => true],
+        'load'    => ['label' => 'Verbrauch',          'power' => [],                            'energy' => ['e_load_total', 'e_load_day'],        'color' => '#f0883e', 'axis' => 'left',  'unit' => 'W',    'default' => true],
+        'gridbuy' => ['label' => 'Netzbezug',          'power' => [],                            'energy' => ['e_buy_total', 'e_buy_day'],          'color' => '#4aa3e0', 'axis' => 'left',  'unit' => 'W',    'default' => true],
+        'gridsell'=> ['label' => 'Einspeisung',        'power' => [],                            'energy' => ['e_sell_total', 'e_sell_day'],        'color' => '#26a69a', 'axis' => 'left',  'unit' => 'W',    'default' => true],
+        'grid'    => ['label' => 'Netzleistung',       'power' => ['meter_total'],               'energy' => [],                                    'color' => '#7e9fb5', 'axis' => 'left',  'unit' => 'W',    'default' => false],
+        'bcharge' => ['label' => 'Batterie laden',     'power' => [],                            'energy' => ['e_charge_total', 'e_charge_day'],    'color' => '#5fcb6b', 'axis' => 'left',  'unit' => 'W',    'default' => false],
+        'bdisch'  => ['label' => 'Batterie entladen',  'power' => [],                            'energy' => ['e_disch_total', 'e_disch_day'],      'color' => '#2e7d32', 'axis' => 'left',  'unit' => 'W',    'default' => false],
+        'bat'     => ['label' => 'Batterie-Leistung',  'power' => ['bat_total_pwr', 'bat_power'], 'energy' => [],                                   'color' => '#43a047', 'axis' => 'left',  'unit' => 'W',    'default' => false],
+        'ac'      => ['label' => 'AC-Wirkleistung',    'power' => ['ac_power'],                  'energy' => [],                                    'color' => '#e05b4a', 'axis' => 'left',  'unit' => 'W',    'default' => false],
+        'inv'     => ['label' => 'Inverter gesamt',    'power' => ['inv_total'],                 'energy' => [],                                    'color' => '#c2185b', 'axis' => 'left',  'unit' => 'W',    'default' => false],
+        'mppt1'   => ['label' => 'MPPT 1',             'power' => ['mppt1_power'],               'energy' => [],                                    'color' => '#f4a742', 'axis' => 'left',  'unit' => 'W',    'default' => false],
+        'mppt2'   => ['label' => 'MPPT 2',             'power' => ['mppt2_power'],               'energy' => [],                                    'color' => '#f47a42', 'axis' => 'left',  'unit' => 'W',    'default' => false],
+        'mppt3'   => ['label' => 'MPPT 3',             'power' => ['mppt3_power'],               'energy' => [],                                    'color' => '#f45a42', 'axis' => 'left',  'unit' => 'W',    'default' => false],
+        'mppt4'   => ['label' => 'MPPT 4',             'power' => ['mppt4_power'],               'energy' => [],                                    'color' => '#f43a42', 'axis' => 'left',  'unit' => 'W',    'default' => false],
+        'soc'     => ['label' => 'Batterie-SOC',       'power' => ['soc', 'bat_soc'],            'energy' => [],                'noEnergy' => true, 'color' => '#9575cd', 'axis' => 'right', 'unit' => '%',    'default' => false],
+        'temp'    => ['label' => 'Modultemperatur',    'power' => ['temp_module', 'temp_cab'],   'energy' => [],                'noEnergy' => true, 'color' => '#78909c', 'axis' => 'right', 'unit' => '°C',   'default' => false],
+        'riso'    => ['label' => 'Isolationswiderstand','power' => ['riso'],                     'energy' => [],                'noEnergy' => true, 'color' => '#8d6e63', 'axis' => 'right', 'unit' => 'kΩ',   'default' => false],
+    ];
+
+    private const IRR_COLOR = '#ffb300';
 
     public function Create()
     {
         parent::Create();
+        $this->RegisterPropertyInteger('SourceInstance', 0);
+        foreach (self::CATALOG as $key => $def) {
+            $this->RegisterPropertyBoolean('show_' . $key, !empty($def['default']));
+        }
+        // Externer Einstrahlungssensor (W/m²), nicht Teil der InverterHub-Instanz.
+        $this->RegisterPropertyInteger('IrradianceID', 0);
+        $this->RegisterPropertyBoolean('show_irr', true);
+
         $this->RegisterPropertyString('Engine', 'echarts');
-        // Kurven-Tabelle: [{Label, VariableID, Color, Axis(left|right), Unit}]
-        $this->RegisterPropertyString('Series', '[]');
         $this->RegisterPropertyInteger('ColorBackground', -1);
         $this->RegisterPropertyString('FontFamily', '');
 
@@ -39,14 +82,26 @@ class InverterHubMonitor extends IPSModule
         parent::ApplyChanges();
         $this->SetVisualizationType(1);
 
-        $any = false;
-        foreach ($this->ReadSeriesRows() as $row) {
-            $this->RegisterReference($row['id']);
-            $any = true;
+        $src = $this->ReadPropertyInteger('SourceInstance');
+        if ($src > 0 && IPS_InstanceExists($src)) {
+            $this->RegisterReference($src);
         }
-        $this->SetStatus($any ? 102 : 201);
-        // Intraday-Werte ändern sich laufend - alle 2 min neu laden.
-        $this->SetTimerInterval('Refresh', $any ? 120000 : 0);
+        $irr = $this->ReadPropertyInteger('IrradianceID');
+        if ($irr > 0 && IPS_VariableExists($irr)) {
+            $this->RegisterReference($irr);
+        }
+
+        $series = $this->ResolveSeries();
+        foreach ($series as $s) {
+            foreach (['powerVid', 'energyVid'] as $k) {
+                if ($s[$k] > 0) {
+                    $this->RegisterReference($s[$k]);
+                }
+            }
+        }
+        $ok = count($series) > 0;
+        $this->SetStatus($src <= 0 ? 202 : ($ok ? 102 : 201));
+        $this->SetTimerInterval('Refresh', $ok ? 120000 : 0);
 
         $this->UpdateVisualizationValue($this->BuildPayload());
     }
@@ -63,12 +118,132 @@ class InverterHubMonitor extends IPSModule
         return $html;
     }
 
+    // -----------------------------------------------------------------------
+    // Dynamisches Formular: Instanz wählen → nur vorhandene Werte ankreuzen.
+    // -----------------------------------------------------------------------
+
     public function GetConfigurationForm()
     {
-        return file_get_contents(__DIR__ . '/form.json');
+        $src = $this->ReadPropertyInteger('SourceInstance');
+        $elements = [];
+
+        $elements[] = [
+            'type' => 'ExpansionPanel', 'caption' => '📖 Dokumentation & Hilfe', 'expanded' => false,
+            'items' => [
+                ['type' => 'Label', 'caption' => '1. InverterHub-Instanz als Quelle wählen und „Änderungen übernehmen". 2. Danach erscheinen unten die vorhandenen, archivierten Werte zum Ankreuzen. Farben, Achse und Einheit sind je Wert voreingestellt.'],
+                ['type' => 'Label', 'caption' => 'Ansichten in der Kachel: „Tag (Verlauf)" zeigt die Leistungs-Zeitreihe (~5-Min). „Monat/Jahr (Energie)" zeigen Energie-Balken aus dem Zähler-Zuwachs (Energiewerte wie „PV Gesamt", „Bezug", „Einspeisung") bzw. — bei reinen Leistungswerten — integriert.'],
+                ['type' => 'Label', 'caption' => 'Verschmutzung/Defekt erkennen: PV-Erzeugung (links) + Einstrahlungssensor W/m² (rechts) ankreuzen. An sauberen Tagen laufen beide proportional; fällt die Leistung relativ ab → Reinigung/Defekt prüfen.'],
+            ],
+        ];
+
+        $elements[] = [
+            'type' => 'ExpansionPanel', 'caption' => 'Quelle', 'expanded' => true,
+            'items' => [
+                ['type' => 'SelectInstance', 'name' => 'SourceInstance', 'caption' => 'InverterHub-Instanz'],
+            ],
+        ];
+
+        // Werte-Panel: nur Idents, die in der Quelle existieren und geloggt sind.
+        $valueItems = [];
+        if ($src > 0 && IPS_InstanceExists($src)) {
+            $aid = $this->ArchiveID();
+            $valueItems[] = ['type' => 'Label', 'caption' => 'Gewünschte Werte ankreuzen (Farben sind voreingestellt):'];
+            $anyOffered = false;
+            foreach (self::CATALOG as $key => $def) {
+                $vid = $this->FirstIdent($src, array_merge($def['power'], $def['energy']));
+                if ($vid <= 0) {
+                    continue;
+                }
+                $logged = ($aid > 0 && @AC_GetLoggingStatus($aid, $vid));
+                $note = $logged ? '' : '  (⚠ nicht archiviert)';
+                $axis = ($def['axis'] === 'right') ? 'rechts' : 'links';
+                $valueItems[] = [
+                    'type' => 'CheckBox', 'name' => 'show_' . $key,
+                    'caption' => $def['label'] . '  —  ' . $axis . ', ' . $def['unit'] . $note,
+                ];
+                $anyOffered = true;
+            }
+            if (!$anyOffered) {
+                $valueItems[] = ['type' => 'Label', 'caption' => '⚠ In dieser Instanz wurden keine bekannten Werte gefunden. Ist es wirklich eine InverterHub-Instanz?'];
+            }
+            $valueItems[] = ['type' => 'Label', 'caption' => '— Einstrahlungssensor (optional, externe W/m²-Variable) —'];
+            $valueItems[] = ['type' => 'CheckBox', 'name' => 'show_irr', 'caption' => 'Einstrahlung anzeigen (rechte Achse)'];
+            $valueItems[] = ['type' => 'SelectVariable', 'name' => 'IrradianceID', 'caption' => 'Einstrahlungs-Variable (W/m²)'];
+        } else {
+            $valueItems[] = ['type' => 'Label', 'caption' => '➜ Zuerst oben eine InverterHub-Instanz wählen und „Änderungen übernehmen".'];
+        }
+        $elements[] = ['type' => 'ExpansionPanel', 'caption' => 'Werte', 'expanded' => true, 'items' => $valueItems];
+
+        $elements[] = [
+            'type' => 'ExpansionPanel', 'caption' => 'Darstellung', 'expanded' => false,
+            'items' => [
+                ['type' => 'Select', 'name' => 'Engine', 'caption' => 'Diagramm-Engine', 'options' => [
+                    ['caption' => 'Apache ECharts', 'value' => 'echarts'],
+                    ['caption' => 'Highcharts', 'value' => 'highcharts'],
+                ]],
+                ['type' => 'SelectColor', 'name' => 'ColorBackground', 'caption' => 'Hintergrundfarbe (-1 = Standard)'],
+                ['type' => 'ValidationTextBox', 'name' => 'FontFamily', 'caption' => 'Schriftart (leer = Standard)'],
+            ],
+        ];
+
+        return json_encode([
+            'elements' => $elements,
+            'actions'  => [],
+            'status'   => [
+                ['code' => 102, 'icon' => 'active', 'caption' => 'Monitoring aktiv'],
+                ['code' => 201, 'icon' => 'inactive', 'caption' => 'Keine Werte angekreuzt'],
+                ['code' => 202, 'icon' => 'inactive', 'caption' => 'Keine InverterHub-Instanz gewählt'],
+            ],
+        ]);
     }
 
     // -----------------------------------------------------------------------
+
+    // Löst die angekreuzten Katalog-Einträge + Einstrahlung zu Serien auf.
+    // Reihenfolge = Katalog-Reihenfolge, danach Einstrahlung.
+    private function ResolveSeries(): array
+    {
+        $src = $this->ReadPropertyInteger('SourceInstance');
+        $out = [];
+        if ($src > 0 && IPS_InstanceExists($src)) {
+            foreach (self::CATALOG as $key => $def) {
+                if (!$this->ReadPropertyBoolean('show_' . $key)) {
+                    continue;
+                }
+                $powerVid  = $this->FirstIdent($src, $def['power']);
+                $energyVid = $this->FirstIdent($src, $def['energy']);
+                if ($powerVid <= 0 && $energyVid <= 0) {
+                    continue;
+                }
+                $out[] = [
+                    'key'       => $key,
+                    'label'     => $def['label'],
+                    'color'     => $def['color'],
+                    'axis'      => $def['axis'],
+                    'unit'      => $def['unit'],
+                    'noEnergy'  => !empty($def['noEnergy']),
+                    'isIrr'     => false,
+                    'powerVid'  => $powerVid,
+                    'energyVid' => $energyVid,
+                ];
+            }
+        }
+        $irr = $this->ReadPropertyInteger('IrradianceID');
+        if ($this->ReadPropertyBoolean('show_irr') && $irr > 0 && IPS_VariableExists($irr)) {
+            $out[] = [
+                'key'       => 'irr',
+                'label'     => 'Einstrahlung',
+                'color'     => self::IRR_COLOR,
+                'axis'      => 'right',
+                'unit'      => 'W/m²',
+                'noEnergy'  => false,
+                'isIrr'     => true,
+                'powerVid'  => $irr,   // wird zu kWh/m² integriert
+                'energyVid' => 0,
+            ];
+        }
+        return $out;
+    }
 
     private function BuildPayload()
     {
@@ -79,9 +254,13 @@ class InverterHubMonitor extends IPSModule
             'font'   => $this->FontStack($this->ReadPropertyString('FontFamily')),
         ];
 
-        $rows = $this->ReadSeriesRows();
-        if (count($rows) === 0) {
-            return json_encode(array_merge($style, ['ok' => false, 'stateLabel' => 'Keine Kurven konfiguriert']));
+        $src = $this->ReadPropertyInteger('SourceInstance');
+        if ($src <= 0 || !IPS_InstanceExists($src)) {
+            return json_encode(array_merge($style, ['ok' => false, 'stateLabel' => 'Keine InverterHub-Instanz gewählt']));
+        }
+        $series = $this->ResolveSeries();
+        if (count($series) === 0) {
+            return json_encode(array_merge($style, ['ok' => false, 'stateLabel' => 'Keine Werte angekreuzt']));
         }
         $aid = $this->ArchiveID();
         if ($aid <= 0) {
@@ -89,27 +268,32 @@ class InverterHubMonitor extends IPSModule
         }
 
         $meta = [];
-        foreach ($rows as $r) {
-            $meta[] = ['label' => $r['label'], 'color' => $r['color'], 'axis' => $r['axis'], 'unit' => $r['unit']];
+        foreach ($series as $s) {
+            $meta[] = ['label' => $s['label'], 'color' => $s['color'], 'axis' => $s['axis'], 'unit' => $s['unit']];
         }
-        // Achsen-Einheiten für Verlauf (Leistung) und Energie (integriert).
+        // Achsen-Einheiten: Verlauf (Leistung) vs. Energie.
         $leftUnit = ''; $rightUnit = ''; $leftEUnit = 'kWh'; $rightEUnit = 'kWh';
-        foreach ($rows as $r) {
-            $isM2 = (stripos($r['unit'], '/m²') !== false || stripos($r['unit'], '/m2') !== false);
-            if ($r['axis'] === 'right' && $rightUnit === '') { $rightUnit = $r['unit']; $rightEUnit = $isM2 ? 'kWh/m²' : 'kWh'; }
-            if ($r['axis'] !== 'right' && $leftUnit === '')  { $leftUnit = $r['unit'];  $leftEUnit = $isM2 ? 'kWh/m²' : 'kWh'; }
+        foreach ($series as $s) {
+            if ($s['axis'] === 'right' && $rightUnit === '') {
+                $rightUnit = $s['unit'];
+                $rightEUnit = $s['isIrr'] ? 'kWh/m²' : ($s['noEnergy'] ? $s['unit'] : 'kWh');
+            }
+            if ($s['axis'] !== 'right' && $leftUnit === '') {
+                $leftUnit = $s['unit'];
+            }
         }
+        if ($leftUnit === '') { $leftUnit = 'W'; }
 
-        // --- Verlauf je Tag (5-Minuten-Linie) ---
+        // --- Verlauf je Tag (5-Minuten-Linie, Leistung) ---
         $dayPeriods = [];
         for ($k = 0; $k < self::WINDOW_DAYS; $k++) {
             $start = strtotime("today -{$k} days 00:00:00");
             $end   = min(time(), $start + 86400);
-            $series = [];
-            foreach ($rows as $r) {
-                $series[] = $this->DaySeries($aid, $r['id'], $start, $end);
+            $rows = [];
+            foreach ($series as $s) {
+                $rows[] = ($s['powerVid'] > 0) ? $this->DaySeries($aid, $s['powerVid'], $start, $end) : [];
             }
-            $dayPeriods[] = ['id' => date('Y-m-d', $start), 'range' => date('d.m.Y', $start), 'series' => $series];
+            $dayPeriods[] = ['id' => date('Y-m-d', $start), 'range' => date('d.m.Y', $start), 'series' => $rows];
         }
 
         // --- Energie je Monat (Tages-Balken) ---
@@ -121,11 +305,11 @@ class InverterHubMonitor extends IPSModule
             $days   = (int)date('t', $mStart);
             $cats = [];
             for ($d = 1; $d <= $days; $d++) { $cats[] = (string)$d; }
-            $series = [];
-            foreach ($rows as $r) {
-                $series[] = $this->EnergyBars($aid, $r['id'], $mStart, $mEnd, self::AGG_DAY, $days, 'j');
+            $rows = [];
+            foreach ($series as $s) {
+                $rows[] = $this->EnergyBars($aid, $s, $mStart, $mEnd, $days, 'j');
             }
-            $monthPeriods[] = ['id' => date('Y-m', $mStart), 'range' => $this->MonthName((int)date('n', $mStart)) . ' ' . date('Y', $mStart), 'cats' => $cats, 'series' => $series];
+            $monthPeriods[] = ['id' => date('Y-m', $mStart), 'range' => $this->MonthName((int)date('n', $mStart)) . ' ' . date('Y', $mStart), 'cats' => $cats, 'series' => $rows];
         }
 
         // --- Energie je Jahr (Monats-Balken) ---
@@ -135,11 +319,11 @@ class InverterHubMonitor extends IPSModule
         for ($k = 0; $k < self::WINDOW_YEARS; $k++) {
             $yStart = strtotime("-{$k} years", $yBase);
             $yEnd   = min(time(), strtotime('+1 year', $yStart));
-            $series = [];
-            foreach ($rows as $r) {
-                $series[] = $this->EnergyBars($aid, $r['id'], $yStart, $yEnd, self::AGG_MONTH, 12, 'n');
+            $rows = [];
+            foreach ($series as $s) {
+                $rows[] = $this->EnergyBars($aid, $s, $yStart, $yEnd, 12, 'n');
             }
-            $yearPeriods[] = ['id' => date('Y', $yStart), 'range' => date('Y', $yStart), 'cats' => $mNames, 'series' => $series];
+            $yearPeriods[] = ['id' => date('Y', $yStart), 'range' => date('Y', $yStart), 'cats' => $mNames, 'series' => $rows];
         }
 
         return json_encode(array_merge($style, [
@@ -154,36 +338,65 @@ class InverterHubMonitor extends IPSModule
         ]));
     }
 
-    // Energie-Balken: Ø-Leistung je Bucket × Bucketdauer -> Energie (kWh).
-    // $slot = 'j' (Tag im Monat) oder 'n' (Monat im Jahr). $count = Anzahl Slots.
-    private function EnergyBars(int $aid, int $vid, int $start, int $end, int $span, int $count, string $slot): array
+    // Energie-Balken über TÄGLICHE Buckets, aufsummiert je Slot.
+    // Zähler (energyVid): der Zählertyp wird automatisch erkannt
+    //   • Lifetime-Zähler (Min≈Max, läuft hoch): Zuwachs = Max[i]−Max[i-1]
+    //     (der erste Bucket wird verworfen → kein „Geburtswert"-Spike).
+    //   • Tagesreset-Zähler (Min≈0 je Tag): Zuwachs = Max−Min.
+    // Reine Leistung (powerVid): Ø-Leistung × 24 h / 1000.
+    // $slot = 'j' (Tag→Monatsansicht) oder 'n' (Monat→Jahresansicht, akkumuliert).
+    private function EnergyBars(int $aid, array $s, int $start, int $end, int $count, string $slot): array
     {
         $out = array_fill(0, $count, null);
-        if (!IPS_VariableExists($vid) || !@AC_GetLoggingStatus($aid, $vid)) {
+        if (!empty($s['noEnergy'])) {
             return $out;
         }
-        $data = @AC_GetAggregatedValues($aid, $vid, $span, $start, $end, 0);
-        if (!is_array($data)) {
+        $counter = ($s['energyVid'] > 0);
+        $vid = $counter ? $s['energyVid'] : $s['powerVid'];
+        if ($vid <= 0 || !IPS_VariableExists($vid) || !@AC_GetLoggingStatus($aid, $vid)) {
             return $out;
         }
+        $data = @AC_GetAggregatedValues($aid, $vid, self::AGG_DAY, $start, $end, 0);
+        if (!is_array($data) || count($data) === 0) {
+            return $out;
+        }
+        // Buckets aufsteigend (Archiv liefert neueste zuerst).
+        usort($data, function ($a, $b) { return (int)$a['TimeStamp'] <=> (int)$b['TimeStamp']; });
+
+        // Zählertyp bestimmen: Median von Min/Max. Nah 1 → Lifetime, nah 0 → Reset.
+        $lifetime = false;
+        if ($counter) {
+            $ratios = [];
+            foreach ($data as $row) {
+                $mx = (float)$row['Max'];
+                if ($mx > 0) { $ratios[] = ((float)$row['Min']) / $mx; }
+            }
+            if (count($ratios) > 0) {
+                sort($ratios);
+                $lifetime = ($ratios[intdiv(count($ratios), 2)] > 0.5);
+            }
+        }
+
+        $prevMax = null;
         foreach ($data as $row) {
             $ts = (int)$row['TimeStamp'];
-            $avg = (float)$row['Avg'];
-            // Stunden im Bucket: Tag = 24, Monat = Tage×24.
-            $hours = ($span === self::AGG_MONTH) ? ((int)date('t', $ts) * 24) : 24;
-            $kwh = $avg * $hours / 1000.0;
-            $idx = (int)date($slot, $ts) - 1; // Tag/Monat 1-basiert -> 0-basiert
+            $mx = (float)$row['Max'];
+            if (!$counter) {
+                $val = (float)$row['Avg'] * 24.0 / 1000.0;   // Leistung → kWh
+            } elseif ($lifetime) {
+                $val = ($prevMax === null) ? null : ($mx - $prevMax); // Tag-zu-Tag
+                $prevMax = $mx;
+            } else {
+                $val = $mx - (float)$row['Min'];              // Tagesreset
+            }
+            if ($val === null) { continue; }
+            if (!is_finite($val) || $val < 0) { $val = 0.0; }
+            $idx = (int)date($slot, $ts) - 1; // 1-basiert → 0-basiert
             if ($idx >= 0 && $idx < $count) {
-                $out[$idx] = round($kwh, 2);
+                $out[$idx] = round((($out[$idx] ?? 0.0) + $val), 2);
             }
         }
         return $out;
-    }
-
-    private function MonthName(int $m): string
-    {
-        $n = [1 => 'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
-        return $n[$m] ?? (string)$m;
     }
 
     // 5-Minuten-Zeitreihe (Mittelwert je Bucket) eines Tages als [[tsMs,val],…].
@@ -200,39 +413,41 @@ class InverterHubMonitor extends IPSModule
         foreach ($data as $row) {
             $pts[] = [((int)$row['TimeStamp']) * 1000, round((float)$row['Avg'], 2)];
         }
-        // Aggregierte Werte kommen neueste-zuerst - für die Kurve aufsteigend.
         usort($pts, function ($a, $b) { return $a[0] <=> $b[0]; });
         return $pts;
     }
 
-    private function ReadSeriesRows(): array
+    // Erste vorhandene Variable zu einer Ident-Kandidatenliste in der Quelle.
+    private function FirstIdent(int $iid, array $idents): int
     {
-        $rows = json_decode($this->ReadPropertyString('Series'), true);
-        if (!is_array($rows)) {
-            return [];
-        }
-        $out = [];
-        foreach ($rows as $i => $row) {
-            $vid = (int)($row['VariableID'] ?? 0);
-            if ($vid <= 0 || !IPS_VariableExists($vid)) {
-                continue;
+        foreach ($idents as $ident) {
+            $vid = $this->FindIdentRecursive($iid, $ident);
+            if ($vid > 0) {
+                return $vid;
             }
-            $label = trim((string)($row['Label'] ?? ''));
-            if ($label === '') {
-                $label = IPS_GetName($vid);
-            }
-            $color = array_key_exists('Color', $row) ? (int)$row['Color'] : -1;
-            $hex = ($color >= 0) ? sprintf('#%06x', $color) : $this->defaultColors[$i % count($this->defaultColors)];
-            $axis = ((string)($row['Axis'] ?? 'left') === 'right') ? 'right' : 'left';
-            $out[] = [
-                'id'    => $vid,
-                'label' => $label,
-                'color' => $hex,
-                'axis'  => $axis,
-                'unit'  => trim((string)($row['Unit'] ?? '')),
-            ];
         }
-        return $out;
+        return 0;
+    }
+
+    private function FindIdentRecursive(int $parent, string $ident): int
+    {
+        foreach (IPS_GetChildrenIDs($parent) as $cid) {
+            $obj = IPS_GetObject($cid);
+            if ($obj['ObjectType'] === 2 && $obj['ObjectIdent'] === $ident) {
+                return $cid;
+            }
+            $sub = $this->FindIdentRecursive($cid, $ident);
+            if ($sub > 0) {
+                return $sub;
+            }
+        }
+        return 0;
+    }
+
+    private function MonthName(int $m): string
+    {
+        $n = [1 => 'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+        return $n[$m] ?? (string)$m;
     }
 
     private function ArchiveID(): int
@@ -248,7 +463,6 @@ class InverterHubMonitor extends IPSModule
 
     private function FontStack(string $font): string
     {
-        $font = trim($font);
-        return ($font !== '') ? $font : '';
+        return trim($font);
     }
 }

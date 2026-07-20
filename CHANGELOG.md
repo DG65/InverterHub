@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.41.0-beta.1 (2026-07-20)
+
+- **Monitoring: Werte ankreuzen statt Tabelle pflegen.** Die Kurven-Tabelle entfällt. Man
+  wählt jetzt oben die **InverterHub-Instanz** als Quelle; darunter erscheinen nur die dort
+  tatsächlich vorhandenen, archivierten Werte zum **Ankreuzen** (PV-Erzeugung, Verbrauch,
+  Netzbezug, Einspeisung, Batterie laden/entladen/Leistung/SOC, MPPT 1-4, AC-Wirkleistung,
+  Modultemperatur, Isolationswiderstand …). **Farbe, Achse und Einheit sind je Wert
+  voreingestellt** - wichtige Kurven (PV = Gold, Bezug = Blau, Einspeisung = Grün …) sind
+  vorbelegt. Ein externer Einstrahlungssensor (W/m²) bleibt separat wählbar.
+- **Energie-Ansichten korrigiert (Stufe 2 war leer).** Monat/Jahr nutzen jetzt die echten
+  **Energiezähler** aus dem InverterHub über den Zähler-Zuwachs statt einer Ableitung. Der
+  Zählertyp wird automatisch erkannt: Lifetime-Zähler (z. B. „PV Gesamt") → Tag-zu-Tag-
+  Zuwachs, Tagesreset-Zähler (z. B. „Bezug Heute") → Max−Min je Tag. Damit verschwindet der
+  frühere Fehler, bei dem der kumulierte Zählerstand als Leistung interpretiert und zu
+  absurden Balken (~253 000 kWh) führte. Reine Leistungswerte (z. B. MPPT) werden weiterhin
+  integriert.
+
 ## 0.40.0-beta.1 (2026-07-19)
 
 - **Monitoring Stufe 2: Wochen-/Monats-/Jahres-Ansicht (Energie-Balken).** Die Monitoring-
