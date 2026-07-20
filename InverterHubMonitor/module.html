@@ -206,7 +206,10 @@
       var el = document.getElementById('chart');
       var h = Math.max(160, (window.innerHeight || document.documentElement.clientHeight) - el.getBoundingClientRect().top - 12);
       el.style.height = h + 'px';
-      if (chart) { try { if (chartEngine === 'echarts') { chart.resize({ height: h }); } else { chart.setSize(el.clientWidth, h, false); } } catch (e) {} }
+      // resize() OHNE feste Maße: ECharts liest Breite UND Höhe frisch aus dem
+      // Container. Sonst blieb im Vollbild (Container startet kurz mit Breite 0)
+      // nur ein grauer Bereich stehen.
+      if (chart) { try { if (chartEngine === 'echarts') { chart.resize(); } else { chart.setSize(el.clientWidth, h, false); } } catch (e) {} }
     }
 
     function isDarkColor(hex) { var m = /^#?([0-9a-f]{6})$/i.exec(hex || ''); if (!m) { return null; } var n = parseInt(m[1], 16); return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) < 140; }
@@ -328,12 +331,20 @@
         series: series
       };
       if (!chart) { el.innerHTML = ''; chart = echarts.init(el, null, { renderer: 'canvas' }); chart.on('legendselectchanged', function (pr) { if (pr && pr.selected) { Object.keys(pr.selected).forEach(function (k) { vis[k] = pr.selected[k]; }); saveVis(); } }); chart.getZr().on('dblclick', function () { chart.dispatchAction({ type: 'dataZoom', start: 0, end: 100 }); }); }
-      chart.setOption(option, true); chart.resize({ height: el.clientHeight });
+      chart.setOption(option, true); chart.resize();
+      // Nach dem Rendern ggf. verzögert nachziehen (Vollbild-/Layout-Wechsel,
+      // bei dem der Container erst nach dem ersten Render seine Endgröße hat).
+      setTimeout(sizeChart, 60); setTimeout(sizeChart, 300);
     }
 
     var rz; function onResize() { clearTimeout(rz); rz = setTimeout(function () { if (lastData) { sizeChart(); } }, 120); }
     window.addEventListener('resize', onResize);
-    if (window.ResizeObserver) { new ResizeObserver(onResize).observe(document.body); }
+    if (window.ResizeObserver) {
+      var ro = new ResizeObserver(onResize);
+      ro.observe(document.body);
+      var cc = document.getElementById('chartcol');
+      if (cc) { ro.observe(cc); } // Vollbild: eigener Chart-Container ändert sich
+    }
 
     if (typeof window !== 'undefined') { window.handleMessage = handleMessage; }
   </script>

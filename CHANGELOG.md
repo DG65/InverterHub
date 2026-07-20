@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.55.2-beta.1 (2026-07-20)
+
+- **Monitoring: Vollbild zeigte nur grau.** Beim Vergroessern der Kachel (↗) blieb das Diagramm
+  leer, weil ECharts nur die Hoehe, nicht die Breite nachzog (Container startet kurz mit Breite 0).
+  chart.resize() liest jetzt Breite UND Hoehe frisch; zusaetzlich verzoegertes Nachziehen und ein
+  ResizeObserver auf den Chart-Container. Im Browser verifiziert.
+
 ## 0.55.1-beta.1 (2026-07-20)
 
 - **Monitoring: Batterie-Leistung invertierbar.** Neuer Schalter "Batterie-Leistung invertieren"
