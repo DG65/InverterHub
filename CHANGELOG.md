@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.39.0-beta.1 (2026-07-19)
+
+- **Neues Modul: InverterHub Monitoring (Stufe 1).** Monitoring-Kachel mit Intraday-Zeitreihen
+  aus dem IP-Symcon-Archiv (à la Meteocontrol VCOM „Tatsächliche Leistung"): beliebige
+  archivierte Variablen als Verlaufsdiagramm über einen wählbaren Tag (~5-Minuten-Auflösung),
+  wahlweise mit Highcharts oder ECharts. Zwei Y-Achsen — z. B. PV-Leistung links und ein
+  Einstrahlungssensor (W/m²) rechts; laufen beide proportional, ist die Anlage sauber, weicht
+  die Leistung nach unten ab, deutet das auf Verschmutzung/Defekt hin. Bedienung wie die
+  Sankey-Kachel (◄ ► + Kalender zur Tagesauswahl, letzte 8 Tage). Weitere Ansichten
+  (Wochen/Monat/Jahr, Energie-Balken, normalisierte KPIs mit kWp-Kalibrierung, automatische
+  Verschmutzungs-/Defekterkennung) folgen als nächste Stufen.
+
+
 ## 0.38.1-beta.1 (2026-07-19)
 
 - **Fronius: Smart-Meter-Energiezähler (Bezug/Einspeisung gesamt).** Neue Gruppe „Smart Meter

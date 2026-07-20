@@ -219,6 +219,20 @@ wählbar (wie in der Prognosekachel). Interaktive Tooltips zeigen je Knoten Durc
 Flussaufteilung folgt einem Energiebilanz-Modell (Netzeinspeisung und Batterie-Ladung aus PV;
 Verbrauch anteilig aus PV/Batterie/Netz).
 
+### InverterHubMonitor (Monitoring)
+
+Monitoring-Kachel mit **Intraday-Zeitreihen aus dem Archiv** (à la Meteocontrol VCOM
+„Tatsächliche Leistung"). Beliebige archivierte Variablen werden als Verlaufsdiagramm über
+einen wählbaren Tag dargestellt (~5-Minuten-Auflösung), wahlweise mit **Highcharts oder
+ECharts**. Zwei Y-Achsen (links/rechts) — typischerweise **PV-Leistung** links und ein
+**Einstrahlungssensor** (W/m²) rechts. So lässt sich **Verschmutzung oder ein Defekt** erkennen:
+an einem sauberen Tag laufen Leistung und Einstrahlung proportional, bei Abweichung nach unten
+ist die Anlage zu prüfen. Bedienung wie die Sankey-Kachel: ◄ ► und Kalender zur Tagesauswahl
+(navigierbar sind die letzten 8 Tage).
+
+Weitere Ansichten (Wochen-/Monats-/Jahres-Auswertung, Energie-Balken, normalisierte KPIs mit
+kWp-Kalibrierung und automatische Verschmutzungs-/Defekterkennung) folgen als nächste Stufen.
+
 ## Fronius und SMA: Hinweis zur SunSpec-Discovery
 
 Beide Hersteller sprechen den offenen SunSpec-Standard statt eigener Register (bei Fronius

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  html, body { margin: 0; height: 100%; background: transparent; }
+  .wrap { box-sizing: border-box; height: 100vh; display: flex; flex-direction: column; padding: 52px 12px 10px; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  #bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  button.nav { font: inherit; font-size: 14px; line-height: 1; width: 30px; height: 30px; border-radius: 8px; border: 1px solid rgba(127,135,145,.35); background: rgba(127,135,145,.12); color: inherit; cursor: pointer; }
+  button.nav:disabled { opacity: .35; cursor: default; }
+  input.pick { font: inherit; font-size: 13px; font-weight: 600; padding: 4px 8px; border-radius: 8px; border: 1px solid rgba(127,135,145,.35); background: rgba(127,135,145,.12); color: inherit; cursor: pointer; }
+  #chart { width: 100%; flex: 1 1 auto; min-height: 160px; }
+  .empty { font-size: 13px; padding: 28px 10px; text-align: center; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div id="bar">
+      <button id="prev" class="nav" title="Zurück">&#9664;</button>
+      <input id="day" class="pick" type="date">
+      <button id="next" class="nav" title="Vor">&#9654;</button>
+    </div>
+    <div id="chart"></div>
+  </div>
+
+  <script>
+    var lastData = null, curIdx = 0, chart = null, chartEngine = null, libs = { hc: 0, ec: 0 };
+
+    function handleMessage(payload) {
+      var data = (typeof payload === 'string') ? JSON.parse(payload) : payload;
+      if (!data) { return; }
+      lastData = data;
+      document.body.style.background = data.bg ? data.bg : 'transparent';
+      document.documentElement.style.background = data.bg ? data.bg : 'transparent';
+      applyTheme(data);
+      var ctl = ['prev', 'day', 'next'];
+      if (!data.ok || !data.days || !data.days.length) {
+        destroyChart();
+        ctl.forEach(function (id) { document.getElementById(id).style.display = 'none'; });
+        document.getElementById('chart').innerHTML = '<div class="empty">' + (data.stateLabel || 'Keine Daten') + '</div>';
+        return;
+      }
+      ctl.forEach(function (id) { document.getElementById(id).style.display = ''; });
+      if (curIdx >= data.days.length) { curIdx = 0; }
+      var dp = document.getElementById('day');
+      dp.min = data.oldest; dp.max = data.newest; dp.value = data.days[curIdx].id;
+      dp.onchange = function () { var i = idxById(this.value); if (i >= 0) { curIdx = i; render(); } else { this.value = data.days[curIdx].id; } };
+      document.getElementById('prev').onclick = function () { if (curIdx < data.days.length - 1) { curIdx++; render(); } };
+      document.getElementById('next').onclick = function () { if (curIdx > 0) { curIdx--; render(); } };
+      render();
+    }
+    function idxById(id) { for (var i = 0; i < lastData.days.length; i++) { if (lastData.days[i].id === id) { return i; } } return -1; }
+
+    function syncNav() {
+      document.getElementById('day').value = lastData.days[curIdx].id;
+      document.getElementById('prev').disabled = (curIdx >= lastData.days.length - 1);
+      document.getElementById('next').disabled = (curIdx <= 0);
+    }
+
+    function render() {
+      syncNav(); sizeChart();
+      var engine = (lastData.engine === 'highcharts') ? 'highcharts' : 'echarts';
+      var day = lastData.days[curIdx], has = (day.series || []).some(function (s) { return s && s.length; });
+      var el = document.getElementById('chart');
+      if (!has) { destroyChart(); el.innerHTML = '<div class="empty">Keine Archivdaten für diesen Tag</div>'; return; }
+      ensureLib(engine, function () {
+        if (typeof echarts === 'undefined' && typeof Highcharts === 'undefined') { el.innerHTML = '<div class="empty">Diagramm-Bibliothek konnte nicht geladen werden (Internet erforderlich).</div>'; return; }
+        if (chart && chartEngine !== engine) { destroyChart(); }
+        chartEngine = engine;
+        if (engine === 'echarts' && typeof echarts !== 'undefined') { buildEC(); } else if (typeof Highcharts !== 'undefined') { buildHC(); }
+      });
+    }
+
+    function sizeChart() {
+      var el = document.getElementById('chart');
+      var h = Math.max(160, (window.innerHeight || document.documentElement.clientHeight) - el.getBoundingClientRect().top - 12);
+      el.style.height = h + 'px';
+      if (chart) { try { if (chartEngine === 'echarts') { chart.resize({ height: h }); } else { chart.setSize(el.clientWidth, h, false); } } catch (e) {} }
+    }
+
+    function isDarkColor(hex) { var m = /^#?([0-9a-f]{6})$/i.exec(hex || ''); if (!m) { return null; } var n = parseInt(m[1], 16); return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) < 140; }
+    function themeDark(d) { var b = isDarkColor(d && d.bg); return (b !== null) ? b : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); }
+    function applyTheme(d) {
+      var dark = themeDark(d), fg = dark ? '#e8edf2' : '#1b2430';
+      ['prev', 'next', 'day'].forEach(function (id) { var e = document.getElementById(id); if (e) { e.style.color = fg; if (id === 'day') { e.style.colorScheme = dark ? 'dark' : 'light'; } } });
+      if (d && d.font) { document.querySelector('.wrap').style.fontFamily = d.font; }
+    }
+    function addScript(src, cb) { var s = document.createElement('script'); s.src = src; s.onload = cb; s.onerror = function () { cb && cb(); }; document.head.appendChild(s); }
+    function ensureLib(engine, cb) {
+      if (engine === 'echarts') {
+        if (typeof echarts !== 'undefined') { libs.ec = 2; return cb(); }
+        if (libs.ec === 1) { return setTimeout(function () { ensureLib(engine, cb); }, 80); }
+        libs.ec = 1; addScript('https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js', function () { libs.ec = 2; cb(); });
+      } else {
+        if (typeof Highcharts !== 'undefined' && Highcharts.seriesTypes && Highcharts.seriesTypes.line) { libs.hc = 2; return cb(); }
+        if (libs.hc === 1) { return setTimeout(function () { ensureLib(engine, cb); }, 80); }
+        libs.hc = 1; addScript('https://code.highcharts.com/highcharts.js', function () { libs.hc = 2; cb(); });
+      }
+    }
+    function destroyChart() { if (chart) { try { if (chartEngine === 'highcharts') { chart.destroy(); } else { chart.dispose(); } } catch (e) {} } chart = null; chartEngine = null; var c = document.getElementById('chart'); if (c) { c.innerHTML = ''; } }
+
+    function theme() {
+      var dark = themeDark(lastData);
+      return { dark: dark, TEXT: dark ? '#e8edf2' : '#1b2430', MUTED: dark ? '#9fb0c0' : '#5c6b7a',
+        GRID: dark ? 'rgba(127,135,145,.22)' : 'rgba(20,30,45,.14)', TIP: dark ? 'rgba(28,38,52,.97)' : 'rgba(255,255,255,.98)',
+        font: (lastData.font) || 'system-ui, sans-serif' };
+    }
+
+    // ---- Highcharts ----
+    function buildHC() {
+      var T = theme(), day = lastData.days[curIdx], meta = lastData.seriesMeta, el = document.getElementById('chart');
+      var series = meta.map(function (m, i) {
+        return { name: m.label, type: 'line', data: day.series[i] || [], color: m.color, yAxis: (m.axis === 'right' ? 1 : 0), lineWidth: 1.6, marker: { enabled: false } };
+      });
+      var options = {
+        chart: { backgroundColor: 'transparent', style: { fontFamily: T.font }, animation: false, height: el.clientHeight, spacingTop: 6, marginRight: 14 },
+        title: { text: undefined }, credits: { enabled: false }, exporting: { enabled: false },
+        legend: { enabled: true, itemStyle: { color: T.TEXT, fontSize: '11px', fontWeight: '400' }, itemHoverStyle: { color: T.TEXT } },
+        xAxis: { type: 'datetime', gridLineWidth: 1, gridLineColor: T.GRID, lineColor: T.GRID, tickLength: 0, labels: { style: { color: T.MUTED, fontSize: '10px' } } },
+        yAxis: [
+          { title: { text: lastData.leftUnit || '', style: { color: T.MUTED } }, gridLineColor: T.GRID, labels: { style: { color: T.MUTED, fontSize: '10px' } } },
+          { title: { text: lastData.rightUnit || '', style: { color: T.MUTED } }, opposite: true, gridLineWidth: 0, labels: { style: { color: T.MUTED, fontSize: '10px' } } }
+        ],
+        tooltip: { shared: true, backgroundColor: T.TIP, borderColor: T.GRID, style: { color: T.TEXT, fontSize: '11px' }, xDateFormat: '%d.%m. %H:%M', valueDecimals: 1 },
+        plotOptions: { series: { animation: false, states: { inactive: { opacity: 1 } } } },
+        series: series
+      };
+      el.innerHTML = ''; chart = Highcharts.chart('chart', options);
+    }
+
+    // ---- ECharts ----
+    function buildEC() {
+      var T = theme(), day = lastData.days[curIdx], meta = lastData.seriesMeta, el = document.getElementById('chart');
+      var series = meta.map(function (m, i) {
+        return { name: m.label, type: 'line', showSymbol: false, smooth: false, data: day.series[i] || [], yAxisIndex: (m.axis === 'right' ? 1 : 0), lineStyle: { color: m.color, width: 1.6 }, itemStyle: { color: m.color } };
+      });
+      var option = {
+        backgroundColor: 'transparent', textStyle: { fontFamily: T.font, color: T.TEXT }, animation: false,
+        grid: { left: 52, right: 52, top: 34, bottom: 26, containLabel: false },
+        legend: { top: 2, textStyle: { color: T.TEXT, fontSize: 11 } },
+        tooltip: { trigger: 'axis', backgroundColor: T.TIP, borderColor: T.GRID, borderWidth: 1, textStyle: { color: T.TEXT, fontSize: 11 },
+          axisPointer: { type: 'line', lineStyle: { color: T.MUTED, type: 'dashed' } },
+          formatter: function (ps) {
+            if (!ps || !ps.length) { return ''; }
+            var d = new Date(ps[0].value[0]); function p(x) { return (x < 10 ? '0' : '') + x; }
+            var h = '<div style="font-weight:500;margin-bottom:2px">' + p(d.getDate()) + '.' + p(d.getMonth() + 1) + '. ' + p(d.getHours()) + ':' + p(d.getMinutes()) + '</div>';
+            ps.forEach(function (s) { h += '<div><span style="color:' + s.color + '">●</span> ' + s.seriesName + ': <b>' + Number(s.value[1]).toLocaleString('de-DE', { maximumFractionDigits: 1 }) + '</b></div>'; });
+            return h;
+          } },
+        xAxis: { type: 'time', axisLabel: { color: T.MUTED, fontSize: 10, hideOverlap: true }, axisLine: { lineStyle: { color: T.GRID } }, splitLine: { show: true, lineStyle: { color: T.GRID } } },
+        yAxis: [
+          { type: 'value', name: lastData.leftUnit || '', nameTextStyle: { color: T.MUTED, fontSize: 10 }, axisLabel: { color: T.MUTED, fontSize: 10 }, axisLine: { show: false }, splitLine: { lineStyle: { color: T.GRID } } },
+          { type: 'value', name: lastData.rightUnit || '', nameTextStyle: { color: T.MUTED, fontSize: 10 }, position: 'right', axisLabel: { color: T.MUTED, fontSize: 10 }, axisLine: { show: false }, splitLine: { show: false } }
+        ],
+        series: series
+      };
+      if (!chart) { el.innerHTML = ''; chart = echarts.init(el, null, { renderer: 'canvas' }); }
+      chart.setOption(option, true); chart.resize({ height: el.clientHeight });
+    }
+
+    var rz; function onResize() { clearTimeout(rz); rz = setTimeout(function () { if (lastData) { sizeChart(); } }, 120); }
+    window.addEventListener('resize', onResize);
+    if (window.ResizeObserver) { new ResizeObserver(onResize).observe(document.body); }
+
+    if (typeof window !== 'undefined') { window.handleMessage = handleMessage; }
+  </script>
+</body>
+</html>
