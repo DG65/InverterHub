@@ -7,7 +7,9 @@
   Fronius und SolarEdge nutzen alle SunSpec und haben daher wortgleiche Codeblöcke, und die
   Änderung traf jeweils den erstbesten.
   - **Build 145:** Die Fronius-Variable „Isolationswiderstand" wurde im **SMA**-Treiber angelegt
-    — dort doppelt und mit fremdem Profil, während Fronius sie gar nicht bekam.
+    — dort doppelt und mit fremdem Profil, während Fronius sie gar nicht bekam. Schwerwiegender:
+    Der ebenfalls dort gelandete Lesecode rief `sfVal()` auf, das nur im Fronius-Treiber
+    existiert — **auch SMA-Instanzen liefen damit in einen Fatal Error**.
   - **Build 146:** Die Lesefunktion lag im SMA-Treiber, wurde aber aus dem Fronius-Treiber
     aufgerufen — das erzeugte bei Fronius-Instanzen einen **Fatal Error in jedem Lesezyklus**.
   Beides ist behoben: Variable, Profil, Lesefunktion und beide Aufrufe liegen jetzt vollständig

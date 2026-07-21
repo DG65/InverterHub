@@ -43,6 +43,24 @@ auslösen. Rückgabewert 0 = sauber, 1 = mindestens eine ungesicherte Stelle (f�
 **Vor jedem Release ausführen**, und bei jeder neuen Kopplung. Kommt ein Partnermodul dazu,
 dessen Präfix in `FOREIGN_PREFIXES` ergänzen — sonst prüft der Prüfer daran vorbei.
 
+### Klassengrenzen prüfen — `InverterHub/module.php` hat 15 Treiberklassen
+
+```
+php .tools/check-class-scope.php
+```
+
+Meldet jeden `$this->foo()`-Aufruf, dessen Methode **in einer anderen Klasse derselben Datei**
+definiert ist. Zur Laufzeit wäre das ein Fatal Error, sobald der Zweig ausgeführt wird.
+
+**Warum das hier real passiert ist:** `SmaDriver`, `FroniusDriver` und `SolarEdgeDriver` sprechen
+alle SunSpec und enthalten deshalb **wortgleiche Codeblöcke** (etwa `'GroupDevice' => [...
+dev_model ... dev_sn ...]`). Ein Textersatz trifft dann die erstbeste Fundstelle statt der
+gemeinten. Genau so landete der Fronius-Isolationswiderstand im SMA-Treiber und riss die Builds
+145 und 146 auf.
+
+**Daher vor jedem Textersatz in dieser Datei prüfen, in welcher Klasse die Fundstelle liegt** —
+und den Prüfer vor dem Release laufen lassen. Er ist von der MeterHub-Seite beigesteuert.
+
 ### Keine sichtbaren Hilfsordner im Repo-Wurzelverzeichnis
 
 Der Ordner heißt `.tools` mit **führendem Punkt**, und das muss so bleiben: Die Prüfung des
