@@ -257,6 +257,18 @@ Projekt die Messwerte stellt. Genutzt wird davon das Modul **PV-Prognose** (Prä
 - Ist das Prognose-Modul nicht installiert, weist die Konfigurationsmaske darauf hin und die
   Erwartungswerte entfallen; alles andere funktioniert unverändert.
 
+### Tessie (Tesla-Fahrzeuge) — optional, rein über Konfiguration
+
+Die Stromflusskachel kann an einer Wallbox den **Ladestand des angesteckten Fahrzeugs** und
+dessen Namen anzeigen. Die Fahrzeug-Tabelle der Kachel ist dabei bewusst **herstellerneutral**:
+Pro Fahrzeug werden Bezeichnung, eine „Verbunden"-Bedingung und eine SOC-Variable eingetragen —
+gleich, woher diese Variablen stammen. Mit dem Modul
+**[Tessie](https://github.com/DG65/Tessie)** lassen sich dafür die Fahrzeugdaten eines Teslas
+nutzen (dessen `Soc`-Variable und ein Verbunden-Kennzeichen).
+
+Es besteht **keine Code-Abhängigkeit** zu Tessie: Die Kachel ruft dort nichts auf, sondern liest
+nur die eingetragenen Variablen. Jede andere Quelle funktioniert genauso.
+
 ### MeterHub (Energiezähler)
 
 **[MeterHub](https://github.com/DG65/MeterHub)** ist das Schwester-Repository dieses Projekts:

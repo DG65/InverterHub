@@ -32,6 +32,23 @@ Neue Bedarfe bitte als Getter im Prognose-Repo anlegen, statt hier Konfiguration
 Fehlt das Prognose-Modul, entfallen nur die Erwartungswerte (die Konfigurationsmaske weist
 darauf hin) — es darf nichts brechen.
 
+## Fahrzeug-/Wallbox-Kopplung (z. B. Tessie) — bewusst nur konfigurativ
+
+Die Stromflusskachel zeigt an Wallboxen den Ladestand des angesteckten Fahrzeugs. Die
+Fahrzeug-Tabelle (`Vehicles`: Bezeichnung, Verbunden-Bedingung, `SocID`) ist
+**herstellerneutral**; `AssignVehicles()` ordnet Fahrzeug und Wallbox über die zeitliche
+Korrelation der beiden Verbinden-Meldungen zu, ohne dass eine Seite die andere kennen muss.
+
+**Es gibt keine Code-Abhängigkeit zu [Tessie](https://github.com/DG65/Tessie)** — kein
+`TESSIE_`-Aufruf, keine GUID. Tessie ist lediglich eine mögliche Quelle für die eingetragenen
+Variablen (dort u. a. eine `Soc`-Variable). Das ist Absicht: Jede andere Wallbox-/Fahrzeug-
+Quelle funktioniert genauso.
+
+**Wer hier etwas ändert:** Diese Neutralität bitte erhalten. Eine direkte Anbindung an ein
+bestimmtes Fahrzeugmodul wäre nur dann sinnvoll, wenn sie — wie bei MeterHub — rein additiv
+ist und hinter einem `function_exists`-Guard liegt, sodass die manuelle Konfiguration
+unverändert weiterfunktioniert.
+
 ## Schwester-Repository MeterHub
 
 Beide sind eigenständig lauffähig und koppeln nur optional aneinander. Die Berührungspunkte:
