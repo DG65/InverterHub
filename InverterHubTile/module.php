@@ -628,13 +628,17 @@ class InverterHubTile extends IPSModule
 
     public function ResetStyle()
     {
-        $id = $this->InstanceID;
-        IPS_SetProperty($id, 'ColorBackground', self::DEF_BACKGROUND);
-        IPS_SetProperty($id, 'FontFamily',      self::DEF_FONT);
-        IPS_SetProperty($id, 'TransitionMs',    self::DEF_TRANSITION);
-        IPS_SetProperty($id, 'FlowRefW',        self::DEF_FLOWREF);
-        IPS_ApplyChanges($id);
-        $this->ReloadForm();
+        // Vorgabe der Module-Store-Review: Eine Schaltfläche im Konfigurations-
+        // formular darf nicht selbst persistieren (kein IPS_SetProperty +
+        // IPS_ApplyChanges), sondern setzt nur die Felder der geöffneten Maske.
+        // Bestätigt wird vom Nutzer mit „Übernehmen" — so bleibt ein Fehlklick
+        // folgenlos. Aus demselben Grund hier kein ReloadForm(): das würde die
+        // Maske aus den gespeicherten Eigenschaften neu aufbauen und die eben
+        // gesetzten Werte wieder verwerfen.
+        $this->UpdateFormField('ColorBackground', 'value', self::DEF_BACKGROUND);
+        $this->UpdateFormField('FontFamily',      'value', self::DEF_FONT);
+        $this->UpdateFormField('TransitionMs',    'value', self::DEF_TRANSITION);
+        $this->UpdateFormField('FlowRefW',        'value', self::DEF_FLOWREF);
     }
 
     public function GetVisualizationTile()

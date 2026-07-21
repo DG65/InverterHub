@@ -38,6 +38,7 @@
       "caption": "Energie-Datenpunkte (archivierte Zähler)",
       "expanded": true,
       "items": [
+        { "type": "Label", "caption": "⚠️ Nur fortlaufend aufsummierende Zählerstände verwenden. Tages-, Monats- oder Jahreswerte, die periodisch auf 0 zurückspringen (z. B. „Energie heute“ vieler Wechselrichter und Wärmepumpen), sind hier ungeeignet: Die Auswertung bildet die Differenz zweier Zeitpunkte — innerhalb einer Periode liefert ein Tageswert damit falsche Zahlen, über den Rücksetzpunkt hinweg entfällt der Knoten ganz. Im Zweifel den kWh-Zählerstand eines echten Zählers nehmen." },
         { "type": "SelectVariable", "name": "PvEnergyID", "caption": "PV-Erzeugung (kWh gesamt)" },
         { "type": "SelectVariable", "name": "GridImportID", "caption": "Netzbezug (kWh gesamt)" },
         { "type": "SelectVariable", "name": "GridExportID", "caption": "Netzeinspeisung (kWh gesamt)" },
