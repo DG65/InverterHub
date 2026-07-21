@@ -3809,6 +3809,10 @@ class InverterHub extends IPSModule
         $this->RegisterPropertyString('Manufacturer', 'goodwe');
         $this->RegisterPropertyBoolean('MeterInvert', false);
         $this->RegisterPropertyBoolean('BatInvert', false);
+        // Anzahl tatsächlich vorhandener MPPT-Eingänge / Solarladeregler.
+        // 0 = alle anlegen, die der Treiber kennt (bisheriges Verhalten und
+        // Vorgabe, damit bestehende Instanzen unverändert bleiben).
+        $this->RegisterPropertyInteger('MpptCount', 0);
         // Energie-Ausgabe in Wh statt kWh (Basiseinheit, konsistent zu W;
         // die neue IPS-Darstellung skaliert dann selbst auf Wh/kWh/MWh).
         $this->RegisterPropertyBoolean('EnergyUnitWh', false);
@@ -3981,6 +3985,32 @@ class InverterHub extends IPSModule
             'name'    => 'BatInvert',
             'caption' => 'Batterie-Leistung invertieren — Standard ist + Entladen / − Laden',
         ];
+        // Anzahl MPPT-Eingänge: Die Treiber kennen so viele, wie die Baureihe
+        // maximal haben kann. Wer weniger Strings betreibt, bekommt sonst leere
+        // Variablen. Die Höchstzahl stammt aus den Idents des gewählten Treibers.
+        $maxMppt = 0;
+        foreach ($driver->getOptionalGroups() as $group) {
+            foreach ($group['vars'] as $v) {
+                if (preg_match('/^mppt(\d+)_/', (string) $v[0], $m)) {
+                    $maxMppt = max($maxMppt, (int) $m[1]);
+                }
+            }
+        }
+        if ($maxMppt > 1) {
+            $groupItems[] = [
+                'type'    => 'NumberSpinner',
+                'name'    => 'MpptCount',
+                'caption' => 'Anzahl MPPT-Eingänge (0 = alle ' . $maxMppt . ' anlegen)',
+                'minimum' => 0,
+                'maximum' => $maxMppt,
+            ];
+            $groupItems[] = [
+                'type'    => 'Label',
+                'caption' => 'ℹ Dieser Wechselrichter unterstützt bis zu ' . $maxMppt . ' MPPT-Eingänge. '
+                    . 'Trage ein, wie viele tatsächlich belegt sind — die übrigen Variablen werden dann nicht '
+                    . 'angelegt bzw. beim Übernehmen wieder entfernt. 0 legt weiterhin alle an.',
+            ];
+        }
         $groupItems[] = [
             'type'    => 'CheckBox',
             'name'    => 'EnergyUnitWh',
@@ -4246,7 +4276,7 @@ class InverterHub extends IPSModule
         }
         foreach ($driver->getOptionalGroups() as $propName => $group) {
             if ($this->ReadPropertyBoolean($propName)) {
-                foreach ($group['vars'] as $v) {
+                foreach ($this->MpptFiltered($group['vars']) as $v) {
                     $valid[$v[0]] = true;
                 }
             }
@@ -4259,11 +4289,42 @@ class InverterHub extends IPSModule
         }
         foreach ($driver->getOptionalGroups() as $propName => $group) {
             if ($this->ReadPropertyBoolean($propName)) {
-                foreach ($group['vars'] as $v) {
+                foreach ($this->MpptFiltered($group['vars']) as $v) {
                     $this->RegisterVar($v, $pos++);
                 }
             }
         }
+    }
+
+    /**
+     * Blendet Variablen nicht vorhandener MPPT-Eingänge aus.
+     *
+     * Die Treiber definieren so viele MPPT-Idents (mppt1_*, mppt2_* …), wie die
+     * jeweilige Baureihe maximal haben kann — beim Sungrow SG-CX etwa zwölf.
+     * Wer nur zwei Strings betreibt, bekäme sonst zehn leere Variablen, die den
+     * Objektbaum zumüllen und im Archiv Platz kosten.
+     *
+     * MpptCount = 0 bedeutet „alle anlegen" (Vorgabe, bisheriges Verhalten).
+     * Idents ohne mppt-Nummer bleiben immer erhalten.
+     *
+     * Die Filterung greift bewusst auch in der Liste gültiger Idents, damit
+     * PruneForeignObjects() überzählige Variablen einer früheren Einstellung
+     * wieder abräumt, statt sie verwaist stehen zu lassen.
+     */
+    private function MpptFiltered(array $vars): array
+    {
+        $max = $this->ReadPropertyInteger('MpptCount');
+        if ($max <= 0) {
+            return $vars;
+        }
+        $out = [];
+        foreach ($vars as $v) {
+            if (preg_match('/^mppt(\d+)_/', (string) $v[0], $m) && (int) $m[1] > $max) {
+                continue;
+            }
+            $out[] = $v;
+        }
+        return $out;
     }
 
     // Entfernt unter der Instanz alle Variablen mit einem Ident, das nicht in

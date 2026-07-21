@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.60.0-beta.1 (2026-07-21)
+
+- **Anzahl der MPPT-Eingänge einstellbar.** Die Treiber legen bisher so viele MPPT-Variablen an,
+  wie die jeweilige Baureihe maximal haben kann — beim Sungrow SG-CX zwölf, bei Victron vier,
+  GoodWe drei, Fronius zwei. Wer weniger Strings betreibt, bekam entsprechend viele leere
+  Variablen, die den Objektbaum zumüllen und im Archiv Platz kosten. Im Konfigurationsformular
+  lässt sich jetzt eintragen, wie viele Eingänge tatsächlich belegt sind; die übrigen werden
+  nicht angelegt und beim Übernehmen wieder entfernt. Vorgabe bleibt 0 = alle anlegen, damit
+  sich bestehende Instanzen nicht verändern. Das Feld erscheint nur bei Treibern mit mehr als
+  einem MPPT-Eingang und begrenzt die Eingabe auf die vom Gerät unterstützte Höchstzahl.
+
 ## 0.59.0-beta.1 (2026-07-21)
 
 - **HeishaMon-Anbindung (Panasonic-Wärmepumpe).** Stromflusskachel und Sankey können jetzt
