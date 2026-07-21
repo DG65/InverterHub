@@ -66,6 +66,10 @@ class InverterHubTile extends IPSModule
         'other'    => ['label' => 'Verbraucher',     'icon' => 'other',    'color' => 0x90A4AE],
     ];
 
+    // Anbieter des MHUB-Vertrags: echte Zähler und virtuelle (berechnete).
+    private const METERHUB_GUID         = '{BAB8E05C-9150-43B9-9F2B-E5215FA54F0A}';
+    private const METERHUB_VIRTUAL_GUID = '{ADF18291-2E60-4354-92F5-B96863C127C8}';
+
     // Übersetzung der MeterHub-Funktionen in Verbraucher-Arten dieser Kachel.
     // Nicht gelistete Funktionen (grid, house, pv, battery) sind Kernwerte und
     // werden nicht als eigener Verbraucher-Kreis dargestellt.
@@ -382,16 +386,27 @@ class InverterHubTile extends IPSModule
     private function MeterHubAssignments(): array
     {
         $rows = json_decode($this->ReadPropertyString('MeterHubs'), true);
-        if (!is_array($rows) || !function_exists('MHUB_GetFunctions')) {
+        if (!is_array($rows)) {
             return [];
         }
+        // Es gibt zwei Anbieter desselben Vertrags: echte Zaehler (MeterHub)
+        // und virtuelle (MeterHubVirtual). Welcher gemeint ist, entscheidet die
+        // Modul-GUID der Instanz - so wird nicht auf gut Glueck der falsche
+        // Praefix gerufen. Beide Module sind optional.
         $out = [];
         foreach ($rows as $row) {
             $iid = (int)($row['InstanceID'] ?? 0);
             if ($iid <= 0 || !IPS_InstanceExists($iid)) {
                 continue;
             }
-            $data = json_decode((string)@MHUB_GetFunctions($iid), true);
+            $guid = @IPS_GetInstance($iid)['ModuleInfo']['ModuleID'] ?? '';
+            $json = '';
+            if ($guid === self::METERHUB_GUID && function_exists('MHUB_GetFunctions')) {
+                $json = (string)@MHUB_GetFunctions($iid);
+            } elseif ($guid === self::METERHUB_VIRTUAL_GUID && function_exists('MHUBV_GetFunctions')) {
+                $json = (string)@MHUBV_GetFunctions($iid);
+            }
+            $data = json_decode($json, true);
             if (!is_array($data) || empty($data['assignments'])) {
                 continue;
             }
