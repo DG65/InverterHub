@@ -298,6 +298,41 @@ https://github.com/DG65/InverterHub
 
 Für den Beta-Kanal den Zweig `beta` auswählen.
 
+### Zusammenspiel mit den anderen Modulen: wie sie sich finden
+
+Alle Kopplungen sind **optional** — kein Modul setzt ein anderes voraus. Fehlt ein Partner,
+entfallen nur dessen Zusatzfunktionen. Gefunden wird auf **drei verschiedene Arten**, und nur
+eine davon läuft von selbst:
+
+| Kopplung | Wie sie zustande kommt |
+|---|---|
+| Monitoring → **PV-Prognose** | **automatisch**, sobald das Prognose-Modul installiert ist |
+| Gerätesuche → **MeterHub** | **automatisch**: gefundene Zähler werden als MeterHub-Instanzen angelegt |
+| Kachel/Sankey → **MeterHub**, **HeishaMon** | **manuell**: Instanzen in der jeweiligen Liste im Konfigurationsformular eintragen |
+| Wallbox-Ladestand (z. B. Tessie), gemessene Hauslast | **manuell**: Variable auswählen |
+
+**Der häufigste Stolperstein:** Wer ein Partnermodul **nachträglich** installiert, muss die
+Konfiguration der Kachel bzw. der Sankey-Ansicht noch einmal öffnen und die neue Instanz in die
+Liste eintragen. Es passiert nichts von selbst — mit Ausnahme der PV-Prognose. Wenn also nach
+der Installation von MeterHub keine Verbraucher auftauchen, fehlt fast immer dieser Schritt.
+
+### Empfohlene Reihenfolge
+
+Die Reihenfolge ist nicht zwingend (nichts geht kaputt), erspart aber Nacharbeit:
+
+1. **InverterHub** installieren, Wechselrichter anlegen — oder von der **Gerätesuche** finden lassen
+2. **MeterHub**, falls Energiezähler vorhanden
+3. **HeishaMon**, falls Wärmepumpe vorhanden
+4. **PV-Prognose** einrichten (Generatoren mit kWp eintragen)
+5. **Kacheln** zuletzt: Stromfluss, Monitoring, Sankey — dann bieten deren Listen bereits alles an
+
+### Wie viele Instanzen?
+
+- **Wechselrichter, Zähler und Wallboxen:** beliebig viele — je Gerät eine Instanz.
+- **EMS:** genau **eine**. Es ist die einzige Stelle, die steuernd auf die Batterie zugreift;
+  eine zweite Instanz würde gegen die erste arbeiten.
+- **Kacheln:** beliebig viele, etwa eine je Ansicht oder Raum.
+
 ## Mitwirken / Fehler melden
 
 Rückmeldungen zu falschen Registerwerten, fehlenden Datenpunkten oder neuen unterstützten
