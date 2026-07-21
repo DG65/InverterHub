@@ -391,8 +391,17 @@ function lerp(a, b, t) {
     Math.round(a[0] + (b[0]-a[0])*t), Math.round(a[1] + (b[1]-a[1])*t), Math.round(a[2] + (b[2]-a[2])*t)
   ];
 }
-function fmtKw(w) {
+// measured === false kennzeichnet einen GESCHÄTZTEN Wert (derzeit: HeishaMon
+// ohne externen Stromzähler, dessen Schätzung nur im ~200-W-Raster liegt).
+// Drei Nachkommastellen wären dort Scheingenauigkeit - „0,034 kW" suggeriert
+// eine Auflösung, die es nicht gibt. Daher eine Nachkommastelle und ein
+// vorangestelltes ≈, damit der Charakter des Werts sichtbar bleibt.
+// Alles andere (auch fehlendes Feld) gilt als gemessen und bleibt dreistellig.
+function fmtKw(w, measured) {
   const kw = (w || 0) / 1000;
+  if (measured === false) {
+    return '≈' + kw.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  }
   return kw.toLocaleString('de-DE', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 }
 // Corona-Stärke: skaliert von 0 (bei 0 W) bis Maximum (bei GLOW_MAX_W = 40 kW).
@@ -809,6 +818,9 @@ function buildItems(d, consumerColor) {
       soc: c.socHave ? c.soc : null,
       // Name des erkannten Fahrzeugs (nur Wallboxen)
       sub: c.sub || '',
+      // false = geschätzter Wert (siehe fmtKw). Das Modul setzt das Feld immer,
+      // auch bei manuell zugewiesenen Verbrauchern und Zählern (dort true).
+      measured: c.measured,
       color: () => col,
       dir: () => 'out',
     });
@@ -818,8 +830,8 @@ function buildItems(d, consumerColor) {
   return items;
 }
 
-function setValueText(textEl, watts) {
-  textEl.firstChild.nodeValue = fmtKw(watts);
+function setValueText(textEl, watts, measured) {
+  textEl.firstChild.nodeValue = fmtKw(watts, measured);
 }
 
 // --- Persistente Knoten -----------------------------------------------------
@@ -1140,7 +1152,7 @@ function updateOuterNode(refs, item, d) {
   // Auto-Icon als eindeutige ID für seinen Füllstands-Clip.
   refs.iconG.textContent = '';
   ICONS[item.icon](refs.iconG, item.soc ?? null, item.key);
-  setValueText(refs.valText, magnitude);
+  setValueText(refs.valText, magnitude, item.measured);
   refs.subText.textContent = item.sub || '';
 }
 

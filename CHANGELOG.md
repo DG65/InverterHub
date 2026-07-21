@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.59.0-beta.1 (2026-07-21)
+
+- **HeishaMon-Anbindung (Panasonic-Wärmepumpe).** Stromflusskachel und Sankey können jetzt
+  HeishaMon-Instanzen als Wärmepumpen-Verbraucher übernehmen (Vertrag `HEISHA_GetFunctions`).
+  In der Kachel erscheint die elektrische Gesamtleistung; ist am HeishaMon kein externer
+  Stromzähler hinterlegt, ist dieser Wert eine Schätzung im ~200-W-Raster und wird
+  entsprechend gröber dargestellt. Im Sankey wird die Wärmepumpe nur berücksichtigt, wenn ein
+  kumulativer kWh-Zähler vorhanden ist — aus der Leistung wird bewusst keine Energie
+  hochgerechnet. Ohne installiertes HeishaMon verhält sich alles unverändert.
+- **Kachel: geschätzte Werte werden als solche dargestellt.** Ein Verbraucher, dessen Leistung
+  nur geschätzt ist, erscheint mit einer Nachkommastelle und vorangestelltem „≈" (z. B.
+  „≈1,4 kW") statt dreistellig. „0,034 kW" bei einem 200-W-Raster hätte eine Auflösung
+  vorgetäuscht, die es nicht gibt. Gemessene Werte bleiben unverändert dreistellig.
+
 ## 0.58.3-beta.1 (2026-07-21)
 
 - **Store-Vorgabe umgesetzt:** Die Schaltfläche „Darstellung zurücksetzen" der Stromflusskachel
