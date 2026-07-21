@@ -12,8 +12,18 @@ Beide sind eigenständig lauffähig und koppeln nur optional aneinander. Die Ber
 
 | Berührungspunkt | Wo im Code |
 |---|---|
-| Kombinierte Gerätesuche (findet WR **und** Zähler, legt Zähler als MeterHub-Instanz an) | `InverterHubDiscovery/module.php` |
-| Verbraucher-Kreise der Stromflusskachel aus MeterHub-Funktionszuordnung | `InverterHubTile/module.php`, `CONSUMER_TYPES` in `InverterHubTile/module.html` |
+| Kombinierte Gerätesuche (findet WR **und** Zähler, legt Zähler als MeterHub-Instanz an) | `InverterHubDiscovery/module.php` (`METERHUB_GUID`) |
+| Verbraucher-Kreise der Stromflusskachel aus MeterHub-Funktionszuordnung | `InverterHubTile/module.php`: `CONSUMER_TYPES`, `MHUB_TYPE_MAP` |
+| Icon-Zeichner der Verbraucher-Arten | `InverterHubTile/module.html`: `ICONS` |
+
+`CONSUMER_TYPES` und `MHUB_TYPE_MAP` liegen **in `module.php`**, nicht in `module.html`. In
+`module.html` liegen ausschließlich die Icon-Zeichner im `ICONS`-Objekt.
+
+**`MHUB_GetFunctions($id)` ist der Vertrag zwischen den Repos.** Ändern sich dort Feldnamen
+oder Struktur, muss `InverterHubTile/module.php` mitgezogen werden. Neue Einträge im
+MeterHub-Vokabular `FUNCTIONS` brauchen einen Eintrag in `MHUB_TYPE_MAP`, sonst fallen sie in
+der Kachel still heraus. Die Kernwerte (`grid`, `house`, `pv`, `battery`, `none`) sind dort
+bewusst **nicht** gemappt.
 
 **Grundregel:** Keines der Module darf das andere voraussetzen. Fehlt das jeweils andere
 (`IPS_ModuleExists` prüfen), entfallen nur die Zusatzfunktionen — es darf nichts brechen.
