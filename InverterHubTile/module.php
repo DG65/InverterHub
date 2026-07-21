@@ -66,6 +66,36 @@ class InverterHubTile extends IPSModule
         'other'    => ['label' => 'Verbraucher',     'icon' => 'other',    'color' => 0x90A4AE],
     ];
 
+    // Übersetzung der MeterHub-Funktionen in Verbraucher-Arten dieser Kachel.
+    // Nicht gelistete Funktionen (grid, house, pv, battery) sind Kernwerte und
+    // werden nicht als eigener Verbraucher-Kreis dargestellt.
+    private const MHUB_TYPE_MAP = [
+        'heatpump'    => 'heatpump',
+        'heater'      => 'heater',
+        'hotwater'    => 'boiler',
+        'aircon'      => 'ac',
+        'ventilation' => 'vent',
+        'wallbox1'    => 'wallbox',
+        'wallbox2'    => 'wallbox',
+        'wallbox3'    => 'wallbox',
+        'wallbox4'    => 'wallbox',
+        'wallbox5'    => 'wallbox',
+        'garage'      => 'garage',
+        'washer'      => 'washer',
+        'dryer'       => 'dryer',
+        'dishwasher'  => 'dishwasher',
+        'oven'        => 'oven',
+        'stove'       => 'stove',
+        'fridge'      => 'fridge',
+        'kitchen'     => 'kitchen',
+        'pool'        => 'poolpump',
+        'sauna'       => 'sauna',
+        'light'       => 'light',
+        'it'          => 'it',
+        'workshop'    => 'workshop',
+        'other'       => 'other',
+    ];
+
     // „Was ist neu"-Banner (siehe newsBanner()/AckNews()).
     private const NEWS_VERSION = '0.45';
     private const NEWS_ITEMS = [
@@ -105,6 +135,8 @@ class InverterHubTile extends IPSModule
         // sondern als vorhandene Leistungs-Variablen ausgewählt werden.
         // Frei erweiterbare Tabelle: je Zeile Art, Bezeichnung und Variable.
         $this->RegisterPropertyString('Consumers', '[]');
+        // MeterHub-Instanzen, deren Funktionszuordnung übernommen wird.
+        $this->RegisterPropertyString('MeterHubs', '[]');
         // Fahrzeuge (für Wallboxen): Bezeichnung, Verbunden-Bedingung, SOC.
         $this->RegisterPropertyString('Vehicles', '[]');
         // Zeitfenster für die automatische Zuordnung Fahrzeug <-> Wallbox.
@@ -160,6 +192,10 @@ class InverterHubTile extends IPSModule
                 $this->ReadPropertyInteger('ManualSocID'),
                 $this->ReadPropertyInteger('ManualHouseID'),
             ];
+            // Kernwerte aus MeterHub ebenfalls abonnieren.
+            foreach ($this->MeterHubCoreIDs() as $mhID) {
+                $manualIDs[] = $mhID;
+            }
             $any = false;
             foreach (array_unique($manualIDs) as $vid) {
                 if ($vid > 0 && IPS_VariableExists($vid)) {
@@ -249,7 +285,79 @@ class InverterHubTile extends IPSModule
                 'plugVal' => (string)($row['PlugVal'] ?? ''),
             ];
         }
+
+        // Zusätzlich: Verbraucher aus den Funktionszuordnungen konfigurierter
+        // MeterHub-Instanzen — dadurch entfällt das Pflegen der Liste von Hand.
+        foreach ($this->MeterHubAssignments() as $a) {
+            $fn = (string)($a['function'] ?? '');
+            if (!isset(self::MHUB_TYPE_MAP[$fn])) {
+                continue; // Kernwerte (Netz/Haus/PV/Batterie) sind keine Kreise
+            }
+            $vid = (int)($a['powerID'] ?? 0);
+            if ($vid <= 0 || !IPS_VariableExists($vid)) {
+                continue;
+            }
+            $type = self::MHUB_TYPE_MAP[$fn];
+            $name = trim((string)($a['label'] ?? ''));
+            $out[] = [
+                'id'      => $vid,
+                'type'    => $type,
+                'name'    => ($name !== '' ? $name : self::CONSUMER_TYPES[$type]['label']),
+                'icon'    => self::CONSUMER_TYPES[$type]['icon'],
+                'color'   => sprintf('#%06x', self::CONSUMER_TYPES[$type]['color']),
+                'unit'    => 'w', // MeterHub liefert Leistung immer in Watt
+                'plugID'  => 0,
+                'plugOp'  => 'truthy',
+                'plugVal' => '',
+            ];
+        }
         return $out;
+    }
+
+    /**
+     * Funktionszuordnungen der konfigurierten MeterHub-Instanzen einlesen.
+     * Das MeterHub-Modul ist optional — ist es nicht installiert, bleibt die
+     * Liste leer und die Kachel verhält sich exakt wie bisher.
+     */
+    private function MeterHubAssignments(): array
+    {
+        $rows = json_decode($this->ReadPropertyString('MeterHubs'), true);
+        if (!is_array($rows) || !function_exists('MHUB_GetFunctions')) {
+            return [];
+        }
+        $out = [];
+        foreach ($rows as $row) {
+            $iid = (int)($row['InstanceID'] ?? 0);
+            if ($iid <= 0 || !IPS_InstanceExists($iid)) {
+                continue;
+            }
+            $data = json_decode((string)@MHUB_GetFunctions($iid), true);
+            if (!is_array($data) || empty($data['assignments'])) {
+                continue;
+            }
+            foreach ($data['assignments'] as $a) {
+                $out[] = $a;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Kernwerte aus MeterHub: der Zähler mit Funktion „Netzanschluss" liefert
+     * die Netz-Leistung, der mit „Hausverbrauch" die real gemessene Hauslast.
+     * Rückgabe: ['grid' => VariablenID, 'house' => VariablenID] (0 = keiner).
+     */
+    private function MeterHubCoreIDs(): array
+    {
+        $core = ['grid' => 0, 'house' => 0];
+        foreach ($this->MeterHubAssignments() as $a) {
+            $fn  = (string)($a['function'] ?? '');
+            $vid = (int)($a['powerID'] ?? 0);
+            if (isset($core[$fn]) && $core[$fn] === 0 && $vid > 0 && IPS_VariableExists($vid)) {
+                $core[$fn] = $vid;
+            }
+        }
+        return $core;
     }
 
     // Fahrzeug-Tabelle lesen.
@@ -449,6 +557,35 @@ class InverterHubTile extends IPSModule
         return json_encode($form);
     }
 
+    // Setzt die Optionen der Spalte „Art" in der Verbraucher-Liste aus
+    // CONSUMER_TYPES (rekursiv, da die Liste in einem ExpansionPanel steckt).
+    private function injectConsumerTypeOptions(array &$form)
+    {
+        $options = [];
+        foreach (self::CONSUMER_TYPES as $key => $def) {
+            $options[] = ['caption' => $def['label'], 'value' => $key];
+        }
+        $walk = function (&$items) use (&$walk, $options) {
+            foreach ($items as &$it) {
+                if (($it['type'] ?? '') === 'List' && ($it['name'] ?? '') === 'Consumers') {
+                    foreach ($it['columns'] as &$col) {
+                        if (($col['name'] ?? '') === 'Type') {
+                            $col['edit'] = ['type' => 'Select', 'options' => $options];
+                        }
+                    }
+                    unset($col);
+                }
+                if (isset($it['items']) && is_array($it['items'])) {
+                    $walk($it['items']);
+                }
+            }
+            unset($it);
+        };
+        if (isset($form['elements']) && is_array($form['elements'])) {
+            $walk($form['elements']);
+        }
+    }
+
     // „Was ist neu"-Banner: erscheint nach einem Update (Attribut startet leer),
     // bis der Nutzer „Verstanden" klickt. Neuinstallation sieht es einmalig.
     private function newsBanner()
@@ -568,6 +705,19 @@ class InverterHubTile extends IPSModule
             $gridInvert   = $this->ReadPropertyBoolean('ManualGridInvert');
             $batInvert    = $this->ReadPropertyBoolean('ManualBatInvert');
             $houseMeterID = $this->ReadPropertyInteger('ManualHouseID');
+
+            // Kernwerte aus MeterHub ergänzen, wo hier nichts zugewiesen ist:
+            // ein Zähler mit Funktion „Netzanschluss" liefert die Netzleistung,
+            // einer mit „Hausverbrauch" die gemessene Hauslast. Vorzeichen:
+            // MeterHub zählt + = Bezug, die Kachel + = Einspeisung — daher
+            // negieren (der Invers-Schalter oben bleibt als Notausgang nutzbar).
+            $mhCore = $this->MeterHubCoreIDs();
+            if ($grid === null && $mhCore['grid'] > 0) {
+                $grid = -$this->VarWatts($mhCore['grid'], 'w');
+            }
+            if ($houseMeterID <= 0 && $mhCore['house'] > 0) {
+                $houseMeterID = $mhCore['house'];
+            }
 
             if ($pv === null && $ac === null && $grid === null && $bat === null && $soc === null) {
                 return json_encode(array_merge($style, [

@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.57.0-beta.1 (2026-07-21)
+
+- **Stromflusskachel: Verbraucher aus MeterHub übernehmen.** Neues Panel „Verbraucher aus
+  MeterHub" — dort ausgewählte MeterHub-Instanzen liefern ihre Funktionszuordnung
+  automatisch als Verbraucher-Kreise (Art, Bezeichnung, Leistungsvariable). Das manuelle
+  Pflegen der Verbraucher-Liste entfällt damit. Zusätzlich speist ein MeterHub-Zähler mit
+  Funktion „Netzanschluss" die Netz-Leistung und einer mit „Hausverbrauch" die gemessene
+  Hauslast — die Kachel läuft dadurch auch ganz ohne InverterHub-Instanz. Das
+  Vorzeichen wird dabei automatisch umgedreht (MeterHub zählt + = Bezug, die Kachel
+  + = Einspeisung). Ist MeterHub nicht installiert, verhält sich die Kachel unverändert.
+- **Zwölf neue Verbraucher-Arten** mit eigenem Icon und eigener Farbe: Waschmaschine,
+  Spülmaschine, Backofen, Herd, Kühl-/Gefriergerät, Küche, Heizung, Lüftung, Beleuchtung,
+  Server/Netzwerk, Werkstatt und Garage. Damit deckt die Kachel das Funktions-Vokabular des
+  MeterHub vollständig ab.
+- **Intern:** Die Auswahlliste der Verbraucher-Arten wird jetzt aus `CONSUMER_TYPES` erzeugt
+  statt statisch in der `form.json` gepflegt — eine Quelle, kein Auseinanderlaufen mehr.
+
 ## 0.56.6-beta.1 (2026-07-21)
 
 - **Kachel: kein Inhalt beim Maximieren.** Das Diagramm war per `position: fixed` an den
