@@ -243,7 +243,21 @@ durchlaufen deshalb bei jedem Lesezyklus die Modellkette ab Basisregister 40000 
 dann Model-ID + Länge je Block), statt feste Adressen zu verwenden. Das ist etwas langsamer als
 bei den anderen Herstellern, aber der zuverlässigste Weg.
 
-## Verwandtes Projekt: MeterHub
+## Verwandte Projekte
+
+### EnergiePrognose (PV- und Verbrauchsprognose)
+
+**[Prognose](https://github.com/DG65/Prognose)** liefert die Prognosen, gegen die dieses
+Projekt die Messwerte stellt. Genutzt wird davon das Modul **PV-Prognose** (Präfix `PVF`):
+
+- Der **InverterHubMonitor** berechnet aus den dort gepflegten Generatorparametern (kWp je
+  Generator, Performance-Ratio) zusammen mit einem Einstrahlungssensor **Erwartungswerte** und
+  stellt sie dem gemessenen Ertrag gegenüber — gestrichelt im Diagramm. Damit lassen sich
+  Verschmutzung und Defekte erkennen (Soll/Ist-Vergleich).
+- Ist das Prognose-Modul nicht installiert, weist die Konfigurationsmaske darauf hin und die
+  Erwartungswerte entfallen; alles andere funktioniert unverändert.
+
+### MeterHub (Energiezähler)
 
 **[MeterHub](https://github.com/DG65/MeterHub)** ist das Schwester-Repository dieses Projekts:
 dasselbe Framework-Prinzip, aber für **Energiezähler** statt Wechselrichter (Modbus TCP, z. B.

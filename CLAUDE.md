@@ -1,12 +1,38 @@
 # Hinweise für die Arbeit an diesem Repository
 
-## Schwester-Repository MeterHub
+## Verwandte Repositories
 
-Dieses Projekt hat ein eng verwandtes Schwester-Repository:
+An diesen drei Repos wird teilweise **gleichzeitig in getrennten Sitzungen** gearbeitet:
 
 - **InverterHub** (dieses Repo): Wechselrichter per Modbus TCP — https://github.com/DG65/InverterHub
 - **MeterHub**: Energiezähler per Modbus TCP — https://github.com/DG65/MeterHub
   (lokale Arbeitskopie: `../MeterHub`)
+- **Prognose** (Suite EnergiePrognose): PV- und Verbrauchsprognose — https://github.com/DG65/Prognose
+  (lokale Arbeitskopie: `../Prognose`)
+
+## Kopplung an die PV-Prognose (Prognose-Repo, Präfix `PVF`)
+
+Der `InverterHubMonitor` berechnet Erwartungswerte (Einstrahlung × Generatorparameter) und
+stellt sie dem gemessenen Ertrag gegenüber. Er konsumiert dafür:
+
+| Verwendet | Zweck |
+|---|---|
+| `PVF_GetGenerators($id)` | kWp und manueller Faktor je Generator |
+| `PVF_GetModuleArea($id)` | Gesamt-Modulfläche (m²) für spez. Leistung / PR |
+| Statusvariable `PVF_ModuleArea` | Fallback, wenn der Getter fehlt |
+| Konfigurationsschlüssel `PVF_PR` | Performance-Ratio (per `IPS_GetConfiguration`) |
+| Modul-GUID `{257DD4E8-9705-462E-89FC-56D0A1038353}` | Instanz der PV-Prognose finden |
+
+**Vertrag:** Die `PVF_Get*`-Funktionen sind die öffentliche Schnittstelle — Signatur- oder
+Strukturänderungen dort müssen in `InverterHubMonitor/module.php` nachgezogen werden. Der
+Zugriff auf `PVF_PR` und `PVF_ModuleArea` ist bewusst nur ein **Fallback** für ältere
+Prognose-Versionen ohne Getter; er greift auf Interna zu und sollte nicht ausgebaut werden.
+Neue Bedarfe bitte als Getter im Prognose-Repo anlegen, statt hier Konfiguration auszulesen.
+
+Fehlt das Prognose-Modul, entfallen nur die Erwartungswerte (die Konfigurationsmaske weist
+darauf hin) — es darf nichts brechen.
+
+## Schwester-Repository MeterHub
 
 Beide sind eigenständig lauffähig und koppeln nur optional aneinander. Die Berührungspunkte:
 
