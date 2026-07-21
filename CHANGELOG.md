@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.63.0-beta.1 (2026-07-21)
+
+- **Fronius: Isolationswiderstand.** Er wird jetzt aus dem SunSpec-Modell 122
+  („Measurements Status") gelesen und in der Gruppe „Geräteinformation" angelegt.
+  Zur Richtigstellung: Es hieß zuvor, der Wert sei nicht verfügbar — das galt nur für die
+  Fronius **Solar API** (`CommonInverterData` kennt ihn tatsächlich nicht). Über **Modbus** ist
+  er sehr wohl vorhanden; Beta-Tester kea liest ihn mit einer eigenen Modbus-Vorlage bereits
+  aus. Sein Gerät meldet `Ris` = 5999 bei `Ris_SF` = 3, also 5,999 MΩ.
+  Adressiert wird über die vom Gerät gemeldete Modelllänge (Ris und Ris_SF sind die beiden
+  letzten der 44 Register), nicht über eine feste Registeradresse — die SunSpec-Kette liegt je
+  nach Gerät unterschiedlich. Führt ein Gerät das Modell 122 nicht oder meldet es eine
+  abweichende Länge, entfällt der Wert, statt einen falschen zu liefern.
+
 ## 0.62.0-beta.1 (2026-07-21)
 
 - **Victron: Solarertrag je Laderegler und Korrektur des Zählerüberlaufs.** Beta-Tester loerdy

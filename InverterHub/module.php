@@ -1890,6 +1890,7 @@ class SmaDriver implements InverterDriverInterface
             'GroupDevice' => ['caption' => 'Geräteinformation', 'vars' => [
                 ['dev_model', 'Modell', 'S', '', false, 'device', 'SunSpec Common Block'],
                 ['dev_sn',    'Seriennummer', 'S', '', false, 'device', 'SunSpec Common Block'],
+                ['riso',      'Isolationswiderstand', 'F', 'FRO.KOhm', true, 'device', 'SunSpec Ris (Model 122)'],
             ]],
         ];
     }
@@ -2000,6 +2001,39 @@ class SmaDriver implements InverterDriverInterface
     public function readSlow($mb, $hub)
     {
         // Energie wird bereits im Inverter-Model in readFast() mitgelesen.
+
+        // Isolationswiderstand aus SunSpec-Modell 122 ("Measurements Status").
+        // Das Modell fuehrt Ris und Ris_SF als die BEIDEN LETZTEN Register des
+        // 44 Register langen Blocks. Bewusst ueber die gemeldete Modelllaenge
+        // adressiert statt ueber eine feste Adresse - die SunSpec-Kette liegt
+        // je nach Geraet an unterschiedlicher Stelle.
+        //
+        // Nicht jedes Geraet fuehrt Modell 122; fehlt es, entfaellt der Wert
+        // stillschweigend. Ueber die Fronius Solar API ist der Wert NICHT
+        // verfuegbar (CommonInverterData kennt ihn nicht) - Modbus ist der
+        // einzige Weg.
+        if (!$hub->GetPropBool('GroupDevice')) {
+            return;
+        }
+        $m122 = $this->findModel($mb, 122);
+        if ($m122 === null) {
+            return;
+        }
+        [$base, $len] = $m122;
+        if ($len < 44) {
+            return; // unerwartete Laenge - lieber nichts liefern als etwas Falsches
+        }
+        $blk = $mb->readHolding($base, 44);
+        if ($blk === null) {
+            return;
+        }
+        $ris   = $mb->u16($blk, 42);   // vorletztes Register
+        $risSf = $this->sfVal($mb->u16($blk, 43));
+        if ($ris === 0xFFFF || $risSf === null) {
+            return; // SunSpec-Kennung fuer "nicht implementiert"
+        }
+        // Ris ist in Ohm * 10^Ris_SF; die anderen Treiber fuehren riso in kOhm.
+        $hub->SetVarFloat('riso', ($ris * pow(10, $risSf)) / 1000.0);
     }
 
     public function readDeviceInfo($mb, $hub)
@@ -2149,6 +2183,7 @@ class FroniusDriver implements InverterDriverInterface
             'FRO.Watt'   => [VARIABLETYPE_FLOAT, ' W',  -40000.0, 40000.0, 1.0,  0],
             'FRO.Volt'   => [VARIABLETYPE_FLOAT, ' V',       0.0,  1000.0, 0.1,  1],
             'FRO.Ampere' => [VARIABLETYPE_FLOAT, ' A',       0.0,   200.0, 0.1,  1],
+            'FRO.KOhm'   => [VARIABLETYPE_FLOAT, ' kΩ', 0.0, 100000.0, 1.0, 0],
             'FRO.Hertz'  => [VARIABLETYPE_FLOAT, ' Hz',     45.0,    65.0, 0.01, 2],
             'FRO.Soc'    => [VARIABLETYPE_FLOAT, ' %',        0.0,   100.0, 0.1,  1],
         ];
