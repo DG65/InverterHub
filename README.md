@@ -243,6 +243,25 @@ durchlaufen deshalb bei jedem Lesezyklus die Modellkette ab Basisregister 40000 
 dann Model-ID + Länge je Block), statt feste Adressen zu verwenden. Das ist etwas langsamer als
 bei den anderen Herstellern, aber der zuverlässigste Weg.
 
+## Verwandtes Projekt: MeterHub
+
+**[MeterHub](https://github.com/DG65/MeterHub)** ist das Schwester-Repository dieses Projekts:
+dasselbe Framework-Prinzip, aber für **Energiezähler** statt Wechselrichter (Modbus TCP, z. B.
+Siemens PAC2200, Janitza UMG604/UMG800). Beide Projekte sind eigenständig nutzbar und ergänzen
+sich, wo beide installiert sind:
+
+- **Gerätesuche:** Der `InverterHubDiscovery` findet auf Wunsch in einem Durchlauf sowohl
+  Wechselrichter als auch Zähler und legt Zähler direkt als MeterHub-Instanzen an. Ist MeterHub
+  nicht installiert, werden gefundene Zähler übersprungen.
+- **Stromflusskachel:** Die `InverterHubTile` kann ihre Verbraucher-Kreise automatisch aus
+  MeterHub-Instanzen beziehen (Funktionszuordnung → Art, Bezeichnung, Leistungsvariable). Ein
+  MeterHub-Zähler mit Funktion „Netzanschluss" speist die Netzleistung, einer mit
+  „Hausverbrauch" die gemessene Hauslast — die Kachel läuft dadurch auch ganz ohne
+  InverterHub-Instanz. Ohne MeterHub verhält sich die Kachel unverändert.
+
+Die Kopplung ist in beide Richtungen optional: Keines der Module setzt das andere voraus, und
+fehlt das jeweils andere, entfallen lediglich die genannten Zusatzfunktionen.
+
 ## Installation
 
 Über die IP-Symcon Modulverwaltung „Hinzufügen" mit der URL dieses Repositories:
