@@ -48,6 +48,21 @@ class InverterHubTile extends IPSModule
         'sauna'    => ['label' => 'Sauna',           'icon' => 'sauna',    'color' => 0xF4511E],
         'boiler'   => ['label' => 'Warmwasser',      'icon' => 'boiler',   'color' => 0xFFA726],
         'dryer'    => ['label' => 'Trockner',        'icon' => 'dryer',    'color' => 0x78909C],
+        // Haushalt und weitere Bereiche — Vokabular deckungsgleich mit der
+        // Funktionszuordnung des MeterHub-Moduls, damit dessen Zähler/Phasen
+        // direkt als passender Verbraucher-Kreis übernommen werden können.
+        'washer'     => ['label' => 'Waschmaschine',      'icon' => 'washer',     'color' => 0x4DD0E1],
+        'dishwasher' => ['label' => 'Spülmaschine',       'icon' => 'dishwasher', 'color' => 0x4DB6AC],
+        'oven'       => ['label' => 'Backofen',           'icon' => 'oven',       'color' => 0xEF6C00],
+        'stove'      => ['label' => 'Herd',               'icon' => 'stove',      'color' => 0xE64A19],
+        'fridge'     => ['label' => 'Kühl-/Gefriergerät', 'icon' => 'fridge',     'color' => 0x4FC3F7],
+        'kitchen'    => ['label' => 'Küche',              'icon' => 'kitchen',    'color' => 0xFFB74D],
+        'heater'     => ['label' => 'Heizung',            'icon' => 'heater',     'color' => 0xFF7043],
+        'vent'       => ['label' => 'Lüftung',            'icon' => 'vent',       'color' => 0x80DEEA],
+        'light'      => ['label' => 'Beleuchtung',        'icon' => 'light',      'color' => 0xFFD54F],
+        'it'         => ['label' => 'Server / Netzwerk',  'icon' => 'it',         'color' => 0x7986CB],
+        'workshop'   => ['label' => 'Werkstatt',          'icon' => 'workshop',   'color' => 0x8D6E63],
+        'garage'     => ['label' => 'Garage',             'icon' => 'garage',     'color' => 0xB39DDB],
         'other'    => ['label' => 'Verbraucher',     'icon' => 'other',    'color' => 0x90A4AE],
     ];
 
@@ -420,6 +435,10 @@ class InverterHubTile extends IPSModule
     public function GetConfigurationForm()
     {
         $form = json_decode(file_get_contents(__DIR__ . '/form.json'), true);
+        // Die Auswahlliste der Verbraucher-Arten wird aus CONSUMER_TYPES
+        // erzeugt, damit es nur EINE Quelle gibt (sonst laufen form.json und
+        // die Konstante bei neuen Arten auseinander).
+        $this->injectConsumerTypeOptions($form);
         $banner = $this->newsBanner();
         if ($banner !== null) {
             if (!isset($form['elements']) || !is_array($form['elements'])) {

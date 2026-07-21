@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.56.6-beta.1 (2026-07-21)
+
+- **Kachel: kein Inhalt beim Maximieren.** Das Diagramm war per `position: fixed` an den
+  Viewport des Kachel-iframes gebunden statt an die Box, die der Kachel-Host vergibt. Die
+  Tile-Oberfläche ist eine Flutter-Web-App, die HTML-Kacheln als iframe in einen
+  Platform-View einbettet; beim Maximieren entspricht der iframe-Viewport nicht mehr dem
+  sichtbaren Kachelbereich, wodurch der Inhalt nicht erschien. Diagramm und Statusplakette
+  nutzen jetzt `position: absolute` gegen den body - damit folgt der Inhalt der Host-Box.
+  Ein Vergleich aller auf einer Installation vorhandenen Kacheln zeigte, dass unsere die
+  einzige mit `position: fixed` war; auch Symcons eigene Referenzkachel verzichtet darauf.
+
 ## 0.56.5-beta.1 (2026-07-20)
 
 - **Kachel: Münz-Glanzlichter in Safari wieder weich.** Nach der Umstellung auf Verläufe

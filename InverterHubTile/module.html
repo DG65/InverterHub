@@ -36,13 +36,20 @@
      statt Flexbox, da ein Flex-Kind mit width/height:100% in manchen
      Kachel-Hosts nicht zuverlässig auf die tatsächliche Containergröße
      schrumpft und dadurch Inhalt am Rand abgeschnitten wurde. */
+  /* position:relative macht den body zum Bezugsrahmen für den absolut
+     positionierten Inhalt - der Inhalt folgt damit der BOX, die der Kachel-Host
+     vergibt. */
   html, body { width: 100%; height: 100%; background: transparent; user-select: none; overflow: hidden; }
+  body { position: relative; }
 
-  /* position:fixed bindet das SVG an den Viewport der Kachel statt an die
-     body-Box. Bei manchen Kachel-Hosts ist die body-Höhe größer als der
-     tatsächlich sichtbare Bereich, wodurch der Inhalt zwar korrekt in die
-     (zu große) Box eingepasst, unten aber abgeschnitten wurde. */
-  .flow-svg { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  /* Bewusst absolute statt fixed: fixed bindet an den Viewport des Kachel-
+     iframes. Die Tile-Oberfläche ist eine Flutter-Web-App, die HTML-Kacheln als
+     iframe in einen Platform-View einbettet; beim Maximieren entspricht der
+     iframe-Viewport nicht mehr dem sichtbaren Kachelbereich, wodurch der
+     viewport-gebundene Inhalt nicht mehr erschien. Mit absolute folgt das SVG
+     der body-Box. Alle anderen Kacheln (auch die von Symcon) verzichten
+     ebenfalls auf fixed. */
+  .flow-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 
   text { font-family: var(--font); }
 
@@ -50,7 +57,8 @@
      Fläche, feine Kante, glühender Punkt. Fest in der unteren linken Ecke -
      unabhängig von der SVG-viewBox, daher kein Nachziehen beim Resize. */
   .status-overlay {
-    position: fixed; left: 4px; bottom: 4px; z-index: 2;
+    /* absolute statt fixed - siehe Begründung bei .flow-svg */
+    position: absolute; left: 4px; bottom: 4px; z-index: 2;
     display: inline-flex; align-items: center; gap: 8px;
     height: 26px; padding: 0 13px 0 11px;
     border-radius: 13px;
@@ -636,6 +644,109 @@ const ICONS = {
     g.appendChild(el('line', { x1: -12, y1: -7, x2: 12, y2: -7 }));
     g.appendChild(el('circle', { cx: 0, cy: 3.5, r: 7, 'data-hollow': '1' }));
     g.appendChild(el('circle', { cx: -8, cy: -10, r: 1.4, stroke: 'none' }));
+  },
+  // Waschmaschine: Gerät mit Trommel und Wasserwelle.
+  washer(g) {
+    g.appendChild(el('rect', { x: -12, y: -13, width: 24, height: 26, rx: 2.5, 'data-hollow': '1' }));
+    g.appendChild(el('line', { x1: -12, y1: -7, x2: 12, y2: -7 }));
+    g.appendChild(el('circle', { cx: 0, cy: 3.5, r: 7, 'data-hollow': '1' }));
+    g.appendChild(el('path', {
+      d: 'M-4.6,3.2 q2.3,-2.4 4.6,0 q2.3,2.4 4.6,0',
+      'data-hollow': '1', 'stroke-linecap': 'round',
+    }));
+    g.appendChild(el('circle', { cx: -8, cy: -10, r: 1.4, stroke: 'none' }));
+  },
+  // Spülmaschine: Gerät mit Teller.
+  dishwasher(g) {
+    g.appendChild(el('rect', { x: -12, y: -13, width: 24, height: 26, rx: 2.5, 'data-hollow': '1' }));
+    g.appendChild(el('line', { x1: -12, y1: -7, x2: 12, y2: -7 }));
+    g.appendChild(el('circle', { cx: 0, cy: 3.5, r: 6.8, 'data-hollow': '1' }));
+    g.appendChild(el('circle', { cx: 0, cy: 3.5, r: 2.6, 'data-hollow': '1' }));
+    g.appendChild(el('circle', { cx: 8, cy: -10, r: 1.4, stroke: 'none' }));
+  },
+  // Backofen: Gerät mit Sichtfenster und Griff.
+  oven(g) {
+    g.appendChild(el('rect', { x: -12, y: -13, width: 24, height: 26, rx: 2.5, 'data-hollow': '1' }));
+    g.appendChild(el('line', { x1: -12, y1: -6, x2: 12, y2: -6 }));
+    g.appendChild(el('rect', { x: -8, y: -1.5, width: 16, height: 11, rx: 1.5, 'data-hollow': '1' }));
+    g.appendChild(el('line', { x1: -8.5, y1: -9.5, x2: 8.5, y2: -9.5, 'stroke-linecap': 'round' }));
+    g.appendChild(el('circle', { cx: 8.4, cy: -9.5, r: 1.3, stroke: 'none' }));
+  },
+  // Herd: Kochfeld mit vier Platten.
+  stove(g) {
+    g.appendChild(el('rect', { x: -12, y: -9, width: 24, height: 20, rx: 3, 'data-hollow': '1' }));
+    [[-5.5, -3.5], [5.5, -3.5], [-5.5, 5], [5.5, 5]].forEach(([x, y]) =>
+      g.appendChild(el('circle', { cx: x, cy: y, r: 3.4, 'data-hollow': '1' })));
+    g.appendChild(el('line', { x1: -7, y1: -12.5, x2: 7, y2: -12.5, 'stroke-linecap': 'round' }));
+  },
+  // Kühl-/Gefriergerät: zweitüriger Schrank mit Griffen.
+  fridge(g) {
+    g.appendChild(el('rect', { x: -9, y: -13.5, width: 18, height: 27, rx: 2.5, 'data-hollow': '1' }));
+    g.appendChild(el('line', { x1: -9, y1: -3.5, x2: 9, y2: -3.5 }));
+    g.appendChild(el('line', { x1: 5, y1: -10.5, x2: 5, y2: -6.5, 'stroke-linecap': 'round' }));
+    g.appendChild(el('line', { x1: 5, y1: -0.5, x2: 5, y2: 4.5, 'stroke-linecap': 'round' }));
+  },
+  // Küche: Topf mit Deckel.
+  kitchen(g) {
+    g.appendChild(el('path', {
+      d: 'M-10,-3 L-10,6 q0,5 5,5 L5,11 q5,0 5,-5 L10,-3 Z',
+      'data-hollow': '1', 'stroke-linejoin': 'round',
+    }));
+    g.appendChild(el('line', { x1: -12, y1: -3, x2: 12, y2: -3, 'stroke-linecap': 'round' }));
+    g.appendChild(el('line', { x1: 0, y1: -3, x2: 0, y2: -7, 'stroke-linecap': 'round' }));
+    g.appendChild(el('circle', { cx: 0, cy: -8.5, r: 1.6, stroke: 'none' }));
+  },
+  // Heizung: Radiator mit Rippen.
+  heater(g) {
+    g.appendChild(el('rect', { x: -11, y: -8, width: 22, height: 16, rx: 2, 'data-hollow': '1' }));
+    [-5.5, 0, 5.5].forEach(x => g.appendChild(el('line', { x1: x, y1: -8, x2: x, y2: 8 })));
+    [-7.5, 7.5].forEach(x => g.appendChild(el('line', {
+      x1: x, y1: 8, x2: x, y2: 12.5, 'stroke-linecap': 'round',
+    })));
+  },
+  // Lüftung: Ventilator mit drei Flügeln.
+  vent(g) {
+    g.appendChild(el('circle', { cx: 0, cy: 0, r: 12, 'data-hollow': '1' }));
+    [0, 120, 240].forEach(a => g.appendChild(el('path', {
+      d: 'M0,-1.8 q7,-4 8.6,-0.6 q1.4,3.2 -8.6,2.4 Z',
+      transform: `rotate(${a})`, 'stroke-linejoin': 'round',
+    })));
+    g.appendChild(el('circle', { cx: 0, cy: 0, r: 2.1, stroke: 'none' }));
+  },
+  // Beleuchtung: Glühbirne mit Strahlen.
+  light(g) {
+    g.appendChild(el('path', {
+      d: 'M0,-11 C-4.6,-11 -7.6,-7.6 -7.6,-3.6 C-7.6,-0.4 -5.4,1.6 -4.2,3.6 L4.2,3.6 C5.4,1.6 7.6,-0.4 7.6,-3.6 C7.6,-7.6 4.6,-11 0,-11 Z',
+      'data-hollow': '1', 'stroke-linejoin': 'round',
+    }));
+    [6.4, 9.4].forEach(y => g.appendChild(el('line', { x1: -3.8, y1: y, x2: 3.8, y2: y, 'stroke-linecap': 'round' })));
+    g.appendChild(el('line', { x1: -2, y1: 12.4, x2: 2, y2: 12.4, 'stroke-linecap': 'round' }));
+  },
+  // Server / Netzwerk: Rack mit zwei Einschüben.
+  it(g) {
+    [-9.5, 1.5].forEach(y => {
+      g.appendChild(el('rect', { x: -12, y, width: 24, height: 9, rx: 1.8, 'data-hollow': '1' }));
+      g.appendChild(el('circle', { cx: -7.5, cy: y + 4.5, r: 1.3, stroke: 'none' }));
+      g.appendChild(el('line', {
+        x1: 1, y1: y + 4.5, x2: 8.5, y2: y + 4.5, 'stroke-linecap': 'round',
+      }));
+    });
+  },
+  // Werkstatt: Schraubenschlüssel.
+  workshop(g) {
+    g.appendChild(el('path', {
+      d: 'M6.5,-12 a6.4,6.4 0 1 0 4.2,8.4 L-6.5,10.6 a3.4,3.4 0 0 1-4.8,-4.8 L4.4,-7.2 Z',
+      'data-hollow': '1', 'stroke-linejoin': 'round',
+    }));
+  },
+  // Garage: Gebäude mit Sektionaltor.
+  garage(g) {
+    g.appendChild(el('path', {
+      d: 'M-12,-1.5 L0,-11.5 L12,-1.5 L12,12 L-12,12 Z',
+      'data-hollow': '1', 'stroke-linejoin': 'round',
+    }));
+    [2.5, 6, 9.5].forEach(y => g.appendChild(el('line', { x1: -7, y1: y, x2: 7, y2: y })));
+    g.appendChild(el('line', { x1: -7, y1: -0.5, x2: 7, y2: -0.5 }));
   },
   // Sonstiger Verbraucher: Netzstecker.
   other(g) {
