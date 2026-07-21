@@ -22,7 +22,51 @@ class InverterHubEnergy extends IPSModule
         'sauna'    => ['label' => 'Sauna',           'color' => 0xF4511E],
         'boiler'   => ['label' => 'Warmwasser',      'color' => 0xFFA726],
         'dryer'    => ['label' => 'Trockner',        'color' => 0x78909C],
+        // Haushalt und weitere Bereiche — deckungsgleich mit den Arten der
+        // InverterHubTile und dem Funktions-Vokabular des MeterHub-Moduls.
+        'washer'     => ['label' => 'Waschmaschine',      'color' => 0x4DD0E1],
+        'dishwasher' => ['label' => 'Spülmaschine',       'color' => 0x4DB6AC],
+        'oven'       => ['label' => 'Backofen',           'color' => 0xEF6C00],
+        'stove'      => ['label' => 'Herd',               'color' => 0xE64A19],
+        'fridge'     => ['label' => 'Kühl-/Gefriergerät', 'color' => 0x4FC3F7],
+        'kitchen'    => ['label' => 'Küche',              'color' => 0xFFB74D],
+        'heater'     => ['label' => 'Heizung',            'color' => 0xFF7043],
+        'vent'       => ['label' => 'Lüftung',            'color' => 0x80DEEA],
+        'light'      => ['label' => 'Beleuchtung',        'color' => 0xFFD54F],
+        'it'         => ['label' => 'Server / Netzwerk',  'color' => 0x7986CB],
+        'workshop'   => ['label' => 'Werkstatt',          'color' => 0x8D6E63],
+        'garage'     => ['label' => 'Garage',             'color' => 0xB39DDB],
         'other'    => ['label' => 'Verbraucher',     'color' => 0x90A4AE],
+    ];
+
+    // Übersetzung der MeterHub-Funktionen in Verbraucher-Arten. Nicht gelistete
+    // Funktionen (grid, house, pv, battery) sind Kernwerte und werden nicht als
+    // eigener Verbraucher-Strang dargestellt.
+    private const MHUB_TYPE_MAP = [
+        'heatpump'    => 'heatpump',
+        'heater'      => 'heater',
+        'hotwater'    => 'boiler',
+        'aircon'      => 'ac',
+        'ventilation' => 'vent',
+        'wallbox1'    => 'wallbox',
+        'wallbox2'    => 'wallbox',
+        'wallbox3'    => 'wallbox',
+        'wallbox4'    => 'wallbox',
+        'wallbox5'    => 'wallbox',
+        'garage'      => 'garage',
+        'washer'      => 'washer',
+        'dryer'       => 'dryer',
+        'dishwasher'  => 'dishwasher',
+        'oven'        => 'oven',
+        'stove'       => 'stove',
+        'fridge'      => 'fridge',
+        'kitchen'     => 'kitchen',
+        'pool'        => 'poolpump',
+        'sauna'       => 'sauna',
+        'light'       => 'light',
+        'it'          => 'it',
+        'workshop'    => 'workshop',
+        'other'       => 'other',
     ];
 
     // Request-lokaler Cache für Archiv-Grenzwerte (Perioden teilen sich Grenzen).
@@ -64,6 +108,8 @@ class InverterHubEnergy extends IPSModule
 
         // Einzelverbraucher (Energie): [{Type,Name,EnergyID,Color}]
         $this->RegisterPropertyString('Consumers', '[]');
+        // MeterHub-Instanzen, deren Funktionszuordnung übernommen wird.
+        $this->RegisterPropertyString('MeterHubs', '[]');
 
         // Diagramm-Engine: echarts | highcharts (wie in der Prognosekachel).
         $this->RegisterPropertyString('Engine', 'echarts');
@@ -113,6 +159,10 @@ class InverterHubEnergy extends IPSModule
     public function GetConfigurationForm()
     {
         $form = json_decode(file_get_contents(__DIR__ . '/form.json'), true);
+        // Die Auswahlliste der Verbraucher-Arten wird aus CONSUMER_TYPES
+        // erzeugt, damit es nur EINE Quelle gibt (sonst laufen form.json und
+        // die Konstante bei neuen Arten auseinander).
+        $this->injectConsumerTypeOptions($form);
         $banner = $this->newsBanner();
         if ($banner !== null) {
             if (!isset($form['elements']) || !is_array($form['elements'])) {
@@ -125,6 +175,35 @@ class InverterHubEnergy extends IPSModule
 
     // „Was ist neu"-Banner: erscheint nach einem Update (Attribut startet leer),
     // bis der Nutzer „Verstanden" klickt. Neuinstallation sieht es einmalig.
+    // Setzt die Optionen der Spalte „Art" in der Verbraucher-Liste aus
+    // CONSUMER_TYPES (rekursiv, da die Liste in einem ExpansionPanel steckt).
+    private function injectConsumerTypeOptions(array &$form)
+    {
+        $options = [];
+        foreach (self::CONSUMER_TYPES as $key => $def) {
+            $options[] = ['caption' => $def['label'], 'value' => $key];
+        }
+        $walk = function (&$items) use (&$walk, $options) {
+            foreach ($items as &$it) {
+                if (($it['type'] ?? '') === 'List' && ($it['name'] ?? '') === 'Consumers') {
+                    foreach ($it['columns'] as &$col) {
+                        if (($col['name'] ?? '') === 'Type') {
+                            $col['edit'] = ['type' => 'Select', 'options' => $options];
+                        }
+                    }
+                    unset($col);
+                }
+                if (isset($it['items']) && is_array($it['items'])) {
+                    $walk($it['items']);
+                }
+            }
+            unset($it);
+        };
+        if (isset($form['elements']) && is_array($form['elements'])) {
+            $walk($form['elements']);
+        }
+    }
+
     private function newsBanner()
     {
         if ($this->ReadAttributeString('SeenNews') === self::NEWS_VERSION) {
@@ -238,11 +317,11 @@ class InverterHubEnergy extends IPSModule
     private function ComputeFlow(int $start, int $end): array
     {
         $pv      = $this->PeriodEnergy($this->ReadPropertyInteger('PvEnergyID'),      $start, $end);
-        $gridImp = $this->PeriodEnergy($this->ReadPropertyInteger('GridImportID'),    $start, $end);
-        $gridExp = $this->PeriodEnergy($this->ReadPropertyInteger('GridExportID'),    $start, $end);
+        $gridImp = $this->PeriodEnergy($this->CoreEnergyID('GridImportID', 'gridImport'), $start, $end);
+        $gridExp = $this->PeriodEnergy($this->CoreEnergyID('GridExportID', 'gridExport'), $start, $end);
         $batCh   = $this->PeriodEnergy($this->ReadPropertyInteger('BatChargeID'),     $start, $end);
         $batDis  = $this->PeriodEnergy($this->ReadPropertyInteger('BatDischargeID'),  $start, $end);
-        $houseE  = $this->PeriodEnergy($this->ReadPropertyInteger('HouseLoadID'),     $start, $end);
+        $houseE  = $this->PeriodEnergy($this->CoreEnergyID('HouseLoadID', 'house'),      $start, $end);
 
         $solar   = max(0.0, (float)$pv);
         $gridImp = max(0.0, (float)$gridImp);
@@ -457,7 +536,96 @@ class InverterHubEnergy extends IPSModule
                 'color' => sprintf('#%06x', $color),
             ];
         }
+
+        // Zusätzlich: Einzelverbraucher aus den Funktionszuordnungen der
+        // konfigurierten MeterHub-Instanzen. Als Energiequelle dient deren
+        // Bezugs-Zähler (kWh) — genau das, was das Sankey braucht.
+        foreach ($this->MeterHubAssignments() as $a) {
+            $fn = (string)($a['function'] ?? '');
+            if (!isset(self::MHUB_TYPE_MAP[$fn])) {
+                continue; // Kernwerte (Netz/Haus/PV/Batterie) sind keine Stränge
+            }
+            $vid = (int)($a['energyImportID'] ?? 0);
+            if ($vid <= 0 || !IPS_VariableExists($vid)) {
+                continue;
+            }
+            $type = self::MHUB_TYPE_MAP[$fn];
+            $name = trim((string)($a['label'] ?? ''));
+            $out[] = [
+                'id'    => $vid,
+                'name'  => ($name !== '' ? $name : self::CONSUMER_TYPES[$type]['label']),
+                'color' => sprintf('#%06x', self::CONSUMER_TYPES[$type]['color']),
+            ];
+        }
         return $out;
+    }
+
+    /**
+     * Funktionszuordnungen der konfigurierten MeterHub-Instanzen einlesen.
+     * MeterHub ist optional — fehlt das Modul, bleibt die Liste leer und das
+     * Diagramm verhält sich exakt wie bisher.
+     */
+    private function MeterHubAssignments(): array
+    {
+        $rows = json_decode($this->ReadPropertyString('MeterHubs'), true);
+        if (!is_array($rows) || !function_exists('MHUB_GetFunctions')) {
+            return [];
+        }
+        $out = [];
+        foreach ($rows as $row) {
+            $iid = (int)($row['InstanceID'] ?? 0);
+            if ($iid <= 0 || !IPS_InstanceExists($iid)) {
+                continue;
+            }
+            $data = json_decode((string)@MHUB_GetFunctions($iid), true);
+            if (!is_array($data) || empty($data['assignments'])) {
+                continue;
+            }
+            foreach ($data['assignments'] as $a) {
+                $out[] = $a;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Kern-Energiezähler aus MeterHub: Funktion „Netzanschluss" liefert Bezug
+     * und Einspeisung, „Hausverbrauch" den Hausverbrauchszähler.
+     * Rückgabe: ['gridImport' => ID, 'gridExport' => ID, 'house' => ID].
+     */
+    private function MeterHubEnergyIDs(): array
+    {
+        $core = ['gridImport' => 0, 'gridExport' => 0, 'house' => 0];
+        foreach ($this->MeterHubAssignments() as $a) {
+            $fn  = (string)($a['function'] ?? '');
+            $imp = (int)($a['energyImportID'] ?? 0);
+            $exp = (int)($a['energyExportID'] ?? 0);
+            if ($fn === 'grid') {
+                if ($core['gridImport'] === 0 && $imp > 0 && IPS_VariableExists($imp)) {
+                    $core['gridImport'] = $imp;
+                }
+                if ($core['gridExport'] === 0 && $exp > 0 && IPS_VariableExists($exp)) {
+                    $core['gridExport'] = $exp;
+                }
+            } elseif ($fn === 'house' && $core['house'] === 0 && $imp > 0 && IPS_VariableExists($imp)) {
+                $core['house'] = $imp;
+            }
+        }
+        return $core;
+    }
+
+    /**
+     * Liefert die zu verwendende Zähler-Variable: die direkt zugewiesene hat
+     * Vorrang, sonst greift der passende MeterHub-Zähler.
+     */
+    private function CoreEnergyID(string $prop, string $mhRole): int
+    {
+        $id = $this->ReadPropertyInteger($prop);
+        if ($id > 0 && IPS_VariableExists($id)) {
+            return $id;
+        }
+        $core = $this->MeterHubEnergyIDs();
+        return $core[$mhRole] ?? 0;
     }
 
     private function AllEnergyVarIDs(): array
@@ -470,6 +638,9 @@ class InverterHubEnergy extends IPSModule
             $this->ReadPropertyInteger('BatDischargeID'),
             $this->ReadPropertyInteger('HouseLoadID'),
         ];
+        foreach ($this->MeterHubEnergyIDs() as $mhID) {
+            $ids[] = $mhID;
+        }
         foreach ($this->ReadConsumerRows() as $row) {
             $ids[] = $row['id'];
         }

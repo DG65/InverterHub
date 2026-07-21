@@ -83,6 +83,17 @@
     },
     {
       "type": "ExpansionPanel",
+      "caption": "🔗  Einzelverbraucher aus MeterHub (optional)",
+      "expanded": false,
+      "items": [
+        { "type": "Label", "caption": "MeterHub-Instanzen auswählen — deren Funktionszuordnung wird automatisch als Einzelverbraucher übernommen (Bezeichnung und kWh-Zähler je Funktion). Zusätzlich liefert ein Zähler mit der Funktion „Netzanschluss“ die Zähler für Netzbezug und Netzeinspeisung und einer mit „Hausverbrauch“ den Hausverbrauchszähler — direkt zugewiesene Variablen oben haben dabei Vorrang." },
+        { "type": "Label", "caption": "Voraussetzung wie bei allen Datenpunkten hier: Die Zähler müssen archiviert sein (Aggregation „Zähler“). Funktionen ohne eigene Verbraucher-Art (PV-Erzeugung, Batterie) werden nicht als eigener Strang dargestellt." },
+        { "type": "List", "name": "MeterHubs", "caption": "MeterHub-Instanzen", "rowCount": 4, "add": true, "delete": true, "columns": [
+          { "caption": "Instanz", "name": "InstanceID", "width": "auto", "add": 0, "edit": { "type": "SelectInstance" } } ] }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
       "caption": "Darstellung",
       "expanded": false,
       "items": [
