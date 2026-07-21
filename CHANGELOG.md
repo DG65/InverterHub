@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.58.1-beta.1 (2026-07-21)
+
+- **Monitoring: Hinweis zum Prognose-Modul war irreführend.** Der Tipp bei ausgewähltem
+  Einstrahlungssensor nannte ein Eingabefeld „Fläche je Modul (m²)", das es so nicht mehr gibt —
+  die PV-Prognose berechnet die Modulfläche seit Build 40 aus Modullänge × Modulbreite (mm).
+  Außerdem fehlte die Information, ab welcher Version die Modulfläche überhaupt bereitsteht:
+  erst ab 0.20 / Build 41, im Stable-Kanal (0.19) noch nicht. Der Hinweis nennt jetzt Version
+  und Kanal konkret und stellt klar, dass die **Erwartungswerte im Diagramm auch mit der
+  Stable-Version funktionieren** — nur spez. Leistung / Performance-Ratio brauchen die neuere
+  Fassung. (Angaben mit der Prognose-Seite abgeglichen.)
+
 ## 0.58.0-beta.1 (2026-07-21)
 
 - **Sankey-Kachel: Einzelverbraucher und Energiezähler aus MeterHub.** Neues Panel

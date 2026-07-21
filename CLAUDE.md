@@ -35,8 +35,23 @@ ab Build 40 aus Länge × Breite berechnet statt als m² eingegeben wurde).
 
 Der Zugriff auf `PVF_PR`/`PVGenerators` per `IPS_GetConfiguration` ist **ausschließlich
 Fallback** und läuft nur, wenn der Getter fehlt oder nichts liefert (`PvfModel()`, Zweig ab
-`count($rows) === 0`). Sobald keine Prognose-Version vor Build 41 mehr unterstützt werden
-muss, kann dieser Zweig ersatzlos entfallen.
+`count($rows) === 0`).
+
+**Diesen Fallback nicht entfernen** — er ist derzeit für die *Mehrheit* der Installationen der
+einzige Pfad (Stand von der Prognose-Sitzung bestätigt):
+
+| Prognose-Kanal | Version / Build | `PVF_GetGenerators`, `PVF_GetModuleArea(s)`, Variable `PVF_ModuleArea` |
+|---|---|---|
+| Stable (`main`) | 0.19 / Build 32 | **nicht vorhanden** — nur `Rebuild`, `GetForecast`, `GetStatusText`, `GetSnapshot` |
+| Beta | 0.20-beta / Build 43 | vorhanden (Getter ab Build 41, `GetModuleAreas` ab 39) |
+
+Folge: Auf Stable funktionieren die **Erwartungswerte** über den Konfigurations-Fallback, die
+**Modulfläche** (spez. Leistung / PR) dagegen gar nicht. Die Konfigurationsmaske weist mit
+konkreter Versionsangabe darauf hin. Aufgeräumt wird erst, wenn 0.20 im Stable-Kanal ist und
+die Prognose-Sitzung sich meldet — dann legen beide Seiten gemeinsam eine Mindestversion fest.
+
+Achtung bei Hinweistexten: Die Modulfläche wird **seit Build 40 aus Länge × Breite (mm)**
+berechnet, nicht mehr als m² je Modul eingegeben.
 
 **Nichts eigenmächtig im Prognose-Repo ändern.** Wird ein neuer Getter gebraucht, in der
 Prognose-Sitzung anfragen — sie bauen ihn dort. (Der Getter `PVF_GetGenerators` wurde
