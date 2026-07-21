@@ -18,20 +18,45 @@ Beide sind eigenständig lauffähig und koppeln nur optional aneinander. Die Ber
 **Grundregel:** Keines der Module darf das andere voraussetzen. Fehlt das jeweils andere
 (`IPS_ModuleExists` prüfen), entfallen nur die Zusatzfunktionen — es darf nichts brechen.
 
+### Invarianten der MeterHub-Kopplung
+
+1. **Verbraucher-Arten nur in `CONSUMER_TYPES` pflegen.** Die Auswahlliste der Spalte „Art"
+   wird zur Laufzeit von `injectConsumerTypeOptions()` in `GetConfigurationForm` erzeugt und
+   überschreibt die statischen `options` der `form.json`. Wer eine Art nur in der `form.json`
+   einträgt, erzeugt ein stilles Auseinanderlaufen.
+2. **Vorzeichen des Netz-Kernwerts wird negiert.** MeterHub zählt `+` = Bezug, die Kachel
+   `+` = Einspeisung. Ohne installiertes MeterHub greift ein `function_exists`-Guard und die
+   Kachel verhält sich exakt wie zuvor.
+3. **`form.json` nicht maschinell umformatieren.** Ein `json.dump`-Durchlauf hat dort schon
+   einmal 929 Zeilen für eine 13-zeilige Ergänzung geändert und den Diff unlesbar gemacht.
+   Die kompakte Originalformatierung (2 Leerzeichen, einzeilige Objekte) bitte beibehalten
+   und rein additiv arbeiten.
+
 ## Parallele Sitzungen: Zuständigkeiten
 
 An beiden Repos wird teilweise **gleichzeitig in getrennten Sitzungen** gearbeitet. Beide
 committen auf denselben Branch `beta`. Vereinbarte Aufteilung:
 
-- **MeterHub-Sitzung:** das MeterHub-Repo vollständig, plus die Integrationslogik in
-  InverterHub — `InverterHubTile/module.php`, `form.json`, `CONSUMER_TYPES`, Verbraucher-Icons,
-  also alles zu Daten und Konfiguration.
-- **InverterHub-Sitzung (Darstellung):** die Darstellungsschicht in
-  `InverterHubTile/module.html` — SVG-Geometrie, CSS, Farben, Filter/Verläufe,
-  Browser-Kompatibilität.
+- **MeterHub-Seite:** das MeterHub-Repo vollständig, plus die Integrationslogik in
+  InverterHub — `InverterHubTile/module.php`, `form.json`, `CONSUMER_TYPES`, `MHUB_TYPE_MAP`
+  und die Verbraucher-Icons; ebenso die Anbindung von `InverterHubEnergy` (Sankey) an die
+  MeterHub-Zähler. Also alles zu Daten und Konfiguration.
+- **Darstellungs-Seite:** die Darstellungsschicht in `InverterHubTile/module.html` —
+  SVG-Geometrie, CSS, Farben, Filter/Verläufe, Browser-Kompatibilität. Dazu die
+  Versionspflege in `library.json`.
 
-Echte Überschneidung ist nur `InverterHubTile/module.html` (die eine Seite im JS-Teil, die
-andere in CSS/SVG). Vor größeren Umbauten dort kurz abstimmen.
+**Die Grenze in `module.html` verläuft exakt am `ICONS`-Objekt.** Die MeterHub-Seite arbeitet
+ausschließlich dort: je Verbraucher-Art eine Funktion `name(g)`, die im 32×32-Raster zentriert
+auf (0,0) Kindelemente anhängt (`data-hollow` für offene Konturen). Alles außerhalb von `ICONS`
+— Filter, Verläufe, Layout, viewBox — gehört der Darstellungs-Seite. Strichstärke, Farbgebung
+und Relief lassen sich daher frei ändern, ohne die Icons anzufassen; sie erben das ohnehin.
+
+Wer die **Struktur** von `ICONS` ändern will (Signatur, Rasterkonvention), stimmt das vorher
+ab, damit die andere Seite ihre Icons nachziehen kann.
+
+**Versionsnummern:** `library.json` pflegt die Darstellungs-Seite (sie bumpt häufiger). Wer
+eine Erhöhung braucht, nennt die gewünschte Nummer, statt die Datei selbst zu bearbeiten —
+so bleiben `library.json` und Changelog synchron.
 
 ## Regeln fürs Committen
 
