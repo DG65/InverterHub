@@ -3619,6 +3619,17 @@ class VictronDriver implements InverterDriverInterface
                 ['meter_exp',  'Einspeisung gesamt', 'F', '~Electricity', true, 'energy', 'Σ Reg 2628/2630/2632 (u32, ÷100)'],
                 ['e_pv_total', 'Solarertrag gesamt', 'F', '~Electricity', true, 'energy', 'Σ Laderegler Reg 790 (÷10)'],
                 ['e_pv_day',   'Solarertrag heute',  'F', '~Electricity', true, 'energy', 'Σ Laderegler Reg 784 (÷10)'],
+                // Einzelwerte je Solarladeregler. Auf Anregung von Beta-Tester
+                // loerdy: Sie sind für sich interessant und machen zugleich einen
+                // Zählerüberlauf sichtbar, statt ihn in der Summe zu verstecken.
+                ['mppt1_e_day',   'MPPT 1 Ertrag heute',  'F', '~Electricity', true, 'energy', 'Laderegler 1, Reg 784 (÷10)'],
+                ['mppt1_e_total', 'MPPT 1 Ertrag gesamt', 'F', '~Electricity', true, 'energy', 'Laderegler 1, Reg 790 (÷10)'],
+                ['mppt2_e_day',   'MPPT 2 Ertrag heute',  'F', '~Electricity', true, 'energy', 'Laderegler 2, Reg 784 (÷10)'],
+                ['mppt2_e_total', 'MPPT 2 Ertrag gesamt', 'F', '~Electricity', true, 'energy', 'Laderegler 2, Reg 790 (÷10)'],
+                ['mppt3_e_day',   'MPPT 3 Ertrag heute',  'F', '~Electricity', true, 'energy', 'Laderegler 3, Reg 784 (÷10)'],
+                ['mppt3_e_total', 'MPPT 3 Ertrag gesamt', 'F', '~Electricity', true, 'energy', 'Laderegler 3, Reg 790 (÷10)'],
+                ['mppt4_e_day',   'MPPT 4 Ertrag heute',  'F', '~Electricity', true, 'energy', 'Laderegler 4, Reg 784 (÷10)'],
+                ['mppt4_e_total', 'MPPT 4 Ertrag gesamt', 'F', '~Electricity', true, 'energy', 'Laderegler 4, Reg 790 (÷10)'],
             ]],
             'GroupMppt' => ['caption' => 'PV je Solarladeregler / MPPT (Unit-IDs unten eintragen)', 'vars' => [
                 ['mppt1_power', 'MPPT 1 Leistung', 'F', 'VIC.Watt', true,  'pv', 'Solarladeregler Reg 789 (÷10)'],
@@ -3786,24 +3797,40 @@ class VictronDriver implements InverterDriverInterface
             }
         }
 
-        // --- Solarertrag je Laderegler, aufsummiert -----------------------
-        // ACHTUNG: Beide Register sind nur 16 Bit. Yield/User (790) läuft bei
-        // ÷10 nach 6553,5 kWh über - je nach Anlagengröße nach einigen Jahren.
-        // Ein Überlauf sieht für die Auswertung wie ein Zählerreset aus.
+        // --- Solarertrag je Laderegler ------------------------------------
+        // ACHTUNG: Beide Register sind nur 16 Bit; für die Solarladeregler gibt
+        // es KEINE 32-Bit-Variante und kein /Yield/System. Yield/User (790)
+        // läuft daher bei ÷10 nach 6553,5 kWh über und zählt wieder bei null an.
+        // Bei einem Beta-Tester bestätigt: zwei Regler mit 10616,55 und 9628,06
+        // kWh lieferten 4063,0 + 3074,5 = 7137,5 statt 20244,6 kWh.
+        //
+        // Optional korrigiert das Modul das (siehe YieldCorrected()): Die Zahl
+        // der bisherigen Überläufe wird einmalig aus einem vom Nutzer
+        // eingetragenen Ist-Wert geeicht und danach laufend fortgezählt.
         $ids = $hub->GetVictronMpptUnitIds();
         if (count($ids) > 0) {
             $total = 0.0; $day = 0.0; $any = false;
-            foreach ($ids as $id) {
+            foreach ($ids as $i => $id) {
                 $mb->unitId = $id;
                 $t = $mb->readHolding(790, 1);
                 $d = $mb->readHolding(784, 1);
-                if ($t !== null) { $total += $t[0] / 10.0; $any = true; }
-                if ($d !== null) { $day   += $d[0] / 10.0; $any = true; }
+                $n = $i + 1;
+                if ($t !== null) {
+                    $kwh = $hub->YieldCorrected($id, $i, (int) $t[0]);
+                    $total += $kwh; $any = true;
+                    $hub->SetVarFloat('mppt' . $n . '_e_total', $kwh);
+                }
+                if ($d !== null) {
+                    $dayKwh = $d[0] / 10.0;
+                    $day += $dayKwh; $any = true;
+                    $hub->SetVarFloat('mppt' . $n . '_e_day', $dayKwh);
+                }
             }
             if ($any) {
                 $hub->SetVarFloat('e_pv_total', $total);
                 $hub->SetVarFloat('e_pv_day',   $day);
             }
+            $hub->FlushYieldState();
         }
 
         $mb->unitId = $restore;
@@ -3867,6 +3894,8 @@ class InverterHub extends IPSModule
         // Merkt den zuletzt angewandten Zustand des „Energie in Wh"-Schalters,
         // um Energie-Profile nur bei echter Umstellung neu zu setzen.
         $this->RegisterAttributeBoolean('LastEnergyUnitWh', false);
+        // Zustand der Ueberlaufkorrektur: {unitId: {w: Ueberlaeufe, r: letzter Rohwert}}
+        $this->RegisterAttributeString('VictronYieldState', '{}');
 
         $this->RegisterPropertyBoolean('Active', true);
         $this->RegisterPropertyString('Manufacturer', 'goodwe');
@@ -3892,6 +3921,10 @@ class InverterHub extends IPSModule
         // Unit-ID des Victron-Netzzaehlers (com.victronenergy.grid).
         // 0 = nicht konfiguriert; Netz-Zaehlerstaende entfallen dann.
         $this->RegisterPropertyInteger('VictronGridUnitId', 0);
+        // Ueberlaufkorrektur des Solarertrags (Reg 790 ist nur 16 Bit).
+        $this->RegisterPropertyBoolean('VictronYieldFix', false);
+        // Ist-Werte je Laderegler in kWh, Reihenfolge wie die MPPT-Unit-IDs.
+        $this->RegisterPropertyString('VictronYieldCalib', '');
         $this->RegisterPropertyInteger('HouseLoadMeterID', 0);
         $this->RegisterPropertyString('Host', '');
         $this->RegisterPropertyInteger('Port', 502);
@@ -4136,6 +4169,22 @@ class InverterHub extends IPSModule
                     . 'Hinweis: Der Solarertrag-Gesamtzähler ist geräteseitig nur 16 Bit und läuft nach 6.553,5 kWh über; '
                     . 'Netzbezug und Einspeisung werden dagegen aus 32-Bit-Registern gelesen und sind davon nicht betroffen.',
             ];
+            $groupItems[] = [
+                'type'    => 'CheckBox',
+                'name'    => 'VictronYieldFix',
+                'caption' => 'Solarertrag: Zählerüberlauf korrigieren (nötig ab 6.553,5 kWh je Laderegler)',
+            ];
+            $groupItems[] = [
+                'type'    => 'ValidationTextBox',
+                'name'    => 'VictronYieldCalib',
+                'caption' => 'Eichung: tatsächlicher Gesamtertrag je Laderegler in kWh, kommagetrennt in derselben Reihenfolge wie die Unit-IDs oben',
+            ];
+            $groupItems[] = [
+                'type'    => 'Label',
+                'caption' => 'ℹ Zur Eichung den Wert „Gesamt Lebensdauer" je Laderegler aus der VictronConnect-App bzw. dem GX ablesen und hier eintragen (Beispiel bei zwei Reglern: 10617,9628). Daraus ermittelt das Modul einmalig, wie oft der Zähler bereits übergelaufen ist; danach zählt es weitere Überläufe selbst mit. '
+                    . 'Wird der Ertragszähler am Gerät zurückgesetzt, erkennt das Modul dies und setzt die Korrektur aus — dann bitte neu eichen. '
+                    . 'Die Einzelwerte je Laderegler werden zusätzlich angelegt, damit sichtbar bleibt, was gemessen und was gerechnet ist.',
+            ];
         }
 
         $form = [
@@ -4323,6 +4372,87 @@ class InverterHub extends IPSModule
         } catch (Throwable $e) {
             return false; // Gruppe kennt der aktuelle Treiber nicht
         }
+    }
+
+    // Zustand der Überlaufkorrektur, innerhalb eines Lesezyklus gepuffert und
+    // am Ende gesammelt geschrieben (FlushYieldState) - nicht je Regler einzeln.
+    private $yieldState = null;
+    private $yieldDirty = false;
+
+    /**
+     * Rechnet den 16-Bit-Rohwert des Solarertrags (Reg 790, ÷10) auf den
+     * tatsächlichen Gesamtertrag hoch.
+     *
+     * Hintergrund: Victron stellt diesen Zähler über Modbus nur als UINT16
+     * bereit - bei ÷10 ist bei 6553,5 kWh Schluss, danach zählt er wieder bei
+     * null an. Eine 32-Bit-Variante existiert nicht.
+     *
+     * Verfahren:
+     *  - EICHUNG: Beim ersten Lauf je Regler wird die Zahl der bisherigen
+     *    Überläufe aus dem vom Nutzer eingetragenen Ist-Wert bestimmt (aus der
+     *    Victron-App ablesbar). Ohne Eintrag wird 0 angenommen.
+     *  - FORTZÄHLEN: Sinkt der Rohwert, war es entweder ein Überlauf oder ein
+     *    Reset des Zählers durch den Nutzer. Unterschieden wird über die Höhe:
+     *    Vor einem Überlauf MUSS der Zähler nahe am Maximum stehen. Nur dann
+     *    wird hochgezählt; sonst gilt es als Reset und die Korrektur beginnt
+     *    von vorn (der Nutzer muss dann neu eichen).
+     *
+     * Ist die Korrektur abgeschaltet, wird der Rohwert unverändert geliefert.
+     */
+    public function YieldCorrected(int $unitId, int $index, int $raw): float
+    {
+        if (!$this->ReadPropertyBoolean('VictronYieldFix')) {
+            return $raw / 10.0;
+        }
+        if ($this->yieldState === null) {
+            $s = json_decode($this->ReadAttributeString('VictronYieldState'), true);
+            $this->yieldState = is_array($s) ? $s : [];
+        }
+        $key = (string) $unitId;
+
+        if (!isset($this->yieldState[$key])) {
+            // Eichung aus dem eingetragenen Ist-Wert des Geräts.
+            $calib = $this->GetVictronYieldCalib();
+            $true  = (float) ($calib[$index] ?? 0.0);
+            $wraps = ($true > 0.0) ? intdiv((int) round($true * 10), 65536) : 0;
+        } else {
+            $wraps = (int) $this->yieldState[$key]['w'];
+            $last  = (int) $this->yieldState[$key]['r'];
+            if ($raw < $last) {
+                // Überlauf nur annehmen, wenn der Zähler vorher nahe am Maximum
+                // stand. Ein Nutzer-Reset kommt von einem beliebigen Wert und
+                // darf NICHT als Überlauf gezählt werden - das addierte sonst
+                // fälschlich 6553,6 kWh.
+                if ($last >= 60000 && $raw <= 5000) {
+                    $wraps++;
+                } else {
+                    $wraps = 0; // Reset erkannt: Korrektur ist ungültig geworden
+                }
+            }
+        }
+
+        $this->yieldState[$key] = ['w' => $wraps, 'r' => $raw];
+        $this->yieldDirty = true;
+        return ($wraps * 65536 + $raw) / 10.0;
+    }
+
+    /** Gepufferten Korrekturzustand schreiben (einmal je Lesezyklus). */
+    public function FlushYieldState(): void
+    {
+        if ($this->yieldDirty && $this->yieldState !== null) {
+            $this->WriteAttributeString('VictronYieldState', json_encode($this->yieldState));
+            $this->yieldDirty = false;
+        }
+    }
+
+    /** Eichwerte (tatsächlicher Gesamtertrag je Laderegler, kWh), Reihenfolge wie die Unit-IDs. */
+    public function GetVictronYieldCalib(): array
+    {
+        $out = [];
+        foreach (explode(',', $this->ReadPropertyString('VictronYieldCalib')) as $part) {
+            $out[] = (float) str_replace(',', '.', trim($part));
+        }
+        return $out;
     }
 
     /**

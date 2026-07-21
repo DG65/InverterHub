@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.62.0-beta.1 (2026-07-21)
+
+- **Victron: Solarertrag je Laderegler und Korrektur des Zählerüberlaufs.** Beta-Tester loerdy
+  hat nachgewiesen, dass der Gesamtertrag zu niedrig war: Victron stellt diesen Zähler über
+  Modbus nur als **16-Bit**-Register bereit (kein `/Yield/System`, keine 32-Bit-Variante), es
+  läuft bei ÷10 nach **6.553,5 kWh** über. Bei seinen zwei Reglern mit 10.616,55 und 9.628,06 kWh
+  wurden dadurch 4.063,0 + 3.074,5 = **7.137,5 statt 20.244,6 kWh** gelesen.
+  - **Einzelwerte je Laderegler** (Ertrag heute und gesamt) werden jetzt zusätzlich angelegt —
+    auf loerdys Anregung. Sie sind für sich nützlich und machen einen Überlauf sichtbar, statt
+    ihn in der Summe zu verstecken.
+  - **Optionale Überlaufkorrektur** (Vorgabe: aus). Einmalig wird der tatsächliche Zählerstand
+    je Laderegler aus der VictronConnect-App eingetragen; daraus ermittelt das Modul die Zahl
+    der bisherigen Überläufe und zählt weitere selbst mit.
+  - **Schutz gegen Fehlkorrektur:** Ein Überlauf wird nur angenommen, wenn der Zähler vorher
+    nahe am Maximum stand. Ein vom Nutzer am Gerät zurückgesetzter Ertragszähler sieht sonst
+    genauso aus und würde fälschlich 6.553,6 kWh addieren. Wird ein Reset erkannt, setzt das
+    Modul die Korrektur aus, statt still falsch weiterzurechnen — dann ist neu zu eichen.
+  - Ohne Korrektur bleibt das Verhalten unverändert; für Anlagen unter 6.553 kWh je Regler
+    ändert sich nichts.
+
 ## 0.61.0-beta.1 (2026-07-21)
 
 - **Victron: Energiezähler (Netzbezug/-einspeisung, Solarertrag).** Neue optionale Gruppe
