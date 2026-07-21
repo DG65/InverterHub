@@ -110,6 +110,8 @@ class InverterHubEnergy extends IPSModule
         $this->RegisterPropertyString('Consumers', '[]');
         // MeterHub-Instanzen, deren Funktionszuordnung übernommen wird.
         $this->RegisterPropertyString('MeterHubs', '[]');
+        // HeishaMon-Instanzen (Wärmepumpe), Vertrag HEISHA_GetFunctions.
+        $this->RegisterPropertyString('HeishaMons', '[]');
 
         // Diagramm-Engine: echarts | highcharts (wie in der Prognosekachel).
         $this->RegisterPropertyString('Engine', 'echarts');
@@ -556,6 +558,57 @@ class InverterHubEnergy extends IPSModule
                 'name'  => ($name !== '' ? $name : self::CONSUMER_TYPES[$type]['label']),
                 'color' => sprintf('#%06x', self::CONSUMER_TYPES[$type]['color']),
             ];
+        }
+
+        // Wärmepumpen aus HeishaMon (Vertrag HEISHA_GetFunctions ab v1.1.1).
+        // WICHTIG: Nur mit gesetzter EnergyID — das ist der kumulative kWh-Stand
+        // eines externen Zählers. Ist sie 0, gibt es keinen brauchbaren Zähler;
+        // die Leistung darf hier NICHT zu Energie hochgerechnet werden, und
+        // HeishaMons „Stromverbrauch heute" ist als Tageswert ebenfalls
+        // ungeeignet (springt um Mitternacht auf 0).
+        foreach ($this->HeishaAssignments() as $a) {
+            $vid = (int)($a['EnergyID'] ?? 0);
+            if ($vid <= 0 || !IPS_VariableExists($vid)) {
+                continue;
+            }
+            $type = 'heatpump';
+            $name = trim((string)($a['Caption'] ?? ''));
+            $out[] = [
+                'id'    => $vid,
+                'name'  => ($name !== '' ? $name : self::CONSUMER_TYPES[$type]['label']),
+                'color' => sprintf('#%06x', self::CONSUMER_TYPES[$type]['color']),
+            ];
+        }
+        return $out;
+    }
+
+    /**
+     * Wärmepumpen-Zuordnungen der konfigurierten HeishaMon-Instanzen.
+     * Vertrag (HeishaMon ab v1.1.1): HEISHA_GetFunctions($id) liefert eine
+     * Liste aus ['Type','Caption','PowerID','EnergyID','Measured'].
+     * HeishaMon ist optional — fehlt das Modul, bleibt die Liste leer.
+     */
+    private function HeishaAssignments(): array
+    {
+        $rows = json_decode($this->ReadPropertyString('HeishaMons'), true);
+        if (!is_array($rows) || !function_exists('HEISHA_GetFunctions')) {
+            return [];
+        }
+        $out = [];
+        foreach ($rows as $row) {
+            $iid = (int)($row['InstanceID'] ?? 0);
+            if ($iid <= 0 || !IPS_InstanceExists($iid)) {
+                continue;
+            }
+            $list = @HEISHA_GetFunctions($iid);
+            if (!is_array($list)) {
+                continue;
+            }
+            foreach ($list as $a) {
+                if (is_array($a)) {
+                    $out[] = $a;
+                }
+            }
         }
         return $out;
     }

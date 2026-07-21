@@ -292,7 +292,7 @@
     },
     {
       "type": "ExpansionPanel",
-      "caption": "🔗  Verbraucher aus MeterHub (optional)",
+      "caption": "🔗  Verbraucher aus anderen Modulen (MeterHub, HeishaMon)",
       "expanded": false,
       "items": [
         {
@@ -300,6 +300,9 @@
           "caption": "MeterHub-Instanzen auswählen — die Kachel übernimmt deren Funktionszuordnung automatisch als Verbraucher-Kreise (Art, Bezeichnung und Leistungs-Variable). Das Pflegen der Liste oben entfällt dafür. Zusätzlich speist ein Zähler mit der Funktion „Netzanschluss“ die Netz-Leistung und einer mit „Hausverbrauch“ die gemessene Hauslast — dadurch läuft die Kachel auch ganz ohne InverterHub-Instanz. Funktionen ohne eigene Verbraucher-Art (PV-Erzeugung, Batterie) werden nicht als Kreis dargestellt."
         },
         { "type": "List", "name": "MeterHubs", "caption": "MeterHub-Instanzen", "rowCount": 4, "add": true, "delete": true, "columns": [
+          { "caption": "Instanz", "name": "InstanceID", "width": "auto", "add": 0, "edit": { "type": "SelectInstance" } } ] },
+        { "type": "Label", "caption": "HeishaMon (Panasonic-Wärmepumpe): Ausgewählte Instanzen erscheinen als Wärmepumpen-Kreis mit ihrer elektrischen Gesamtleistung. Ist am HeishaMon kein externer Stromzähler hinterlegt, ist dieser Wert eine Schätzung im ~200-W-Raster — die Kachel stellt ihn dann bewusst gröber dar, statt eine Genauigkeit vorzutäuschen, die er nicht hat." },
+        { "type": "List", "name": "HeishaMons", "caption": "HeishaMon-Instanzen (Wärmepumpe)", "rowCount": 3, "add": true, "delete": true, "columns": [
           { "caption": "Instanz", "name": "InstanceID", "width": "auto", "add": 0, "edit": { "type": "SelectInstance" } } ] }
       ]
     },

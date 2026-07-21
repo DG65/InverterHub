@@ -137,6 +137,8 @@ class InverterHubTile extends IPSModule
         $this->RegisterPropertyString('Consumers', '[]');
         // MeterHub-Instanzen, deren Funktionszuordnung übernommen wird.
         $this->RegisterPropertyString('MeterHubs', '[]');
+        // HeishaMon-Instanzen (Wärmepumpe), Vertrag HEISHA_GetFunctions.
+        $this->RegisterPropertyString('HeishaMons', '[]');
         // Fahrzeuge (für Wallboxen): Bezeichnung, Verbunden-Bedingung, SOC.
         $this->RegisterPropertyString('Vehicles', '[]');
         // Zeitfenster für die automatische Zuordnung Fahrzeug <-> Wallbox.
@@ -306,10 +308,68 @@ class InverterHubTile extends IPSModule
                 'icon'    => self::CONSUMER_TYPES[$type]['icon'],
                 'color'   => sprintf('#%06x', self::CONSUMER_TYPES[$type]['color']),
                 'unit'    => 'w', // MeterHub liefert Leistung immer in Watt
+                // MeterHub ist ein echter Zähler — der Wert ist gemessen.
+                'measured' => true,
                 'plugID'  => 0,
                 'plugOp'  => 'truthy',
                 'plugVal' => '',
             ];
+        }
+
+        // Wärmepumpen aus HeishaMon (Vertrag HEISHA_GetFunctions ab v1.1.1).
+        foreach ($this->HeishaAssignments() as $a) {
+            $vid = (int)($a['PowerID'] ?? 0);
+            if ($vid <= 0 || !IPS_VariableExists($vid)) {
+                continue;
+            }
+            $type = 'heatpump'; // Vertrag liefert derzeit ausschließlich diesen Typ
+            $name = trim((string)($a['Caption'] ?? ''));
+            $out[] = [
+                'id'      => $vid,
+                'type'    => $type,
+                'name'    => ($name !== '' ? $name : self::CONSUMER_TYPES[$type]['label']),
+                'icon'    => self::CONSUMER_TYPES[$type]['icon'],
+                'color'   => sprintf('#%06x', self::CONSUMER_TYPES[$type]['color']),
+                'unit'    => 'w', // „Elektrische Leistung (gesamt)" ist in W
+                // false = HeishaMon-Schätzung (grob in ~200-W-Stufen), nicht
+                // gemessen. Die Kachel stellt solche Werte gröber dar, statt
+                // Scheingenauigkeit vorzutäuschen.
+                'measured' => (bool)($a['Measured'] ?? false),
+                'plugID'  => 0,
+                'plugOp'  => 'truthy',
+                'plugVal' => '',
+            ];
+        }
+        return $out;
+    }
+
+    /**
+     * Wärmepumpen-Zuordnungen der konfigurierten HeishaMon-Instanzen.
+     * Vertrag (HeishaMon ab v1.1.1): HEISHA_GetFunctions($id) liefert eine
+     * Liste aus ['Type','Caption','PowerID','EnergyID','Measured'].
+     * HeishaMon ist optional — fehlt das Modul, bleibt die Liste leer.
+     */
+    private function HeishaAssignments(): array
+    {
+        $rows = json_decode($this->ReadPropertyString('HeishaMons'), true);
+        if (!is_array($rows) || !function_exists('HEISHA_GetFunctions')) {
+            return [];
+        }
+        $out = [];
+        foreach ($rows as $row) {
+            $iid = (int)($row['InstanceID'] ?? 0);
+            if ($iid <= 0 || !IPS_InstanceExists($iid)) {
+                continue;
+            }
+            $list = @HEISHA_GetFunctions($iid);
+            if (!is_array($list)) {
+                continue;
+            }
+            foreach ($list as $a) {
+                if (is_array($a)) {
+                    $out[] = $a;
+                }
+            }
         }
         return $out;
     }
@@ -854,6 +914,11 @@ class InverterHubTile extends IPSModule
                 'icon'  => $row['icon'],
                 'color' => $row['color'],
                 'w'     => round($this->VarWatts($row['id'], $row['unit'])),
+                // false = der Wert ist geschätzt, nicht gemessen (derzeit nur
+                // HeishaMon ohne externen Zähler, Raster ~200 W). Die Anzeige
+                // soll ihn dann gröber darstellen statt Scheingenauigkeit zu
+                // suggerieren. Manuell zugewiesene Variablen gelten als gemessen.
+                'measured' => (bool)($row['measured'] ?? true),
             ];
 
             // Wallboxen: Auto-Symbol mit dem Ladestand des Fahrzeugs, das
