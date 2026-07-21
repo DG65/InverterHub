@@ -113,6 +113,21 @@ Fassung steht in der `CLAUDE.md` des MeterHub-Repos (Abschnitt „Konvention fü
 - **Energie nur aus kumulativen Zählern.** Fehlt einer, wird die Größe weggelassen statt aus
   der Leistung hochgerechnet.
 
+**Mehrere Module dürfen denselben Vertrag erfüllen.** `MHUB_GetFunctions` (echte Zähler),
+`MHUBV_GetFunctions` (virtuelle Zähler aus MeterHubVirtual) und `HEISHA_GetFunctions`
+(Wärmepumpe) liefern dieselbe Struktur. Die konsumierende Seite unterscheidet sie über die
+**Modul-GUID der gewählten Instanz**, nicht durch Rateversuche am Präfix:
+
+```php
+private const METERHUB_GUID         = '{BAB8E05C-9150-43B9-9F2B-E5215FA54F0A}';
+private const METERHUB_VIRTUAL_GUID = '{ADF18291-2E60-4354-92F5-B96863C127C8}';
+```
+
+Der Reihe nach Präfixe durchzuprobieren würde zwar dank `function_exists` nicht abstürzen,
+verschleiert aber, welche Quelle gemeint war, und bricht, sobald zwei Anbieter gleichzeitig
+installiert sind. Für den Nutzer bleibt es eine Liste: Die vorhandenen `MeterHubs`-Listen
+nehmen echte **und** virtuelle Zähler auf.
+
 ### Zusammenarbeit der Sitzungen
 
 Die Sitzungen **teilen kein Gedächtnis**. Was einer gesagt wird, wissen die anderen nicht — der

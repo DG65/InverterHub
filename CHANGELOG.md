@@ -2,6 +2,12 @@
 
 ## 0.63.0-beta.1 (2026-07-21)
 
+- **Virtuelle Zähler in Kachel und Sankey.** Das neue MeterHub-Modul „MeterHubVirtual" bildet
+  berechnete Zähler aus der Verdrahtung mehrerer echter Zähler (z. B. „Hausanschluss minus
+  Wärmepumpe und Wallbox"). Solche Zähler erfüllen denselben Vertrag wie echte und erscheinen
+  daher in der Stromflusskachel und im Sankey wie gewohnt — sie werden einfach in derselben
+  MeterHub-Liste ausgewählt. Ohne das Modul ändert sich nichts.
+
 - **Fronius: Isolationswiderstand.** Er wird jetzt aus dem SunSpec-Modell 122
   („Measurements Status") gelesen und in der Gruppe „Geräteinformation" angelegt.
   Zur Richtigstellung: Es hieß zuvor, der Wert sei nicht verfügbar — das galt nur für die
