@@ -226,9 +226,17 @@ Diese Ableitung also nirgends wieder einführen.
 **Auswirkung auf die Darstellung:** Ohne externen Zähler schätzt HeishaMon die Leistung nur im
 **~200-W-Raster**. `fmtKw()` in `module.html` rendert deshalb bei `measured === false` eine
 Nachkommastelle mit vorangestelltem `≈` statt drei Stellen — „0,034 kW" wäre dort
-Scheingenauigkeit. Das Modul setzt `measured` im Payload **immer** (bei manuellen Verbrauchern
-und Zählern hart `true`), eine Prüfung auf „Feld fehlt" ist also nicht nötig; ein fehlendes
-Feld gilt trotzdem als gemessen.
+Scheingenauigkeit. Das Modul setzt `measured` im Payload **immer** — bei MeterHub-Zählern
+explizit `true`, bei manuell zugewiesenen Verbrauchern per **Vorgabe** `true` (die Zeile trägt
+das Feld nicht, der Payload ergänzt es über `?? true`). Eine Prüfung auf „Feld fehlt" ist
+daher nicht nötig; ein fehlendes Feld gilt trotzdem als gemessen, weil `fmtKw()` nur auf
+`=== false` reagiert.
+
+Der Unterschied ist beim Umbau wichtig: Wer die Zeilenstruktur der manuellen Verbraucher
+ändert und annimmt, das Feld sei dort bereits gesetzt, verliert die Vorgabe. Aus demselben
+Grund prüft die Anzeige strikt auf `=== false` und nicht auf `!measured` — der Mittelknoten
+(Hauslast) ruft `setValueText()` ohne dritten Parameter auf, `measured` ist dort `undefined`
+und muss weiterhin dreistellig bleiben.
 
 **Sankey:** Die Wärmepumpe wird nur berücksichtigt, wenn `EnergyID` gesetzt ist. Ist sie 0,
 entfällt der Strang bewusst — aus der Leistung wird **keine** Energie hochgerechnet. HeishaMons
