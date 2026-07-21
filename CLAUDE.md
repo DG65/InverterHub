@@ -1,14 +1,66 @@
 # Hinweise für die Arbeit an diesem Repository
 
-## Verwandte Repositories
+## Der Modul-Verbund
 
-An diesen drei Repos wird teilweise **gleichzeitig in getrennten Sitzungen** gearbeitet:
+Dieses Repo gehört zu einer Gruppe eigenständiger IP-Symcon-Module, die zusammenwirken. An
+ihnen wird teilweise **gleichzeitig in getrennten Sitzungen** gearbeitet, die sich auf
+gemeinsame Regeln und dokumentierte Schnittstellen geeinigt haben.
 
-- **InverterHub** (dieses Repo): Wechselrichter per Modbus TCP — https://github.com/DG65/InverterHub
-- **MeterHub**: Energiezähler per Modbus TCP — https://github.com/DG65/MeterHub
-  (lokale Arbeitskopie: `../MeterHub`)
-- **Prognose** (Suite EnergiePrognose): PV- und Verbrauchsprognose — https://github.com/DG65/Prognose
-  (lokale Arbeitskopie: `../Prognose`)
+| Modul | Rolle | Repo / lokale Kopie | Vertrag zu uns |
+|---|---|---|---|
+| **InverterHub** (dieses Repo) | Wechselrichter messen, darstellen, steuern | `DG65/InverterHub` | — |
+| **MeterHub** | Energiezähler (Modbus TCP) | `DG65/MeterHub` · `../MeterHub` | `MHUB_GetFunctions($id)` |
+| **Prognose** (EnergiePrognose) | PV- und Verbrauchsprognose | `DG65/Prognose` · `../Prognose` | `PVF_GetGenerators`, `PVF_GetModuleArea(s)`, `PVF_GetForecast` |
+| **HeishaMon** | Panasonic-Wärmepumpe | `DG65/HeishaMon` | `HEISHA_GetFunctions($id)` (ab v1.1.1) |
+| **StromGedacht** | Netzampel (TransnetBW) | `DG65/StromGedachtWidget` | noch keiner; `SGW_GetState()` auf Zuruf zugesagt |
+| **Tibber Grid Rewards** | Erlös-/Vermarktungssignale | `DG65/TibberGridRewards` | keiner; Statusvariablen `Delivering`, `GridRewardMode`, `GridRewardWallboxRequest` |
+| **Tessie** | Tesla-Fahrzeuge (Wallbox-SOC) | `DG65/Tessie` | bewusst keiner — rein konfigurativ |
+| **EMS** | Entscheidungslogik / Batteriefahrweise | EMS-Repo · `../EMS` | noch keiner (`EMS_GetStatus`, `EMS_SetECOWindow`, `EMS_PlanNightCharge`) |
+
+**Grundregel für alle:** Kein Modul darf ein anderes voraussetzen. Kopplungen liegen hinter
+`function_exists(...)` bzw. `IPS_ModuleExists(...)`; fehlt der Partner, entfallen nur
+Zusatzfunktionen — es darf nichts brechen.
+
+### Steuerhoheit: nur das EMS regelt die Batterie
+
+Wichtigste Absprache im Verbund, weil sie sonst schwer auffindbare Fehler erzeugt:
+
+1. **Das EMS ist die einzige Steuerhoheit auf der Batterie.** Es entscheidet.
+2. **InverterHub ist reine Ausführungsschicht** — wir setzen um, wir entscheiden nicht.
+3. **Signalmodule steuern nicht direkt durch.**
+
+Hintergrund: StromGedacht und Tibber Grid Rewards besitzen beide generische
+„Wenn→Dann"-Regel-Engines, mit denen sich **ohne eine Zeile Code** Regeln auf InverterHub- oder
+GoodweET-Variablen legen ließen. Dann plant das EMS ein ECO-Fenster, während parallel eine
+Regel eine Ladevorgabe schreibt — zwei Regler auf derselben Batterie, beide „korrekt". Beide
+Signal-Sitzungen haben dieser Rollenverteilung zugestimmt.
+
+### Konvention für neue `*_GetFunctions`-Verträge
+
+Kommt ein neues Partnermodul dazu, ist `MHUB_GetFunctions` die **Referenz**. Die ausführliche
+Fassung steht in der `CLAUDE.md` des MeterHub-Repos (Abschnitt „Konvention für
+`*_GetFunctions`-Verträge"); in Kurzform:
+
+- **Liste statt Einzelobjekt**, auch bei nur einem Eintrag — spätere Aufteilungen brechen die
+  Signatur dann nicht.
+- Empfohlene Felder: `function`, `label`, `powerID` (W), `energyImportID`/`energyExportID`
+  (kumulative kWh), `measured` (bool).
+- **Veröffentlichte Verträge werden nicht umbenannt.** Abweichende Feldnamen übersetzt die
+  konsumierende Seite; Änderungen nur additiv und nach Ankündigung.
+- **Genauigkeit braucht ein eigenes Flag** — nicht aus `energyID == 0` ableiten (siehe
+  HeishaMon-Fall unten).
+- **Energie nur aus kumulativen Zählern.** Fehlt einer, wird die Größe weggelassen statt aus
+  der Leistung hochgerechnet.
+
+### Zusammenarbeit der Sitzungen
+
+Die Sitzungen **teilen kein Gedächtnis**. Was einer gesagt wird, wissen die anderen nicht — der
+Abgleich funktioniert ausschließlich über ausdrückliche Nachrichten. Es gibt **keine Hierarchie**
+zwischen ihnen; die Zuständigkeiten unten sind Absprache, nicht Rangordnung. Auftraggeber ist
+der Repo-Eigentümer.
+
+Bei Anliegen, die mehrere Module betreffen, wird die zuständige Sitzung angesprochen und
+gebeten, es weiterzureichen — nicht im fremden Repo selbst gearbeitet.
 
 ## Kopplung an die PV-Prognose (Prognose-Repo, Präfix `PVF`)
 
@@ -125,6 +177,43 @@ bewusst **nicht** gemappt.
    Die kompakte Originalformatierung (2 Leerzeichen, einzeilige Objekte) bitte beibehalten
    und rein additiv arbeiten.
 
+## Kopplung an HeishaMon (Wärmepumpe, Präfix `HEISHA`)
+
+Folgt demselben Muster wie MeterHub. Vertrag ab HeishaMon v1.1.1:
+
+```php
+HEISHA_GetFunctions(int $id): array
+// [[ 'Type' => 'heatpump', 'Caption' => string,
+//    'PowerID' => int,   // W, "Elektrische Leistung (gesamt)"
+//    'EnergyID' => int,  // kumulative kWh des externen Zählers, 0 = keiner
+//    'Measured' => bool  // Genauigkeit von PowerID
+// ]]
+```
+
+Die abweichenden Feldnamen (`Type`/`Caption`/… statt `function`/`label`/…) werden **bei uns**
+übersetzt — der Vertrag war bereits im Store veröffentlicht, als die Konvention entstand, und
+veröffentlichte Verträge werden nicht umbenannt.
+
+**Der HeishaMon-Fall — warum Genauigkeit ein eigenes Flag braucht:**
+Ursprünglich war vorgeschlagen, „gemessen vs. geschätzt" aus `EnergyID == 0` abzuleiten. Das
+trägt nicht: Im Panel „Externer Stromzähler" lassen sich Leistungs- **und/oder**
+Energievariable zuweisen. Bei „nur Leistung" ist der Wert **gemessen**, `EnergyID` aber
+trotzdem 0 — er wäre fälschlich als Schätzung eingestuft worden. Deshalb gibt es `Measured`.
+Diese Ableitung also nirgends wieder einführen.
+
+**Auswirkung auf die Darstellung:** Ohne externen Zähler schätzt HeishaMon die Leistung nur im
+**~200-W-Raster**. `fmtKw()` in `module.html` rendert deshalb bei `measured === false` eine
+Nachkommastelle mit vorangestelltem `≈` statt drei Stellen — „0,034 kW" wäre dort
+Scheingenauigkeit. Das Modul setzt `measured` im Payload **immer** (bei manuellen Verbrauchern
+und Zählern hart `true`), eine Prüfung auf „Feld fehlt" ist also nicht nötig; ein fehlendes
+Feld gilt trotzdem als gemessen.
+
+**Sankey:** Die Wärmepumpe wird nur berücksichtigt, wenn `EnergyID` gesetzt ist. Ist sie 0,
+entfällt der Strang bewusst — aus der Leistung wird **keine** Energie hochgerechnet. HeishaMons
+Variable „Stromverbrauch heute" ist als Quelle ungeeignet: Sie wird um Mitternacht auf 0
+zurückgesetzt, was innerhalb einer Periode plausibel aussehende falsche Werte liefert und über
+den Rücksetzpunkt hinweg den Knoten kommentarlos entfallen lässt.
+
 ## Parallele Sitzungen: Zuständigkeiten
 
 An beiden Repos wird teilweise **gleichzeitig in getrennten Sitzungen** gearbeitet. Beide
@@ -133,10 +222,32 @@ committen auf denselben Branch `beta`. Vereinbarte Aufteilung:
 - **MeterHub-Seite:** das MeterHub-Repo vollständig, plus die Integrationslogik in
   InverterHub — `InverterHubTile/module.php`, `form.json`, `CONSUMER_TYPES`, `MHUB_TYPE_MAP`
   und die Verbraucher-Icons; ebenso die Anbindung von `InverterHubEnergy` (Sankey) an die
-  MeterHub-Zähler. Also alles zu Daten und Konfiguration.
+  MeterHub-Zähler und die Anbindung weiterer Funktionsquellen (z. B. HeishaMon). Also alles zu
+  Daten und Konfiguration.
 - **Darstellungs-Seite:** die Darstellungsschicht in `InverterHubTile/module.html` —
   SVG-Geometrie, CSS, Farben, Filter/Verläufe, Browser-Kompatibilität. Dazu die
-  Versionspflege in `library.json`.
+  Versionspflege in `library.json` **samt Changelog** (beides gehört zusammen; wer eine
+  Erhöhung braucht, nennt Nummer und Text, statt die Dateien selbst zu bearbeiten).
+
+### Wegweiser: welches Anliegen gehört wohin
+
+| Anliegen | Zuständig |
+|---|---|
+| Wechselrichter-Treiber, Register, neue Hersteller, Gerätesuche | InverterHub (Kernmodule) |
+| Aussehen der Kacheln — SVG, CSS, Farben, Browser-Probleme | InverterHub (Darstellung) |
+| Versionsnummern und Changelog in diesem Repo | InverterHub (Darstellung) |
+| Energiezähler, MeterHub-Repo | MeterHub |
+| Verbraucher/Zähler in Kachel und Sankey (`module.php`, `form.json`) | MeterHub |
+| PV- und Verbrauchsprognose, Erwartungswerte | Prognose |
+| Wärmepumpe (Daten, Steuerbefehle) | HeishaMon |
+| Netzampel | StromGedacht |
+| Grid Rewards / Vermarktungssignale | Tibber Grid Rewards |
+| Fahrzeuge, Wallbox-SOC | Tessie |
+| Batteriesteuerung, Entscheidungslogik | EMS |
+
+Bei Tester-Rückmeldungen nach **Symptom** zuordnen, nicht nach Modulname: „Werte falsch" →
+das Modul, das sie liest; „sieht falsch aus" → Darstellung; „Verbraucher fehlt in der Kachel" →
+MeterHub.
 
 **Die Grenze in `module.html` verläuft exakt am `ICONS`-Objekt.** Die MeterHub-Seite arbeitet
 ausschließlich dort: je Verbraucher-Art eine Funktion `name(g)`, die im 32×32-Raster zentriert
