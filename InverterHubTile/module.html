@@ -36,20 +36,16 @@
      statt Flexbox, da ein Flex-Kind mit width/height:100% in manchen
      Kachel-Hosts nicht zuverlässig auf die tatsächliche Containergröße
      schrumpft und dadurch Inhalt am Rand abgeschnitten wurde. */
-  /* position:relative macht den body zum Bezugsrahmen für den absolut
-     positionierten Inhalt - der Inhalt folgt damit der BOX, die der Kachel-Host
-     vergibt. */
   html, body { width: 100%; height: 100%; background: transparent; user-select: none; overflow: hidden; }
-  body { position: relative; }
 
-  /* Bewusst absolute statt fixed: fixed bindet an den Viewport des Kachel-
-     iframes. Die Tile-Oberfläche ist eine Flutter-Web-App, die HTML-Kacheln als
-     iframe in einen Platform-View einbettet; beim Maximieren entspricht der
-     iframe-Viewport nicht mehr dem sichtbaren Kachelbereich, wodurch der
-     viewport-gebundene Inhalt nicht mehr erschien. Mit absolute folgt das SVG
-     der body-Box. Alle anderen Kacheln (auch die von Symcon) verzichten
-     ebenfalls auf fixed. */
-  .flow-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  /* position:fixed bindet das SVG an den Viewport der Kachel statt an die
+     body-Box. Bei manchen Kachel-Hosts ist die body-Höhe größer als der
+     tatsächlich sichtbare Bereich, wodurch der Inhalt zwar korrekt in die
+     (zu große) Box eingepasst, unten aber abgeschnitten wurde.
+     (Hinweis: Das Maximieren-Symbol der Kachel oeffnet NICHT die vergroesserte
+     Kachel, sondern die Objekt-Detailansicht des Hosts - das ist unabhaengig
+     von dieser Positionierung.) */
+  .flow-svg { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 
   text { font-family: var(--font); }
 
@@ -57,8 +53,7 @@
      Fläche, feine Kante, glühender Punkt. Fest in der unteren linken Ecke -
      unabhängig von der SVG-viewBox, daher kein Nachziehen beim Resize. */
   .status-overlay {
-    /* absolute statt fixed - siehe Begründung bei .flow-svg */
-    position: absolute; left: 4px; bottom: 4px; z-index: 2;
+    position: fixed; left: 4px; bottom: 4px; z-index: 2;
     display: inline-flex; align-items: center; gap: 8px;
     height: 26px; padding: 0 13px 0 11px;
     border-radius: 13px;

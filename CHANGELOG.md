@@ -16,8 +16,15 @@
   MeterHub vollständig ab.
 - **Intern:** Die Auswahlliste der Verbraucher-Arten wird jetzt aus `CONSUMER_TYPES` erzeugt
   statt statisch in der `form.json` gepflegt — eine Quelle, kein Auseinanderlaufen mehr.
+- **Änderung aus 0.56.6 zurückgenommen (`position: absolute` → wieder `fixed`).** Das
+  Maximieren-Symbol der Kachel vergrößert die Kachel gar nicht, sondern öffnet die
+  **Objekt-Detailansicht** des Hosts (Variablenliste der Instanz). Das betrifft alle
+  HTML-SDK-Kacheln gleichermaßen — auch Symcons eigene Referenzkachel zeigt dort ihre
+  Variablen statt ihres HTML. Bei unserer Kachel wirkt diese Ansicht leer, weil die
+  Tile-Instanz keine eigenen Variablen besitzt. Es lag also kein Fehler im Kachel-Layout
+  vor; die Positionierung ist auf den erprobten Stand zurückgesetzt.
 
-## 0.56.6-beta.1 (2026-07-21)
+## 0.56.6-beta.1 (2026-07-21) — zurückgenommen, siehe 0.57.0-beta.1
 
 - **Kachel: kein Inhalt beim Maximieren.** Das Diagramm war per `position: fixed` an den
   Viewport des Kachel-iframes gebunden statt an die Box, die der Kachel-Host vergibt. Die
