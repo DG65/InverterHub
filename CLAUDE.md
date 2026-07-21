@@ -31,7 +31,7 @@ hart ab, statt die Zusatzfunktion wegzulassen.
 Damit die Zusage jederzeit belegbar ist statt nur behauptet:
 
 ```
-php tools/check-standalone.php
+php .tools/check-standalone.php
 ```
 
 Der Prüfer durchsucht alle PHP-Dateien nach Aufrufen fremder Modulpräfixe (`MHUB_`, `PVF_`,
@@ -42,6 +42,17 @@ auslösen. Rückgabewert 0 = sauber, 1 = mindestens eine ungesicherte Stelle (f�
 
 **Vor jedem Release ausführen**, und bei jeder neuen Kopplung. Kommt ein Partnermodul dazu,
 dessen Präfix in `FOREIGN_PREFIXES` ergänzen — sonst prüft der Prüfer daran vorbei.
+
+### Keine sichtbaren Hilfsordner im Repo-Wurzelverzeichnis
+
+Der Ordner heißt `.tools` mit **führendem Punkt**, und das muss so bleiben: Die Prüfung des
+Symcon Module Store behandelt **jeden sichtbaren Top-Level-Ordner als Modul** und verlangt dort
+eine `module.json`. Ein sichtbarer Ordner `tools` lässt die Einreichung mit „Das Modul tools hat
+keine module.json" scheitern — real passiert bei der Tibber-Einreichung. Ordner mit führendem
+Punkt überspringt der Scanner.
+
+Gilt für jedes künftige Hilfsverzeichnis (Skripte, Testdaten, CI): entweder mit Punkt beginnen
+oder unterhalb eines bestehenden Modulordners ablegen.
 
 ### Steuerhoheit: nur das EMS regelt die Batterie
 
