@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.63.3-beta.1 (2026-07-21)
+
+- **Stromflusskachel: unten abgeschnittener Inhalt in Safari.** Die Kachel band ihren Inhalt per
+  `position: fixed` an den Viewport des Kachel-iframes. Das ist in Safari/WebKit ein bekannter
+  Fehlerkreis: Fest positionierte Elemente in einem iframe werden abgeschnitten oder oben
+  hängend gezeichnet, obwohl die Layout-Box korrekt gemeldet wird — mehrfach in Apples
+  Entwicklerforum dokumentiert. Ein Beta-Tester sah die Kachel dadurch unten abgeschnitten,
+  während dieselbe Safari-Version bei anderen fehlerfrei lief; besonders bei hochkanten Kacheln.
+  Der Inhalt wird jetzt mit `position: absolute` an die body-Box gebunden — das Muster aller
+  übrigen Kacheln dieses Modulverbunds, unsere war die einzige mit `fixed`.
+
 ## 0.63.2-beta.1 (2026-07-21) — Fehlerbehebung, bitte aktualisieren
 
 - **Fronius war in Build 146 nicht lauffähig; SMA hatte seit Build 145 eine falsche Variable.**
