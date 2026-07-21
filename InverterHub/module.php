@@ -3609,6 +3609,17 @@ class VictronDriver implements InverterDriverInterface
                 ['pv_dc',  'PV DC-gekoppelt (MPPT)',  'F', 'VIC.Watt', true, 'pv', 'Reg 850'],
                 ['pv_ac',  'PV AC-gekoppelt (Σ)',     'F', 'VIC.Watt', true, 'pv', 'Σ 808..816'],
             ]],
+            // Zählerstände. WICHTIG: Der Systemdienst (Unit 100) führt KEINE
+            // Energiezähler, nur Momentanleistungen. Netzbezug/-einspeisung
+            // liegen auf dem eigenen Dienst com.victronenergy.grid mit eigener
+            // Unit-ID (unten einzutragen); der Solarertrag kommt von den
+            // Solarladereglern und nutzt deren MPPT-Unit-IDs mit.
+            'GroupEnergy' => ['caption' => 'Energiezähler (Netzbezug/-einspeisung, Solarertrag) — Unit-ID des Netzzählers unten eintragen', 'vars' => [
+                ['meter_imp',  'Netzbezug gesamt',   'F', '~Electricity', true, 'energy', 'Σ Reg 2622/2624/2626 (u32, ÷100)'],
+                ['meter_exp',  'Einspeisung gesamt', 'F', '~Electricity', true, 'energy', 'Σ Reg 2628/2630/2632 (u32, ÷100)'],
+                ['e_pv_total', 'Solarertrag gesamt', 'F', '~Electricity', true, 'energy', 'Σ Laderegler Reg 790 (÷10)'],
+                ['e_pv_day',   'Solarertrag heute',  'F', '~Electricity', true, 'energy', 'Σ Laderegler Reg 784 (÷10)'],
+            ]],
             'GroupMppt' => ['caption' => 'PV je Solarladeregler / MPPT (Unit-IDs unten eintragen)', 'vars' => [
                 ['mppt1_power', 'MPPT 1 Leistung', 'F', 'VIC.Watt', true,  'pv', 'Solarladeregler Reg 789 (÷10)'],
                 ['mppt1_volt',  'MPPT 1 Spannung', 'F', 'VIC.Volt', false, 'pv', 'Reg 776 (÷100)'],
@@ -3743,7 +3754,59 @@ class VictronDriver implements InverterDriverInterface
 
     public function readSlow($mb, $hub)
     {
-        // Keine separaten Zählerstände im Systemdienst - alles in readFast().
+        // Zählerstände. Der Systemdienst (Unit 100) führt KEINE Energiezähler -
+        // nur Momentanleistungen. Die Zähler liegen auf eigenen Diensten:
+        //   com.victronenergy.grid          -> eigene Unit-ID (Netzzähler)
+        //   com.victronenergy.solarcharger  -> die MPPT-Unit-IDs
+        // Deshalb wird hier die Unit-ID gewechselt und am Ende zurückgesetzt.
+        if (!$hub->GroupEnabled('GroupEnergy')) {
+            return;
+        }
+        $restore = $mb->unitId;
+
+        // --- Netzbezug / Einspeisung -------------------------------------
+        // Bewusst die 32-Bit-Register 2622..2632 statt der 16-Bit-Variante
+        // 2603..2608: Letztere laufen bei ÷100 schon nach 655,35 kWh über und
+        // sind als Lebenszähler unbrauchbar.
+        $gridUnit = $hub->GetVictronGridUnitId();
+        if ($gridUnit > 0) {
+            $mb->unitId = $gridUnit;
+            $imp = 0.0; $exp = 0.0; $ok = false;
+            foreach ([2622, 2624, 2626] as $reg) {
+                $r = $mb->readHolding($reg, 2);
+                if ($r !== null) { $imp += $mb->u32($r, 0) / 100.0; $ok = true; }
+            }
+            foreach ([2628, 2630, 2632] as $reg) {
+                $r = $mb->readHolding($reg, 2);
+                if ($r !== null) { $exp += $mb->u32($r, 0) / 100.0; $ok = true; }
+            }
+            if ($ok) {
+                $hub->SetVarFloat('meter_imp', $imp);
+                $hub->SetVarFloat('meter_exp', $exp);
+            }
+        }
+
+        // --- Solarertrag je Laderegler, aufsummiert -----------------------
+        // ACHTUNG: Beide Register sind nur 16 Bit. Yield/User (790) läuft bei
+        // ÷10 nach 6553,5 kWh über - je nach Anlagengröße nach einigen Jahren.
+        // Ein Überlauf sieht für die Auswertung wie ein Zählerreset aus.
+        $ids = $hub->GetVictronMpptUnitIds();
+        if (count($ids) > 0) {
+            $total = 0.0; $day = 0.0; $any = false;
+            foreach ($ids as $id) {
+                $mb->unitId = $id;
+                $t = $mb->readHolding(790, 1);
+                $d = $mb->readHolding(784, 1);
+                if ($t !== null) { $total += $t[0] / 10.0; $any = true; }
+                if ($d !== null) { $day   += $d[0] / 10.0; $any = true; }
+            }
+            if ($any) {
+                $hub->SetVarFloat('e_pv_total', $total);
+                $hub->SetVarFloat('e_pv_day',   $day);
+            }
+        }
+
+        $mb->unitId = $restore;
     }
 
     public function readDeviceInfo($mb, $hub)
@@ -3826,6 +3889,9 @@ class InverterHub extends IPSModule
         $this->RegisterPropertyInteger('KostalByteOrder', 0);
         // Victron: Unit-IDs der einzelnen Solarladeregler (MPPT), kommagetrennt.
         $this->RegisterPropertyString('VictronMpptUnitIds', '');
+        // Unit-ID des Victron-Netzzaehlers (com.victronenergy.grid).
+        // 0 = nicht konfiguriert; Netz-Zaehlerstaende entfallen dann.
+        $this->RegisterPropertyInteger('VictronGridUnitId', 0);
         $this->RegisterPropertyInteger('HouseLoadMeterID', 0);
         $this->RegisterPropertyString('Host', '');
         $this->RegisterPropertyInteger('Port', 502);
@@ -4055,6 +4121,21 @@ class InverterHub extends IPSModule
                 'name'    => 'VictronMpptUnitIds',
                 'caption' => 'Solarladeregler-Unit-IDs (MPPT, kommagetrennt, max. 4 — im GX unter Einstellungen → Services → Modbus TCP → verfügbare Dienste ablesbar). Aktiviert die Gruppe „PV je Solarladeregler / MPPT".',
             ];
+            $groupItems[] = [
+                'type'    => 'NumberSpinner',
+                'name'    => 'VictronGridUnitId',
+                'caption' => 'Unit-ID des Netzzählers (0 = keiner) — für die Gruppe „Energiezähler"',
+                'minimum' => 0,
+                'maximum' => 247,
+            ];
+            $groupItems[] = [
+                'type'    => 'Label',
+                'caption' => 'ℹ Zählerstände liegen bei Victron NICHT im Systemdienst, sondern auf eigenen Diensten: '
+                    . 'Netzbezug/-einspeisung beim Netzzähler (com.victronenergy.grid, Unit-ID oben eintragen), '
+                    . 'der Solarertrag bei den Solarladereglern (nutzt die MPPT-Unit-IDs mit). '
+                    . 'Hinweis: Der Solarertrag-Gesamtzähler ist geräteseitig nur 16 Bit und läuft nach 6.553,5 kWh über; '
+                    . 'Netzbezug und Einspeisung werden dagegen aus 32-Bit-Registern gelesen und sind davon nicht betroffen.',
+            ];
         }
 
         $form = [
@@ -4231,6 +4312,29 @@ class InverterHub extends IPSModule
     }
 
     // Victron: Unit-IDs der Solarladeregler (MPPT) als Integer-Array (max. 4).
+    /**
+     * Ist eine optionale Gruppe aktiviert? Treiber nutzen das, um teure Lesungen
+     * zu überspringen, deren Variablen ohnehin nicht existieren.
+     */
+    public function GroupEnabled(string $propName): bool
+    {
+        try {
+            return $this->ReadPropertyBoolean($propName);
+        } catch (Throwable $e) {
+            return false; // Gruppe kennt der aktuelle Treiber nicht
+        }
+    }
+
+    /**
+     * Unit-ID des Victron-Netzzählers (Dienst com.victronenergy.grid).
+     * 0 = nicht konfiguriert; die Netz-Zählerstände entfallen dann.
+     */
+    public function GetVictronGridUnitId(): int
+    {
+        $id = $this->ReadPropertyInteger('VictronGridUnitId');
+        return ($id > 0 && $id <= 247) ? $id : 0;
+    }
+
     public function GetVictronMpptUnitIds(): array
     {
         $out = [];

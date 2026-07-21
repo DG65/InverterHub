@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.61.0-beta.1 (2026-07-21)
+
+- **Victron: Energiezähler (Netzbezug/-einspeisung, Solarertrag).** Neue optionale Gruppe
+  „Energiezähler". Zu beachten ist eine Victron-Eigenheit: Der Systemdienst (Unit-ID 100), den
+  das Modul bisher nutzt, führt **überhaupt keine** Zählerstände, sondern nur Momentanleistungen.
+  Die Zähler liegen auf eigenen Diensten — Netzbezug und Einspeisung beim Netzzähler
+  (`com.victronenergy.grid`, dessen **Unit-ID im Formular einzutragen** ist), der Solarertrag bei
+  den Solarladereglern (nutzt die vorhandenen MPPT-Unit-IDs mit).
+  Netzbezug/-einspeisung werden bewusst aus den **32-Bit**-Registern gelesen; die 16-Bit-Variante
+  liefe schon nach 655,35 kWh über. Beim Solarertrag-Gesamtzähler gibt es geräteseitig nur ein
+  16-Bit-Register — er läuft nach **6.553,5 kWh** über, was für die Auswertung wie ein
+  Zählerreset aussieht. Ein Hinweis dazu steht in der Konfigurationsmaske.
+  **Noch nicht an einer realen Anlage geprüft** — die Registeradressen stammen aus der offiziellen
+  CCGX-Modbus-TCP-Registerliste. Rückmeldungen zu abweichenden Werten willkommen.
+
 ## 0.60.0-beta.1 (2026-07-21)
 
 - **Anzahl der MPPT-Eingänge einstellbar.** Die Treiber legen bisher so viele MPPT-Variablen an,
