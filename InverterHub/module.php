@@ -2001,17 +2001,34 @@ class SmaDriver implements InverterDriverInterface
     public function readSlow($mb, $hub)
     {
         // Energie wird bereits im Inverter-Model in readFast() mitgelesen.
+        // Isolationswiderstand hier als Auffrischung waehrend des Betriebs;
+        // im Stillstand holt ihn readFast() haeufiger (siehe readRiso()).
+        $this->readRiso($mb, $hub);
+    }
 
-        // Isolationswiderstand aus SunSpec-Modell 122 ("Measurements Status").
-        // Das Modell fuehrt Ris und Ris_SF als die BEIDEN LETZTEN Register des
-        // 44 Register langen Blocks. Bewusst ueber die gemeldete Modelllaenge
-        // adressiert statt ueber eine feste Adresse - die SunSpec-Kette liegt
-        // je nach Geraet an unterschiedlicher Stelle.
-        //
-        // Nicht jedes Geraet fuehrt Modell 122; fehlt es, entfaellt der Wert
-        // stillschweigend. Ueber die Fronius Solar API ist der Wert NICHT
-        // verfuegbar (CommonInverterData kennt ihn nicht) - Modbus ist der
-        // einzige Weg.
+    /**
+     * Isolationswiderstand aus SunSpec-Modell 122 ("Measurements Status").
+     *
+     * WANN das gelesen wird, ist fachlich entscheidend: Der Wechselrichter misst
+     * die Isolation beim Selbsttest VOR dem Zuschalten. Genau dieser Wert zeigt,
+     * ob eine Strecke Feuchtigkeit zieht ("absaufen"). Steht das Geraet erst im
+     * Betrieb, ist der Wert weniger aussagekraeftig bzw. aendert sich kaum.
+     *
+     * Deshalb: Im Stillstand und beim Anlauf (Status != 4/5) wird er in JEDEM
+     * schnellen Zyklus gelesen, damit die Messung des Selbsttests nicht
+     * verpasst wird. Speist das Geraet ein, genuegt der langsame Zyklus.
+     *
+     * Das Modell fuehrt Ris und Ris_SF als die BEIDEN LETZTEN Register des 44
+     * Register langen Blocks. Bewusst ueber die gemeldete Modelllaenge
+     * adressiert statt ueber eine feste Adresse - die SunSpec-Kette liegt je
+     * nach Geraet an unterschiedlicher Stelle.
+     *
+     * Nicht jedes Geraet fuehrt Modell 122; fehlt es, entfaellt der Wert
+     * stillschweigend. Ueber die Fronius Solar API ist der Wert NICHT verfuegbar
+     * (CommonInverterData kennt ihn nicht) - Modbus ist der einzige Weg.
+     */
+    private function readRiso($mb, $hub)
+    {
         if (!$hub->GetPropBool('GroupDevice')) {
             return;
         }
@@ -2326,6 +2343,15 @@ class FroniusDriver implements InverterDriverInterface
                     }
                 }
             }
+        }
+
+        // Isolationswiderstand: Solange der Wechselrichter NICHT einspeist
+        // (Status 4 = Normal/MPPT, 5 = Leistungsreduktion), wird er in jedem
+        // schnellen Zyklus gelesen. Der aussagekraeftige Wert entsteht beim
+        // Selbsttest VOR dem Zuschalten - im langsamen Zyklus wuerde man ihn
+        // verpassen. Im Betrieb genuegt die Auffrischung aus readSlow().
+        if (!in_array($invStatus ?? 0, [4, 5], true)) {
+            $this->readRiso($mb, $hub);
         }
 
         if ($hub->GetPropBool('GroupMeter')) {

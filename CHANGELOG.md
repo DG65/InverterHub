@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.63.1-beta.1 (2026-07-21)
+
+- **Fronius: Isolationswiderstand wird jetzt zum richtigen Zeitpunkt gelesen.** Der Wert entsteht
+  beim Selbsttest des Wechselrichters **vor dem Zuschalten** — genau dann zeigt er, ob eine
+  Strecke Feuchtigkeit zieht. In der vorigen Fassung wurde er nur im langsamen Zyklus geholt,
+  wodurch diese Messung verpasst werden konnte. Jetzt gilt: Solange der Wechselrichter **nicht
+  einspeist** (also Aus, Auto-Shutdown, Startet, Standby, Fehler), wird er in **jedem schnellen
+  Zyklus** gelesen; speist er ein (Normal/MPPT oder Leistungsreduktion), genügt die Auffrischung
+  im langsamen Zyklus.
+
 ## 0.63.0-beta.1 (2026-07-21)
 
 - **Virtuelle Zähler in Kachel und Sankey.** Das neue MeterHub-Modul „MeterHubVirtual" bildet
