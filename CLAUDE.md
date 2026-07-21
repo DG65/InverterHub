@@ -13,7 +13,7 @@ gemeinsame Regeln und dokumentierte Schnittstellen geeinigt haben.
 | **Prognose** (EnergiePrognose) | PV- und Verbrauchsprognose | `DG65/Prognose` · `../Prognose` | `PVF_GetGenerators`, `PVF_GetModuleArea(s)`, `PVF_GetForecast` |
 | **HeishaMon** | Panasonic-Wärmepumpe | `DG65/HeishaMon` | `HEISHA_GetFunctions($id)` (ab v1.1.1) |
 | **StromGedacht** | Netzampel (TransnetBW) | `DG65/StromGedachtWidget` | noch keiner; `SGW_GetState()` auf Zuruf zugesagt |
-| **Tibber Grid Rewards** | Erlös-/Vermarktungssignale | `DG65/TibberGridRewards` | keiner; Statusvariablen `Delivering`, `GridRewardMode`, `GridRewardWallboxRequest` |
+| **Tibber Grid Rewards** | Erlös-/Vermarktungssignale **und Preisquelle** | `DG65/TibberGridRewards` | `TIBBERGR_GetPriceCurve($id)` (ab v2.1.1); Signale weiter über Statusvariablen `Delivering`, `GridRewardMode`, `GridRewardWallboxRequest` |
 | **Tessie** | Tesla-Fahrzeuge (Wallbox-SOC) | `DG65/Tessie` | bewusst keiner — rein konfigurativ |
 | **EMS** | Entscheidungslogik / Batteriefahrweise | EMS-Repo · `../EMS` | noch keiner (`EMS_GetStatus`, `EMS_SetECOWindow`, `EMS_PlanNightCharge`) |
 
@@ -67,6 +67,34 @@ Hintergrund: StromGedacht und Tibber Grid Rewards besitzen beide generische
 GoodweET-Variablen legen ließen. Dann plant das EMS ein ECO-Fenster, während parallel eine
 Regel eine Ladevorgabe schreibt — zwei Regler auf derselben Batterie, beide „korrekt". Beide
 Signal-Sitzungen haben dieser Rollenverteilung zugestimmt.
+
+### Preiskurve fürs EMS (betrifft InverterHub nicht direkt)
+
+Für ein preisgetriebenes EMS wurde ein zweiter Verbund-Vertrag vereinbart. Hier nur als
+Überblick festgehalten — InverterHub konsumiert ihn **nicht**:
+
+```php
+<PREFIX>_GetPriceCurve(int $id): array
+// [[ 'start'=>int (inkl.), 'end'=>int (EXKLUSIV), 'price'=>float ct/kWh brutto,
+//    'basis'=>'endkunde'|'spot', 'netzentgelt'=>'enthalten'|'fehlt',
+//    'level'=>null ], …]   // Liste aufsteigend, Lücken zulässig
+```
+
+Zwei Festlegungen, die aus teuren Fehlannahmen entstanden sind:
+
+- **`level` ist immer `null`.** Die Einstufung („günstig/teuer") trifft das **EMS**, nicht die
+  Quelle. Grund: Tibber führt ein eigenes Schema aus seinem gleitenden Mittel, eine Spotquelle
+  hätte keins und müsste es nachbilden — dasselbe Feld mit zwei Herleitungen, und das EMS
+  entschiede bei gleicher Preislage je nach Kundentyp anders. Quellenspezifische Einstufungen
+  gehören in ein eigenes Feld (`level_tibber`).
+- **`basis` und `netzentgelt` sind nicht redundant.** `basis` sagt, *wessen* Preis es ist,
+  `netzentgelt`, *was* darin steckt. Ohne beides rechnet das EMS ein Netzentgelt-Overlay
+  doppelt oder gar nicht.
+
+Hintergrund: Bei **§14a EnWG Modul 3** (zeitvariable Netzentgelte) weicht der kundenspezifische
+Preis vom allgemeinen Regionalpreis tageszeitabhängig ab — an Dietmars Anlage gemessen um
+−7,50 ct (00–06 Uhr) bis +4,00 ct (16:30–20:30). Wer auf Spot optimiert, optimiert das Falsche.
+Werte und Zeitfenster sind **netzbetreiberspezifisch** und dürfen nirgends fest im Code stehen.
 
 ### Konvention für neue `*_GetFunctions`-Verträge
 
