@@ -3873,10 +3873,27 @@ class VictronDriver implements InverterDriverInterface
             $total = 0.0; $day = 0.0; $any = false;
             foreach ($ids as $i => $id) {
                 $mb->unitId = $id;
-                $t = $mb->readHolding(790, 1);
+                // Gesamtertrag bevorzugt aus dem 32-BIT-Register 3728 lesen.
+                // Von Beta-Tester loerdy am Geraet nachgewiesen: Es liefert den
+                // echten Lebensdauer-Ertrag (bei ihm 10617 kWh), waehrend das
+                // 16-Bit-Register 790 bei /10 nach 6553,5 kWh ueberlaeuft und
+                // denselben Zaehler nur verstuemmelt zeigt (40631 -> 4063,1).
+                // Manche Geraete/Firmwares bieten 3728 nur ueber FC04 an, daher
+                // erst Holding, dann Input. Erst wenn beides fehlt, greift der
+                // Rueckfall auf 790 samt Ueberlaufkorrektur.
+                $t32 = $mb->readHolding(3728, 2);
+                if ($t32 === null) { $t32 = $mb->readInput(3728, 2); }
+                $t = ($t32 === null) ? $mb->readHolding(790, 1) : null;
                 $d = $mb->readHolding(784, 1);
                 $n = $i + 1;
-                if ($t !== null) {
+                if ($t32 !== null) {
+                    // ACHTUNG, anderer Massstab als Reg 790: 3728 zaehlt in
+                    // GANZEN kWh (loerdys Geraet: Rohwert 10617 = 10617 kWh),
+                    // waehrend 790 in 0,1 kWh zaehlt. Hier also NICHT teilen.
+                    $kwh = (float) $mb->u32($t32, 0);
+                    $total += $kwh; $any = true;
+                    $hub->SetVarFloat('mppt' . $n . '_e_total', $kwh);
+                } elseif ($t !== null) {
                     $kwh = $hub->YieldCorrected($id, $i, (int) $t[0]);
                     $total += $kwh; $any = true;
                     $hub->SetVarFloat('mppt' . $n . '_e_total', $kwh);

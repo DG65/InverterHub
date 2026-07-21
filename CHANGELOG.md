@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.64.0-beta.1 (2026-07-21)
+
+- **Victron: Solarertrag jetzt aus dem 32-Bit-Register — Überlaufkorrektur wird überflüssig.**
+  Beta-Tester loerdy hat am Gerät nachgewiesen, dass es für den Lebensdauer-Ertrag der
+  Solarladeregler sehr wohl ein **32-Bit-Register** gibt: **3728** liefert den echten Wert
+  (bei ihm 10.617 kWh), während das bisher genutzte 16-Bit-Register 790 denselben Zähler nur
+  verstümmelt zeigt (40.631 → 4.063,1 kWh). Meine gegenteilige Angabe in 0.62.0 beruhte auf
+  einer unvollständigen Fremdquelle und war falsch.
+  Der Ertrag wird jetzt bevorzugt aus 3728 gelesen — damit entfallen Überlauf, Eichung und
+  Zählerreset-Problematik ersatzlos. **Achtung beim Maßstab:** 3728 zählt in ganzen kWh, 790 in
+  0,1 kWh. Bietet ein Gerät 3728 nicht an, greift weiterhin der bisherige Weg über 790 samt
+  optionaler Überlaufkorrektur; die zugehörigen Einstellungen bleiben daher erhalten.
+
 ## 0.63.3-beta.1 (2026-07-21)
 
 - **Stromflusskachel: unten abgeschnittener Inhalt in Safari.** Die Kachel band ihren Inhalt per
