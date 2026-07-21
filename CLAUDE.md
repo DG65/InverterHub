@@ -17,9 +17,31 @@ gemeinsame Regeln und dokumentierte Schnittstellen geeinigt haben.
 | **Tessie** | Tesla-Fahrzeuge (Wallbox-SOC) | `DG65/Tessie` | bewusst keiner — rein konfigurativ |
 | **EMS** | Entscheidungslogik / Batteriefahrweise | EMS-Repo · `../EMS` | noch keiner (`EMS_GetStatus`, `EMS_SetECOWindow`, `EMS_PlanNightCharge`) |
 
-**Grundregel für alle:** Kein Modul darf ein anderes voraussetzen. Kopplungen liegen hinter
-`function_exists(...)` bzw. `IPS_ModuleExists(...)`; fehlt der Partner, entfallen nur
-Zusatzfunktionen — es darf nichts brechen.
+### Grundregel: jedes Modul bleibt eigenständig — und das wird geprüft
+
+Kein Modul darf ein anderes voraussetzen. Kopplungen liegen hinter `function_exists(...)`
+bzw. `IPS_ModuleExists(...)`; fehlt der Partner, entfallen nur Zusatzfunktionen — es darf
+nichts brechen.
+
+**Das ist kein Stilthema.** Der Aufruf einer nicht vorhandenen Funktion ist in PHP ein
+**Fatal Error**. Das oft vorangestellte `@` unterdrückt ihn **nicht** — es unterdrückt nur
+Warnungen. Fehlt der Wächter und ist das Partnermodul nicht installiert, bricht die Instanz
+hart ab, statt die Zusatzfunktion wegzulassen.
+
+Damit die Zusage jederzeit belegbar ist statt nur behauptet:
+
+```
+php tools/check-standalone.php
+```
+
+Der Prüfer durchsucht alle PHP-Dateien nach Aufrufen fremder Modulpräfixe (`MHUB_`, `PVF_`,
+`HEISHA_`, `SGW_`, `TIBBERGR_`, `TESSIE_`, `EMS_`, `GWET_`) und meldet jeden, der **in seiner
+aufrufenden Funktion** keinen passenden `function_exists()`-Wächter hat. Kommentare und
+Zeichenketten werden vorher entfernt, damit dokumentierte Beispielaufrufe keinen Fehlalarm
+auslösen. Rückgabewert 0 = sauber, 1 = mindestens eine ungesicherte Stelle (für CI geeignet).
+
+**Vor jedem Release ausführen**, und bei jeder neuen Kopplung. Kommt ein Partnermodul dazu,
+dessen Präfix in `FOREIGN_PREFIXES` ergänzen — sonst prüft der Prüfer daran vorbei.
 
 ### Steuerhoheit: nur das EMS regelt die Batterie
 
