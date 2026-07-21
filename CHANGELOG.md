@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.58.2-beta.1 (2026-07-21)
+
+- **Monitoring: Prognose-Hinweis schickte Stable-Nutzer unnötig in den Beta-Kanal.** Der
+  vorige Text erweckte den Eindruck, auch das Performance-Ratio brauche eine neuere
+  Prognose-Version. Das stimmt nicht: Der Parameter `PVF_PR` ist bereits in der
+  Stable-Version vorhanden, **Erwartungswerte und Performance-Ratio funktionieren dort ohne
+  jedes Update**. Nur die **spezifische Leistung (W/m²)** benötigt die Modulangaben
+  (Modulanzahl, Länge/Breite), die es erst ab Version 0.20 / Build 41 gibt — im Stable-Kanal
+  fehlen diese Eingabefelder ganz und lassen sich dort auch nicht nachtragen. Der Hinweis
+  benennt das jetzt eindeutig. (Von der Prognose-Seite gegen die Repo-Historie geprüft.)
+
 ## 0.58.1-beta.1 (2026-07-21)
 
 - **Monitoring: Hinweis zum Prognose-Modul war irreführend.** Der Tipp bei ausgewähltem

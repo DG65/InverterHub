@@ -40,18 +40,30 @@ Fallback** und läuft nur, wenn der Getter fehlt oder nichts liefert (`PvfModel(
 **Diesen Fallback nicht entfernen** — er ist derzeit für die *Mehrheit* der Installationen der
 einzige Pfad (Stand von der Prognose-Sitzung bestätigt):
 
-| Prognose-Kanal | Version / Build | `PVF_GetGenerators`, `PVF_GetModuleArea(s)`, Variable `PVF_ModuleArea` |
-|---|---|---|
-| Stable (`main`) | 0.19 / Build 32 | **nicht vorhanden** — nur `Rebuild`, `GetForecast`, `GetStatusText`, `GetSnapshot` |
-| Beta | 0.20-beta / Build 43 | vorhanden (Getter ab Build 41, `GetModuleAreas` ab 39) |
+| Prognose-Kanal | Version / Build | Getter `PVF_GetGenerators` / `GetModuleArea(s)` | Property `PVF_PR` | Modul-Spalten in `PVGenerators` |
+|---|---|---|---|---|
+| Stable (`main`) | 0.19 / Build 32 | **nein** (nur `Rebuild`, `GetForecast`, `GetStatusText`, `GetSnapshot`) | **ja** (Default 0.85) | **nein** |
+| Beta | 0.20-beta / Build 44 | ja | ja | ja |
 
-Folge: Auf Stable funktionieren die **Erwartungswerte** über den Konfigurations-Fallback, die
-**Modulfläche** (spez. Leistung / PR) dagegen gar nicht. Die Konfigurationsmaske weist mit
-konkreter Versionsangabe darauf hin. Aufgeräumt wird erst, wenn 0.20 im Stable-Kanal ist und
-die Prognose-Sitzung sich meldet — dann legen beide Seiten gemeinsam eine Mindestversion fest.
+Build-Zuordnung (von der Prognose-Seite aus der Historie belegt): Modul-Spalten + `GetModuleArea`
+ab **38**, `GetModuleAreas` ab **39**, Eingabe auf Länge × Breite (mm) umgestellt ab **40**,
+`GetGenerators` ab **41**. Da wir Fläche *und* Getter brauchen, ist **41** die maßgebliche
+Schwelle.
 
-Achtung bei Hinweistexten: Die Modulfläche wird **seit Build 40 aus Länge × Breite (mm)**
-berechnet, nicht mehr als m² je Modul eingegeben.
+**Was auf Stable geht und was nicht — wichtig für Hinweistexte:**
+
+- **Erwartungswerte: funktionieren auf Stable.** Sie brauchen nur kWp und das *konfigurierte*
+  Performance-Ratio; `PVF_PR` ist dort als Property vorhanden und über den Fallback lesbar.
+- **Spezifische Leistung (W/m²): geht auf Stable nicht** — nicht wegen eines fehlenden Getters,
+  sondern weil `PVGenerators` dort **überhaupt keine Modul-Spalten** hat (weder Anzahl noch
+  Fläche noch Länge/Breite). Ein Stable-Nutzer kann die Werte auch nicht eintragen.
+
+Nicht behaupten, das *Performance-Ratio* brauche ein Update — das gilt nur für die aus
+Einstrahlung × Fläche **gemessene** Größe, nicht für den konfigurierten Parameter. Diese
+Mehrdeutigkeit hat schon einmal zu einem irreführenden Hinweistext geführt.
+
+Aufgeräumt (Fallback entfernen) wird erst, wenn 0.20 im Stable-Kanal ist und die
+Prognose-Sitzung sich meldet — dann legen beide Seiten gemeinsam eine Mindestversion fest.
 
 **Nichts eigenmächtig im Prognose-Repo ändern.** Wird ein neuer Getter gebraucht, in der
 Prognose-Sitzung anfragen — sie bauen ihn dort. (Der Getter `PVF_GetGenerators` wurde
