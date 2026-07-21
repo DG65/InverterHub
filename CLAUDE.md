@@ -16,6 +16,8 @@ gemeinsame Regeln und dokumentierte Schnittstellen geeinigt haben.
 | **Tibber Grid Rewards** | Erlös-/Vermarktungssignale **und Preisquelle** | `DG65/TibberGridRewards` | `TIBBERGR_GetPriceCurve($id)` (ab v2.1.1); Signale weiter über Statusvariablen `Delivering`, `GridRewardMode`, `GridRewardWallboxRequest` |
 | **Tessie** | Tesla-Fahrzeuge (Wallbox-SOC) | `DG65/Tessie` | bewusst keiner — rein konfigurativ |
 | **EMS** | Entscheidungslogik / Batteriefahrweise | EMS-Repo · `../EMS` | noch keiner (`EMS_GetStatus`, `EMS_SetECOWindow`, `EMS_PlanNightCharge`) |
+| **ChargerHub** | Wallboxen (Modbus TCP) | `DG65/ChargerHub` | noch keiner — Gerüst (v0.1.0) |
+| **MigrationsHub** | Übernahme von Bestandsgeräten und Archivwerten | `DG65/MigrationsHub` | noch keiner — Gerüst (v0.1.0) |
 
 ### Grundregel: jedes Modul bleibt eigenständig — und das wird geprüft
 
@@ -153,8 +155,13 @@ Abgleich funktioniert ausschließlich über ausdrückliche Nachrichten. Es gibt 
 zwischen ihnen; die Zuständigkeiten unten sind Absprache, nicht Rangordnung. Auftraggeber ist
 der Repo-Eigentümer.
 
-Bei Anliegen, die mehrere Module betreffen, wird die zuständige Sitzung angesprochen und
-gebeten, es weiterzureichen — nicht im fremden Repo selbst gearbeitet.
+**Übergreifende Koordination läuft über den Repo-Eigentümer.** Er ist der zentrale
+Ansprechpartner für den gesamten Verbund. Einzelne Modul-Sitzungen werden **direkt** nur bei
+**modulspezifischen** Aufgaben angesprochen — etwa einer konkreten Rückfrage zu einem Vertrag,
+den man gerade konsumiert. Alles Übergreifende (neue Konventionen, Verbund-Regeln, neue Partner,
+Werkzeuge für alle) geht über ihn, statt dass eine Sitzung es eigenmächtig in die Runde trägt.
+
+In fremden Repos wird ohnehin nicht gearbeitet.
 
 ## Kopplung an die PV-Prognose (Prognose-Repo, Präfix `PVF`)
 
