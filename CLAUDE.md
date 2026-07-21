@@ -17,17 +17,30 @@ stellt sie dem gemessenen Ertrag gegenüber. Er konsumiert dafür:
 
 | Verwendet | Zweck |
 |---|---|
-| `PVF_GetGenerators($id)` | kWp und manueller Faktor je Generator |
+| `PVF_GetGenerators($id)` | liefert `pr` (Performance-Ratio) **und** je Generator kWp + Faktor |
 | `PVF_GetModuleArea($id)` | Gesamt-Modulfläche (m²) für spez. Leistung / PR |
 | Statusvariable `PVF_ModuleArea` | Fallback, wenn der Getter fehlt |
-| Konfigurationsschlüssel `PVF_PR` | Performance-Ratio (per `IPS_GetConfiguration`) |
+| Konfigurationsschlüssel `PVF_PR`, `PVGenerators` | Fallback für Prognose-Versionen **vor Build 41** (ohne Getter) |
 | Modul-GUID `{257DD4E8-9705-462E-89FC-56D0A1038353}` | Instanz der PV-Prognose finden |
 
-**Vertrag:** Die `PVF_Get*`-Funktionen sind die öffentliche Schnittstelle — Signatur- oder
-Strukturänderungen dort müssen in `InverterHubMonitor/module.php` nachgezogen werden. Der
-Zugriff auf `PVF_PR` und `PVF_ModuleArea` ist bewusst nur ein **Fallback** für ältere
-Prognose-Versionen ohne Getter; er greift auf Interna zu und sollte nicht ausgebaut werden.
-Neue Bedarfe bitte als Getter im Prognose-Repo anlegen, statt hier Konfiguration auszulesen.
+Verfügbar, aktuell ungenutzt: `PVF_GetModuleAreas($id)` (seit Build 39) liefert die Fläche
+**je Generator** mit `name`, `modules`, `lengthMM`, `widthMM`, `areaPerModule`, `area` — die
+Basis, falls spez. Leistung / PR einmal pro Generator statt gesamt ausgewertet werden soll.
+
+**Vertrag (mit der Prognose-Sitzung abgestimmt):** Die `PVF_Get*`-Funktionen sind die
+öffentliche Schnittstelle — Signatur- oder Strukturänderungen dort werden angekündigt und in
+`InverterHubMonitor/module.php` nachgezogen. Interne Umbauten der Prognose sind frei, solange
+die Rückgabestruktur stabil bleibt (so blieb der Vertrag z. B. unberührt, als die Modulfläche
+ab Build 40 aus Länge × Breite berechnet statt als m² eingegeben wurde).
+
+Der Zugriff auf `PVF_PR`/`PVGenerators` per `IPS_GetConfiguration` ist **ausschließlich
+Fallback** und läuft nur, wenn der Getter fehlt oder nichts liefert (`PvfModel()`, Zweig ab
+`count($rows) === 0`). Sobald keine Prognose-Version vor Build 41 mehr unterstützt werden
+muss, kann dieser Zweig ersatzlos entfallen.
+
+**Nichts eigenmächtig im Prognose-Repo ändern.** Wird ein neuer Getter gebraucht, in der
+Prognose-Sitzung anfragen — sie bauen ihn dort. (Der Getter `PVF_GetGenerators` wurde
+seinerzeit von hier aus unabgestimmt dort angelegt; das soll sich nicht wiederholen.)
 
 Fehlt das Prognose-Modul, entfallen nur die Erwartungswerte (die Konfigurationsmaske weist
 darauf hin) — es darf nichts brechen.
