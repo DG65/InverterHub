@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.58.3-beta.1 (2026-07-21)
+
+- **Store-Vorgabe umgesetzt:** Die Schaltfläche „Darstellung zurücksetzen" der Stromflusskachel
+  schreibt die Werte nicht mehr direkt in die Instanz, sondern setzt nur die Felder der
+  geöffneten Konfigurationsmaske — bestätigt wird wie üblich mit „Übernehmen". Ein Fehlklick
+  bleibt dadurch folgenlos.
+- **Sankey:** Hinweis im Panel „Energie-Datenpunkte", dass periodisch zurückspringende Werte
+  (z. B. „Energie heute") als Quelle ungeeignet sind — die Auswertung bildet Zählerdifferenzen.
+
 ## 0.58.2-beta.1 (2026-07-21)
 
 - **Monitoring: Prognose-Hinweis schickte Stable-Nutzer unnötig in den Beta-Kanal.** Der
