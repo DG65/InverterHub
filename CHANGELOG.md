@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.63.2-beta.1 (2026-07-21) — Fehlerbehebung, bitte aktualisieren
+
+- **Fronius war in Build 146 nicht lauffähig; SMA hatte seit Build 145 eine falsche Variable.**
+  Beim Einbau des Isolationswiderstands ist der Code im **falschen Treiber** gelandet: SMA,
+  Fronius und SolarEdge nutzen alle SunSpec und haben daher wortgleiche Codeblöcke, und die
+  Änderung traf jeweils den erstbesten.
+  - **Build 145:** Die Fronius-Variable „Isolationswiderstand" wurde im **SMA**-Treiber angelegt
+    — dort doppelt und mit fremdem Profil, während Fronius sie gar nicht bekam.
+  - **Build 146:** Die Lesefunktion lag im SMA-Treiber, wurde aber aus dem Fronius-Treiber
+    aufgerufen — das erzeugte bei Fronius-Instanzen einen **Fatal Error in jedem Lesezyklus**.
+  Beides ist behoben: Variable, Profil, Lesefunktion und beide Aufrufe liegen jetzt vollständig
+  im Fronius-Treiber; der SMA-Treiber ist auf seinen ursprünglichen Stand zurückgesetzt und
+  behält seinen eigenen Isolationswiderstand (Register 30225) unverändert.
+
 ## 0.63.1-beta.1 (2026-07-21)
 
 - **Fronius: Isolationswiderstand wird jetzt zum richtigen Zeitpunkt gelesen.** Der Wert entsteht

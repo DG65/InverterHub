@@ -1890,7 +1890,6 @@ class SmaDriver implements InverterDriverInterface
             'GroupDevice' => ['caption' => 'Geräteinformation', 'vars' => [
                 ['dev_model', 'Modell', 'S', '', false, 'device', 'SunSpec Common Block'],
                 ['dev_sn',    'Seriennummer', 'S', '', false, 'device', 'SunSpec Common Block'],
-                ['riso',      'Isolationswiderstand', 'F', 'FRO.KOhm', true, 'device', 'SunSpec Ris (Model 122)'],
             ]],
         ];
     }
@@ -2001,56 +2000,6 @@ class SmaDriver implements InverterDriverInterface
     public function readSlow($mb, $hub)
     {
         // Energie wird bereits im Inverter-Model in readFast() mitgelesen.
-        // Isolationswiderstand hier als Auffrischung waehrend des Betriebs;
-        // im Stillstand holt ihn readFast() haeufiger (siehe readRiso()).
-        $this->readRiso($mb, $hub);
-    }
-
-    /**
-     * Isolationswiderstand aus SunSpec-Modell 122 ("Measurements Status").
-     *
-     * WANN das gelesen wird, ist fachlich entscheidend: Der Wechselrichter misst
-     * die Isolation beim Selbsttest VOR dem Zuschalten. Genau dieser Wert zeigt,
-     * ob eine Strecke Feuchtigkeit zieht ("absaufen"). Steht das Geraet erst im
-     * Betrieb, ist der Wert weniger aussagekraeftig bzw. aendert sich kaum.
-     *
-     * Deshalb: Im Stillstand und beim Anlauf (Status != 4/5) wird er in JEDEM
-     * schnellen Zyklus gelesen, damit die Messung des Selbsttests nicht
-     * verpasst wird. Speist das Geraet ein, genuegt der langsame Zyklus.
-     *
-     * Das Modell fuehrt Ris und Ris_SF als die BEIDEN LETZTEN Register des 44
-     * Register langen Blocks. Bewusst ueber die gemeldete Modelllaenge
-     * adressiert statt ueber eine feste Adresse - die SunSpec-Kette liegt je
-     * nach Geraet an unterschiedlicher Stelle.
-     *
-     * Nicht jedes Geraet fuehrt Modell 122; fehlt es, entfaellt der Wert
-     * stillschweigend. Ueber die Fronius Solar API ist der Wert NICHT verfuegbar
-     * (CommonInverterData kennt ihn nicht) - Modbus ist der einzige Weg.
-     */
-    private function readRiso($mb, $hub)
-    {
-        if (!$hub->GetPropBool('GroupDevice')) {
-            return;
-        }
-        $m122 = $this->findModel($mb, 122);
-        if ($m122 === null) {
-            return;
-        }
-        [$base, $len] = $m122;
-        if ($len < 44) {
-            return; // unerwartete Laenge - lieber nichts liefern als etwas Falsches
-        }
-        $blk = $mb->readHolding($base, 44);
-        if ($blk === null) {
-            return;
-        }
-        $ris   = $mb->u16($blk, 42);   // vorletztes Register
-        $risSf = $this->sfVal($mb->u16($blk, 43));
-        if ($ris === 0xFFFF || $risSf === null) {
-            return; // SunSpec-Kennung fuer "nicht implementiert"
-        }
-        // Ris ist in Ohm * 10^Ris_SF; die anderen Treiber fuehren riso in kOhm.
-        $hub->SetVarFloat('riso', ($ris * pow(10, $risSf)) / 1000.0);
     }
 
     public function readDeviceInfo($mb, $hub)
@@ -2168,6 +2117,7 @@ class FroniusDriver implements InverterDriverInterface
             'GroupDevice' => ['caption' => 'Geräteinformation', 'vars' => [
                 ['dev_model', 'Modell', 'S', '', false, 'device', 'SunSpec Common Block'],
                 ['dev_sn',    'Seriennummer', 'S', '', false, 'device', 'SunSpec Common Block'],
+                ['riso',      'Isolationswiderstand', 'F', 'FRO.KOhm', true, 'device', 'SunSpec Ris (Model 122)'],
             ]],
         ];
     }
@@ -2527,6 +2477,56 @@ class FroniusDriver implements InverterDriverInterface
     public function readSlow($mb, $hub)
     {
         // Energie wird bereits im Inverter-Model in readFast() mitgelesen.
+        // Isolationswiderstand hier als Auffrischung waehrend des Betriebs;
+        // steht der Wechselrichter, holt ihn readFast() in jedem Zyklus.
+        $this->readRiso($mb, $hub);
+    }
+
+    /**
+     * Isolationswiderstand aus SunSpec-Modell 122 ("Measurements Status").
+     *
+     * WANN das gelesen wird, ist fachlich entscheidend: Der Wechselrichter misst
+     * die Isolation beim Selbsttest VOR dem Zuschalten. Genau dieser Wert zeigt,
+     * ob eine Strecke Feuchtigkeit zieht ("absaufen"). Steht das Geraet erst im
+     * Betrieb, ist der Wert weniger aussagekraeftig bzw. aendert sich kaum.
+     *
+     * Deshalb: Im Stillstand und beim Anlauf (Status != 4/5) wird er in JEDEM
+     * schnellen Zyklus gelesen, damit die Messung des Selbsttests nicht
+     * verpasst wird. Speist das Geraet ein, genuegt der langsame Zyklus.
+     *
+     * Das Modell fuehrt Ris und Ris_SF als die BEIDEN LETZTEN Register des 44
+     * Register langen Blocks. Bewusst ueber die gemeldete Modelllaenge
+     * adressiert statt ueber eine feste Adresse - die SunSpec-Kette liegt je
+     * nach Geraet an unterschiedlicher Stelle.
+     *
+     * Nicht jedes Geraet fuehrt Modell 122; fehlt es, entfaellt der Wert
+     * stillschweigend. Ueber die Fronius Solar API ist der Wert NICHT verfuegbar
+     * (CommonInverterData kennt ihn nicht) - Modbus ist der einzige Weg.
+     */
+    private function readRiso($mb, $hub)
+    {
+        if (!$hub->GetPropBool('GroupDevice')) {
+            return;
+        }
+        $m122 = $this->findModel($mb, 122);
+        if ($m122 === null) {
+            return;
+        }
+        [$base, $len] = $m122;
+        if ($len < 44) {
+            return; // unerwartete Laenge - lieber nichts liefern als etwas Falsches
+        }
+        $blk = $mb->readHolding($base, 44);
+        if ($blk === null) {
+            return;
+        }
+        $ris   = $mb->u16($blk, 42);   // vorletztes Register
+        $risSf = $this->sfVal($mb->u16($blk, 43));
+        if ($ris === 0xFFFF || $risSf === null) {
+            return; // SunSpec-Kennung fuer "nicht implementiert"
+        }
+        // Ris ist in Ohm * 10^Ris_SF; die anderen Treiber fuehren riso in kOhm.
+        $hub->SetVarFloat('riso', ($ris * pow(10, $risSf)) / 1000.0);
     }
 
     public function readDeviceInfo($mb, $hub)
