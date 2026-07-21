@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.58.0-beta.1 (2026-07-21)
+
+- **Sankey-Kachel: Einzelverbraucher und Energiezähler aus MeterHub.** Neues Panel
+  „Einzelverbraucher aus MeterHub" — dort ausgewählte MeterHub-Instanzen liefern ihre
+  Funktionszuordnung automatisch als Einzelverbraucher im Energiefluss (kWh-Bezugszähler je
+  Funktion). Zusätzlich speist ein Zähler mit Funktion „Netzanschluss" die Zähler für
+  Netzbezug und Netzeinspeisung, einer mit „Hausverbrauch" den Hausverbrauchszähler; direkt
+  zugewiesene Variablen behalten Vorrang. Die Verbraucher-Arten wurden um dieselben zwölf
+  erweitert wie in der Stromflusskachel (Waschmaschine, Spülmaschine, Backofen, Herd,
+  Kühl-/Gefriergerät, Küche, Heizung, Lüftung, Beleuchtung, Server/Netzwerk, Werkstatt,
+  Garage). Ohne installiertes MeterHub verhält sich die Kachel unverändert.
+
 ## 0.57.0-beta.1 (2026-07-21)
 
 - **Stromflusskachel: Verbraucher aus MeterHub übernehmen.** Neues Panel „Verbraucher aus
