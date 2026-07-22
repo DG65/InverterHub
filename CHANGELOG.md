@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.66.4-beta.1 (2026-07-22)
+
+- **Die Preiskurve war überhaupt nicht erreichbar — behoben.** Sie war der Gruppe „energy"
+  zugeordnet, für die es seit 0.45.1 bewusst **keinen Reiter** mehr gibt. Damit wurde sie
+  zwar berechnet, aber nirgends angezeigt. Jetzt gibt es dafür den Fokus-Reiter **„Strompreis"**
+  (nach demselben Muster wie „PV & Einstrahlung"): links PV-Erzeugung, Netzleistung und
+  Batterie-Leistung in kW, rechts der Preis als Stufenkurve in ct/kWh — also genau die
+  Gegenüberstellung, um die es geht. Der Reiter erscheint nur, wenn eine Preisquelle vorhanden
+  und die Anzeige eingeschaltet ist. Die in 0.45.1 entfernten Reiter „Leistung & Energie" und
+  „Diagnose" bleiben entfernt; diese Entscheidung wird nicht angetastet.
+
 ## 0.66.3-beta.1 (2026-07-22)
 
 - **Archivierungs-Knopf setzt den Aggregationstyp ausdrücklich auf „Standard".** Ein Preis ist
