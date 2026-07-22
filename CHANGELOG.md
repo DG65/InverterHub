@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.65.7-beta.1 (2026-07-22)
+
+- **Sankey-Kachel: Schnellwahl „Vorgestern / Gestern / Heute".** Wie in der Monitoring-Kachel
+  (0.65.6): drei direkte Knöpfe neben der Datumsauswahl, nur in der Tagesansicht, aktueller Tag
+  hervorgehoben, Tage ohne Daten ausgegraut.
+
 ## 0.65.6-beta.1 (2026-07-22)
 
 - **Monitoring-Kachel: Schnellwahl „Vorgestern / Gestern / Heute".** In der Tagesansicht stehen
