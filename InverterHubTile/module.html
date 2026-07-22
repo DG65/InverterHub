@@ -36,7 +36,17 @@
      statt Flexbox, da ein Flex-Kind mit width/height:100% in manchen
      Kachel-Hosts nicht zuverlässig auf die tatsächliche Containergröße
      schrumpft und dadurch Inhalt am Rand abgeschnitten wurde. */
-  html, body { width: 100%; height: 100%; background: transparent; user-select: none; overflow: hidden; }
+  /* Höhe bewusst über 100dvh statt 100%: Manche Kachel-Hosts geben dem body eine
+     GRÖSSERE Höhe als den tatsächlich sichtbaren Bereich. Der Inhalt wird dann
+     korrekt in die zu hohe Box eingepasst — und ist unten abgeschnitten bzw.
+     wirkt nach unten verschoben. Mit 100dvh (Rückfall 100vh) ist die Box an den
+     sichtbaren Bereich gebunden, unabhängig davon, was der Host am body setzt.
+     Das ersetzt das frühere `position: fixed`, das denselben Zweck erfüllte,
+     aber in Safari innerhalb eines iframes fehlerhaft gezeichnet wurde. */
+  html, body { width: 100%; background: transparent; user-select: none; overflow: hidden; }
+  html, body { height: 100vh; }
+  html, body { height: 100dvh; }
+  body { max-height: 100dvh; }
 
   /* BEWUSST absolute, nicht fixed: `position: fixed` innerhalb eines iframes ist
      in Safari/WebKit ein bekannter Fehlerkreis — das Element wird abgeschnitten
@@ -46,7 +56,10 @@
      anderen fehlerfrei lief.
 
      `absolute` gegen den body ist außerdem das Muster ALLER anderen Kacheln in
-     diesem Modulverbund; unsere war die einzige mit `fixed`.
+     diesem Modulverbund; unsere war die einzige mit `fixed`. Damit der body dabei
+     nicht höher wird als der sichtbare Bereich, ist seine Höhe oben auf 100dvh
+     festgelegt — sonst kehrt genau der Abschneide-Fehler zurück, gegen den `fixed`
+     ursprünglich eingeführt worden war.
 
      (Randnotiz: Das Maximieren-Symbol öffnet NICHT die vergrößerte Kachel,
      sondern die Objekt-Detailansicht des Hosts — davon unabhängig.) */

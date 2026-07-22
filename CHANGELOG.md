@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.65.1-beta.1 (2026-07-22)
+
+- **Stromflusskachel: Anordnung wirkte nach unten verschoben / unten abgeschnitten.** Rückschlag
+  aus 0.63.3: Dort wurde `position: fixed` durch `position: absolute` ersetzt, weil `fixed`
+  innerhalb eines iframes in Safari fehlerhaft gezeichnet wird. Damit kehrte aber genau der
+  Fehler zurück, gegen den `fixed` ursprünglich eingeführt worden war — **manche Kachel-Hosts
+  geben dem `body` eine größere Höhe als den sichtbaren Bereich**. Der Inhalt wird dann korrekt
+  in die zu hohe Box eingepasst und wirkt dadurch nach unten verschoben bzw. stößt unten an.
+  Die Box ist jetzt über `100dvh` (Rückfall `100vh`) und `max-height` fest an den sichtbaren
+  Bereich gebunden — unabhängig davon, was der Host am `body` setzt. Damit sind **beide** Fälle
+  erledigt: kein `fixed` mehr (Safari) und keine überhohe Box (Anordnung).
+  Nachgestellt und belegt: Erzwingt man dem `body` 760 px bei 478 px Sichtfläche, wuchs das SVG
+  vorher auf 760 px mit; jetzt bleibt es bei 478 px.
+
 ## 0.65.0-beta.1 (2026-07-21)
 
 - **SMA: Verbindung kam nicht zustande — Unit-ID-Versatz von 123.** Bei SMA liegen die
