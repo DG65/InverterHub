@@ -19,6 +19,20 @@ gemeinsame Regeln und dokumentierte Schnittstellen geeinigt haben.
 | **ChargerHub** | Wallboxen (Modbus TCP) | `DG65/ChargerHub` | noch keiner — Gerüst (v0.1.0) |
 | **MigrationsHub** | Übernahme von Bestandsgeräten und Archivwerten | `DG65/MigrationsHub` | noch keiner — Gerüst (v0.1.0) |
 
+### `beta` ist Produktion, nicht Vorbereitung
+
+**Der Beta-Zweig wird NICHT reviewt und sofort ausgeliefert.** Wer im Module Store auf den
+Beta-Kanal gestellt hat, bekommt jeden Push binnen Minuten auf die laufende Anlage — es gibt
+keinen Puffer, keine Freigabe, keinen Zwischenschritt.
+
+Daraus folgt: **Vor jedem Push beide Prüfskripte ausführen** (siehe unten) und Änderungen an
+Treibern nur pushen, wenn sie zumindest syntaktisch und strukturell geprüft sind. Ein Fehler
+hier ist kein „defekter Build", sondern eine abstürzende Instanz bei realen Nutzern.
+
+Real passiert: Die Builds 145 und 146 riefen wegen eines Textersatzes in der falschen Klasse
+Methoden auf, die dort nicht existierten — SMA- und Fronius-Instanzen liefen dadurch bis zur
+Korrektur in einen Fatal Error, und zwar sofort nach dem Push.
+
 ### Grundregel: jedes Modul bleibt eigenständig — und das wird geprüft
 
 Kein Modul darf ein anderes voraussetzen. Kopplungen liegen hinter `function_exists(...)`
