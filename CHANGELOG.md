@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.66.5-beta.1 (2026-07-22)
+
+- **Sprachpflege: Anglizismen in Anzeigetexten ersetzt.** „Scan/scannen" → „Suche/absuchen",
+  „Portcheck" → „Port-Prüfung", „Token" → „Zugangsschlüssel". Betrifft die Gerätesuche und
+  einen Hinweis in der Monitoring-Kachel. Ident-, Methoden- und Property-Namen bleiben
+  unverändert — sie sind Schnittstelle und werden nie umbenannt.
+
 ## 0.66.4-beta.1 (2026-07-22)
 
 - **Die Preiskurve war überhaupt nicht erreichbar — behoben.** Sie war der Gruppe „energy"

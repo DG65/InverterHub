@@ -399,6 +399,26 @@ Botschaft sie nicht beschrieb.
   hält beide synchron (es ist schon vorgekommen, dass das Changelog eine Version nannte, die
   `library.json` noch nicht hatte).
 
+## Sprachregel: alles Nutzersichtbare auf Deutsch
+
+Verbund-Regel seit 22.07.2026, gilt für alle zehn Mitglieder. Anweisung des Repo-Eigentümers:
+„wenn möglich keine Anglizismen bzw. komplette Ausdrücke oder Sätze in englischer Sprache".
+
+**Deutsch ist alles, was der Nutzer sieht:** Formularbeschriftungen, Hinweis- und Warntexte,
+Bestätigungsdialoge, Fehler- und Statusmeldungen, Rückgabe-Texte (z. B. ein `reason`-Feld),
+Log-Meldungen, Variablen- und Profilnamen, README und Changelog.
+
+Vermeidbare Anglizismen ersetzen: Dry-Run → Probelauf, Link → Verknüpfung, Event → Ereignis,
+Button → Schaltfläche, Checkliste → Prüfliste, Scan/scannen → Suche/suchen.
+
+**Ausgenommen — bleibt englisch, weil Umbenennen Verträge bricht:**
+
+- Bezeichner im Code: Klassen-, Methoden-, Variablen-, Property- und vor allem **Ident-Namen**.
+  **Idents sind API und werden nie umbenannt** (Verbund-Konvention). Die Sprachregel gilt
+  ausdrücklich nur für Anzeigetexte, nicht für Idents wie `pv_total` oder `CurrentPrice`.
+- Feststehende IP-Symcon- und Technikbegriffe: `SelectVariable`, WebFront, Modbus TCP, SunSpec,
+  `AC_ChangeVariableID`, MPPT, SOC usw.
+
 ## SMA mit Sunny Home Manager: zweiter Regler außerhalb von IPS
 
 Betrifft SMA-Hybridgeräte (z. B. STP Smart Energy) an Anlagen mit **Sunny Home Manager 2.0

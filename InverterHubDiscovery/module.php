@@ -205,9 +205,9 @@ class InverterHubDiscovery extends IPSModule
                     'items' => [
                         ['type' => 'Label', 'caption' => 'Durchsucht einen IP-Bereich im lokalen Netz nach Wechselrichtern auf Modbus-TCP-Port 502 und erkennt den Hersteller anhand weniger typischer Register/Unit-IDs pro Hersteller.'],
                         ['type' => 'Label', 'caption' => 'Start- und End-IP eintragen (Vorschlag anhand des eigenen Netzwerks ist schon ausgefüllt), dann „Netzwerk durchsuchen" klicken. Gefundene Geräte erscheinen unten in der Liste — Klick auf „Erstellen" legt eine InverterHub-Instanz mit vorausgefüllter IP-Adresse, Unit-ID und Hersteller an.'],
-                        ['type' => 'Label', 'caption' => 'Der Scan prüft nur wenige dokumentierte Standard-Unit-IDs je Hersteller, keinen vollen 1-247-Bereich — bei exotisch konfigurierter Unit-ID bitte die InverterHub-Instanz manuell anlegen.'],
-                        ['type' => 'Label', 'caption' => 'Wird ein bekannter Wechselrichter nicht gefunden: einen SCHMALEN Bereich (bis 64 Adressen, z. B. .30–.45) um dessen IP scannen. Kleine Bereiche nutzen einen langsameren, aber zuverlässigen Portcheck — der große Subnetz-Scan kann unter Windows oder bei langsam antwortenden Geräten (z. B. Sungrow WiNet-S) offene Ports übersehen.'],
-                        ['type' => 'Label', 'caption' => 'Kombinierter Scan: Ist zusätzlich das Modul „MeterHub" installiert, findet die Suche auch Energiezähler (Janitza, Siemens PAC) und legt sie per „Erstellen" gleich als MeterHub-Instanz an — Wechselrichter und Zähler in einem Durchgang.'],
+                        ['type' => 'Label', 'caption' => 'Die Suche prüft nur wenige dokumentierte Standard-Unit-IDs je Hersteller, keinen vollen 1-247-Bereich — bei exotisch konfigurierter Unit-ID bitte die InverterHub-Instanz manuell anlegen.'],
+                        ['type' => 'Label', 'caption' => 'Wird ein bekannter Wechselrichter nicht gefunden: einen SCHMALEN Bereich (bis 64 Adressen, z. B. .30–.45) um dessen IP absuchen. Kleine Bereiche nutzen eine langsamere, aber zuverlässigere Port-Prüfung — die große Subnetz-Suche kann unter Windows oder bei langsam antwortenden Geräten (z. B. Sungrow WiNet-S) offene Ports übersehen.'],
+                        ['type' => 'Label', 'caption' => 'Kombinierte Suche: Ist zusätzlich das Modul „MeterHub" installiert, findet die Suche auch Energiezähler (Janitza, Siemens PAC) und legt sie per „Erstellen" gleich als MeterHub-Instanz an — Wechselrichter und Zähler in einem Durchgang.'],
                         ['type' => 'Label', 'caption' => 'Hinweis: „Filter"/„Aktualisieren" oberhalb und „Erstellen"/„Alle erstellen" unterhalb der Tabelle sind fester Bestandteil der IP-Symcon-Konfigurator-Ansicht selbst — ihre Position lässt sich modulseitig nicht verändern.'],
                     ],
                 ],
@@ -222,12 +222,12 @@ class InverterHubDiscovery extends IPSModule
                         ['type' => 'ValidationTextBox', 'name' => 'NameTemplate', 'caption' => 'Name-Vorlage (leer = Hersteller + lfd. Nr.)'],
                         ['type' => 'Label', 'caption' => 'Platzhalter für die Vorlage: {hersteller} {ip} {unitid} {nr} — z.B. "{hersteller} Dach ({ip})"'],
                         ['type' => 'ValidationTextBox', 'name' => 'IgnoreIPs', 'caption' => 'IPs ignorieren (Komma-getrennt)'],
-                        ['type' => 'Label', 'caption' => 'Diese Adressen werden beim Scan komplett übersprungen — z.B. RTU/TCP-Konverter oder andere Modbus-Geräte, die sonst fälschlich als Wechselrichter erscheinen würden.'],
+                        ['type' => 'Label', 'caption' => 'Diese Adressen werden bei der Suche komplett übersprungen — z.B. RTU/TCP-Konverter oder andere Modbus-Geräte, die sonst fälschlich als Wechselrichter erscheinen würden.'],
                         [
                             'type'  => 'RowLayout',
                             'items' => [
                                 ['type' => 'Button', 'name' => 'BtnScan',  'caption' => '🔎  Netzwerk durchsuchen', 'onClick' => 'IHUBD_Discover($id);'],
-                                ['type' => 'Button', 'name' => 'BtnAbort', 'caption' => '✖  Scan abbrechen', 'onClick' => 'IHUBD_AbortScan($id);', 'visible' => false],
+                                ['type' => 'Button', 'name' => 'BtnAbort', 'caption' => '✖  Suche abbrechen', 'onClick' => 'IHUBD_AbortScan($id);', 'visible' => false],
                             ],
                         ],
                         [

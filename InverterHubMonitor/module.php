@@ -313,7 +313,7 @@ class InverterHubMonitor extends IPSModule
             $pvid = $this->PriceVarID();
             $aid  = $this->ArchiveID();
             if ($pvid <= 0) {
-                $priceItems[] = ['type' => 'Label', 'caption' => '⚠️ Preisvariable nicht gefunden — ist die Preisquelle konfiguriert (Token/Zuhause)?'];
+                $priceItems[] = ['type' => 'Label', 'caption' => '⚠️ Preisvariable nicht gefunden — ist die Preisquelle konfiguriert (Zugangsschlüssel/Zuhause)?'];
             } else {
                 $logged = ($aid > 0 && @AC_GetLoggingStatus($aid, $pvid));
                 $priceItems[] = ['type' => 'Label', 'caption' => '✅ Vorschau bereit: Die kommenden Stunden kommen direkt aus dem Preismodul.'];
