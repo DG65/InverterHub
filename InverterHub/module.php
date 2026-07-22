@@ -2045,6 +2045,13 @@ class SmaDriver implements InverterDriverInterface
         // Deshalb wird die Geraete-ID sondiert: Kandidaten der Reihe nach
         // gegen Reg 30775 (AC-Wirkleistung, liefert auch nachts einen Wert
         // statt NaN) geprueft, der erste Treffer gewinnt.
+        //
+        // WICHTIG, an der Anlage belegt (Tester-Registerliste 22.07.2026): Das
+        // SMA-Eigenprofil (30000er) wird als INPUT-Register (FC 0x04) gelesen,
+        // NICHT als Holding (0x03). Deshalb kamen 30773/30961 (DC), 30845 ff.
+        // (Batterie) und 31393/31395 (Batterieleistung) mit readHolding als NaN
+        // zurueck und liessen das Geraet batterielos erscheinen. Die SunSpec-
+        // Kette weiter oben bleibt Holding - das sind zwei verschiedene Welten.
         $sunspecUnit = $mb->unitId;
         $cands = [$native];
         if ($native > 123) {
@@ -2056,14 +2063,14 @@ class SmaDriver implements InverterDriverInterface
         $devUnit = $native;
         foreach ($cands as $c) {
             $mb->unitId = $c;
-            $probe = $mb->readHolding(30775, 2);
+            $probe = $mb->readInput(30775, 2);
             if ($probe !== null && $mb->u32($probe, 0) !== 0xFFFFFFFF) {
                 $devUnit = $c;
                 break;
             }
         }
         $mb->unitId = $devUnit;
-        $risoBlk = $mb->readHolding(30225, 2);
+        $risoBlk = $mb->readInput(30225, 2);
         if ($risoBlk !== null) {
             $r = $mb->u32($risoBlk, 0);
             if ($r !== 0xFFFFFFFF) {
@@ -2082,7 +2089,7 @@ class SmaDriver implements InverterDriverInterface
         // Register - die Kachel zeigte -2 W bei laufender Produktion.
         $dcSum = null;
         foreach ([30773, 30961] as $reg) {
-            $dcBlk = $mb->readHolding($reg, 2);
+            $dcBlk = $mb->readInput($reg, 2);
             if ($dcBlk === null) {
                 continue;
             }
@@ -2115,12 +2122,12 @@ class SmaDriver implements InverterDriverInterface
         // batterielos, und die Entladeleistung erschien wieder als Solarertrag.
         $batNet     = null;    // + = laedt, - = entlaedt; null = unbekannt
         $hasBattery = false;
-        $bs = $mb->readHolding(30845, 8);   // 30845 SOC, 30849 Temp, 30851 Volt
+        $bs = $mb->readInput(30845, 8);   // 30845 SOC, 30849 Temp, 30851 Volt
         $soc = ($bs !== null) ? $mb->u32($bs, 0) : 0xFFFFFFFF;
         if ($soc !== 0xFFFFFFFF && $soc <= 100) {
             $hasBattery = true;
         }
-        $bp = $mb->readHolding(31393, 4);   // Laden (W), Entladen (W) - s. o.
+        $bp = $mb->readInput(31393, 4);   // Laden (W), Entladen (W) - s. o.
         if ($bp !== null) {
             $chg = $mb->u32($bp, 0);
             $dis = $mb->u32($bp, 2);

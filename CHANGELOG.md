@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.67.1-beta.1 (2026-07-22)
+
+- **SMA: DC-Leistung und Batterie werden jetzt tatsächlich gelesen — Kern des Solar-/Batterie-
+  Problems gefunden.** Das SMA-Eigenprofil (30000er-Register: Isolationswiderstand, DC-Leistung
+  30773/30961, Batterie 30845 ff. und Batterieleistung 31393/31395) muss als **Input-Register
+  (Funktionscode 04)** gelesen werden, nicht als Holding (03). Bisher las das Modul sie als
+  Holding — das Gerät antwortete mit „nicht belegt", weshalb die Batterie unerkannt blieb und
+  die aus ihr gespeiste Leistung als Solarerzeugung erschien. Die Registeradressen waren die
+  ganze Zeit richtig, nur der Zugriffsweg war falsch; ein Tester hat es an seinem Gerät belegt.
+  Die SunSpec-Modelle (Wechselrichter, Zähler) bleiben unverändert Holding-Register — das sind
+  zwei getrennte Registerwelten auf zwei verschiedenen Unit-IDs.
+  Damit sollten auf SMA-Hybridgeräten erstmals echte DC-Leistung, Batterie-Ladezustand,
+  -Leistung, -Spannung und -Temperatur ankommen — und die PV-Anzeige stimmt, weil die
+  Batterieleistung nun bekannt ist und verrechnet wird, statt die AC-Näherung zu brauchen.
+
 ## 0.67.0-beta.1 (2026-07-22)
 
 - **GoodWe: Irreführende Beschriftung eines Steuerschalters korrigiert — konnte ungewollt zur
