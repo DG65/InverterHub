@@ -427,12 +427,21 @@ function lerp(a, b, t) {
 // eine Auflösung, die es nicht gibt. Daher eine Nachkommastelle und ein
 // vorangestelltes ≈, damit der Charakter des Werts sichtbar bleibt.
 // Alles andere (auch fehlendes Feld) gilt als gemessen und bleibt dreistellig.
-function fmtKw(w, measured) {
-  const kw = (w || 0) / 1000;
-  if (measured === false) {
-    return '≈' + kw.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-  }
-  return kw.toLocaleString('de-DE', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+// Die EINHEIT richtet sich nach der Größenordnung, statt fest kW zu sein:
+// unter 1 kW in W ohne Nachkommastellen (470 W statt 0,470 kW), darüber in kW
+// mit Watt-Auflösung, ab 1 MW in MW. Hintergrund: Bei kleinen Verbrauchern
+// bestanden die Anzeigen fast nur aus Nullen („0,034 kW").
+function fmtPower(w, measured) {
+  const v = w || 0, a = Math.abs(v);
+  const est = (measured === false);
+  const num = function (x, d) {
+    return (est ? '≈' : '') + x.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d });
+  };
+  if (a >= 1000000) { return { value: num(v / 1000000, 3), unit: 'MW' }; }
+  if (a >= 1000)    { return { value: num(v / 1000, est ? 1 : 3), unit: 'kW' }; }
+  // Geschätzte Werte (HeishaMon ohne Zähler, ~200-W-Raster) auf 10 W runden -
+  // eine wattgenaue Angabe wäre dort Scheingenauigkeit.
+  return { value: num(est ? Math.round(v / 10) * 10 : v, 0), unit: 'W' };
 }
 // Corona-Stärke: skaliert von 0 (bei 0 W) bis Maximum (bei GLOW_MAX_W = 40 kW).
 // Perzeptuelle sqrt-Kennlinie, damit auch mittlere Leistungen sichtbar sind.
@@ -856,7 +865,7 @@ function buildItems(d, consumerColor) {
       soc: c.socHave ? c.soc : null,
       // Name des erkannten Fahrzeugs (nur Wallboxen)
       sub: c.sub || '',
-      // false = geschätzter Wert (siehe fmtKw). Das Modul setzt das Feld immer,
+      // false = geschätzter Wert (siehe fmtPower). Das Modul setzt das Feld immer,
       // auch bei manuell zugewiesenen Verbrauchern und Zählern (dort true).
       measured: c.measured,
       color: () => col,
@@ -868,8 +877,16 @@ function buildItems(d, consumerColor) {
   return items;
 }
 
+// Setzt Zahl UND Einheit. Der Textknoten trägt die Zahl, das angehängte
+// <tspan class="node-value-unit"> die Einheit - beide müssen zusammen wandern,
+// sonst steht „470" mit „kW" daneben.
 function setValueText(textEl, watts, measured) {
-  textEl.firstChild.nodeValue = fmtKw(watts, measured);
+  const f = fmtPower(watts, measured);
+  textEl.firstChild.nodeValue = f.value;
+  const unitEl = textEl.querySelector('.node-value-unit');
+  if (unitEl && unitEl.textContent !== f.unit) {
+    unitEl.textContent = f.unit;
+  }
 }
 
 // --- Persistente Knoten -----------------------------------------------------

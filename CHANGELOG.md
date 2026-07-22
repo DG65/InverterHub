@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.65.11-beta.1 (2026-07-22)
+
+- **Stromflusskachel: Einheit richtet sich nach der Größenordnung.** Bisher stand überall fest
+  „kW" mit drei Nachkommastellen, sodass kleine Verbraucher fast nur aus Nullen bestanden
+  („0,034 kW"). Jetzt: unter 1 kW in **W** ohne Nachkommastellen (34 W, 470 W), darüber in
+  **kW** mit Watt-Auflösung (4,400 kW), ab 1 MW in **MW**. Geschätzte Werte behalten ihr
+  vorangestelltes ≈ und werden im Watt-Bereich auf 10 W gerundet (≈30 W), weil die Schätzung
+  ohnehin nur im ~200-W-Raster liegt. Angeregt von ChristianL im Symcon-Forum.
+
 ## 0.65.10-beta.1 (2026-07-22)
 
 - **SMA: Eigenprofil-Register (Riso, DC-Leistung, Batterie) blieben stumm, wenn als Unit-ID
