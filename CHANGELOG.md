@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.66.3-beta.1 (2026-07-22)
+
+- **Archivierungs-Knopf setzt den Aggregationstyp ausdrücklich auf „Standard".** Ein Preis ist
+  ein Momentanwert, kein aufsummierter Verbrauch. Ohne diese Festlegung bliebe eine Variable,
+  die früher einmal als **Zähler** archiviert wurde, weiterhin Zähler — die Preiskurve wäre dann
+  Unsinn. Der Wert ist mit der Preisquelle abgestimmt, damit es keine Rolle spielt, über welchen
+  Weg die Archivierung eingeschaltet wurde.
+
 ## 0.66.2-beta.1 (2026-07-22)
 
 - **Knopf „Archivierung der Preisvariable einschalten".** Der Hinweis „muss archiviert werden"

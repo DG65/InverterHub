@@ -172,6 +172,13 @@ class InverterHubMonitor extends IPSModule
             $this->UpdateFormField('PriceLogHint', 'caption', '✅ Rückblick bereit: Die Preisvariable wird bereits archiviert.');
             return;
         }
+        // Aggregationstyp ausdrücklich auf 0 (Standard/Mittelwert) setzen, NICHT
+        // Zähler: Ein Preis ist ein Momentanwert, kein aufsummierter Verbrauch.
+        // Ohne diese Zeile bliebe eine Variable, die früher einmal als Zähler
+        // archiviert wurde, auch weiterhin Zähler - und die Preiskurve wäre
+        // Unsinn. Der Wert ist mit der Preisquelle abgestimmt, damit es egal
+        // bleibt, über welchen Weg die Archivierung eingeschaltet wurde.
+        @AC_SetAggregationType($aid, $pvid, 0);
         @AC_SetLoggingStatus($aid, $pvid, true);
         @IPS_ApplyChanges($aid);
         $ok = @AC_GetLoggingStatus($aid, $pvid);
