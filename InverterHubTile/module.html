@@ -63,7 +63,14 @@
 
      (Randnotiz: Das Maximieren-Symbol öffnet NICHT die vergrößerte Kachel,
      sondern die Objekt-Detailansicht des Hosts — davon unabhängig.) */
-  body { position: relative; }
+  /* WICHTIG: Der body darf NICHT positioniert sein (kein position: relative).
+     Sonst bezieht sich `inset: 0` auf dessen POLSTERKANTE — und der Kachel-Host
+     setzt dem body einen Innenabstand (gemessen: 20px seitlich, 60px oben für die
+     Titelleiste). Das SVG saß dadurch um genau diesen Betrag versetzt und ragte
+     unten und rechts hinaus.
+     Ohne positionierten Vorfahren bezieht sich `inset: 0` auf den initialen
+     Containing Block, also exakt auf den sichtbaren Bereich — dasselbe Ergebnis
+     wie beim früheren `position: fixed`, aber ohne dessen Safari-Fehler. */
   .flow-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 
   text { font-family: var(--font); }

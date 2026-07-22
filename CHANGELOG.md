@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.65.3-beta.1 (2026-07-22)
+
+- **Stromflusskachel: Inhalt saß nach rechts unten versetzt und stieß dort an.** Ursache
+  gefunden und behoben. Der Kachel-Host setzt dem `body` einen **Außenabstand** (gemessen:
+  20 px seitlich, 60 px oben für die Titelleiste). In 0.63.3 war zusätzlich
+  `body { position: relative }` eingeführt worden — dadurch wurde der `body` zum Bezugsrahmen
+  für die Zeichenfläche, die den Versatz mit erbte und um genau diesen Betrag nach rechts unten
+  rutschte. Ohne positionierten Vorfahren bezieht sich die Fläche auf den sichtbaren Bereich,
+  unabhängig vom Außenabstand des Hosts.
+  Nachgestellt und belegt: Mit dem Außenabstand und `position: relative` liegt die Zeichenfläche
+  bei 20/60 — exakt der beim Tester gemessene Wert; ohne `position: relative` bei 0/0.
+
 ## 0.65.2-beta.1 (2026-07-22)
 
 - **Stromflusskachel: Knoten wurden am Rand abgeschnitten.** Die Zeichenfläche war zu knapp
