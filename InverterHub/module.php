@@ -2074,8 +2074,25 @@ class SmaDriver implements InverterDriverInterface
         // 30851 (÷100 V), Ladeleistung 31393 (W), Entladeleistung 31395 (W) -
         // lt. SMA Modbus-TI (EDMx) und CodeKing-Registerkarte. Vorzeichen:
         // + = laedt, - = entlaedt.
-        $batNet = null;   // + = laedt, - = entlaedt; fuer den PV-Fallback unten
+        // Batterieleistung IMMER lesen, auch wenn die Batteriegruppe abgewählt
+        // ist: Sie wird unten gebraucht, um zu erkennen, ob dieses Gerät
+        // ueberhaupt eine Batterie hat. Geschrieben werden die Variablen nur bei
+        // eingeschalteter Gruppe.
+        $batNet    = null;   // + = laedt, - = entlaedt
+        $hasBattery = false; // Geraet meldet ueberhaupt eine Batterie
+        $bp = $mb->readHolding(31393, 4);   // Laden (W), Entladen (W)
+        if ($bp !== null) {
+            $chg = $mb->u32($bp, 0);
+            $dis = $mb->u32($bp, 2);
+            if ($chg !== 0xFFFFFFFF && $dis !== 0xFFFFFFFF) {
+                $hasBattery = true;
+                $batNet     = (float)$chg - (float)$dis;
+            }
+        }
         if ($hub->GetPropBool('GroupBat')) {
+            if ($batNet !== null) {
+                $hub->SetVarFloat('bat_pwr', $batNet);
+            }
             $bs = $mb->readHolding(30845, 8);   // 30845..30852: SOC, 30849 Temp, 30851 Volt
             if ($bs !== null) {
                 $soc = $mb->u32($bs, 0);
@@ -2089,15 +2106,6 @@ class SmaDriver implements InverterDriverInterface
                 $u = $mb->u32($bs, 6);
                 if ($u !== 0xFFFFFFFF) {
                     $hub->SetVarFloat('bat_volt', $u / 100.0);
-                }
-            }
-            $bp = $mb->readHolding(31393, 4);   // Laden (W), Entladen (W)
-            if ($bp !== null) {
-                $chg = $mb->u32($bp, 0);
-                $dis = $mb->u32($bp, 2);
-                if ($chg !== 0xFFFFFFFF && $dis !== 0xFFFFFFFF) {
-                    $batNet = (float)$chg - (float)$dis;
-                    $hub->SetVarFloat('bat_pwr', $batNet);
                 }
             }
         }
@@ -2185,21 +2193,30 @@ class SmaDriver implements InverterDriverInterface
             }
         }
 
-        // Letzte Rueckfallebene fuer die PV-Gesamtleistung: Liefert weder das
-        // SMA-Eigenprofil (30773/30961) noch SunSpec-DCW einen Wert - der STP
-        // Smart Energy etwa belegt beides nicht -, wird die AC-Wirkleistung
-        // uebernommen, solange der WR einspeist (Status 4 = MPPT). Das ist um
-        // die Wandlerverluste zu niedrig und bei Hybridgeraeten um die gerade
-        // geladene Batterieleistung daneben, aber ehrlicher als gar kein oder
-        // ein eingefrorener Wert. Ausserhalb des Einspeisebetriebs: 0 W, damit
-        // nachts kein Batterie-Entladestrom als PV-Leistung erscheint.
+        // Letzte Rueckfallebene fuer die PV-Gesamtleistung, wenn weder das
+        // SMA-Eigenprofil (30773/30961) noch SunSpec-DCW einen DC-Wert liefert.
+        //
+        // ACHTUNG, teuer gelernt (Tester-Report 22.07.2026, 21:50 Uhr): Auf
+        // einem HYBRIDGERAET sagt die AC-Leistung NICHTS darueber aus, woher
+        // die Energie kommt. Nachts speiste die Batterie 1850 W ins Haus, der
+        // Wechselrichter meldete weiter Status "Normal (MPPT)" - und die Kachel
+        // zeigte diese 1850 W als Solarerzeugung an. Der Status taugt also NICHT
+        // als Tageslicht-Ersatz.
+        //
+        // Deshalb wird nur noch abgeleitet, wenn die Herkunft geklaert ist:
+        //   - Geraet OHNE Batterie: AC ~ PV ist zulaessig (nur Wandlerverluste).
+        //   - Geraet MIT Batterie: nur wenn die Batterieleistung wirklich
+        //     gelesen wurde, dann PV ~ AC + Ladeleistung.
+        //   - Batterie vorhanden, aber Leistung unbekannt: 0 W. Lieber gar kein
+        //     Wert als eine erfundene Erzeugung.
         if ($dcSum === null) {
-            // Ist die Batterieleistung bekannt (Hybridgeraete), wird sie mit
-            // verrechnet: PV ≈ AC-Ausgang + Ladeleistung (bzw. minus Entlade-
-            // leistung, damit nachts entladene Energie nicht als PV erscheint).
             $pv = 0.0;
             if ($st === 4 && $acW !== null) {
-                $pv = max(0.0, (float)$acW + ($batNet ?? 0.0));
+                if (!$hasBattery) {
+                    $pv = max(0.0, (float)$acW);
+                } elseif ($batNet !== null) {
+                    $pv = max(0.0, (float)$acW + $batNet);
+                }
             }
             $hub->SetVarFloat('pv_total', $pv);
         }

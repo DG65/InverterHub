@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.66.7-beta.1 (2026-07-22)
+
+- **SMA-Hybrid: Nachts wurde die Batterieentladung als Solarerzeugung angezeigt.** Um 21:50 Uhr
+  meldete die Kachel 1,852 kW „Solar", während die Batterie mit 1,850 kW das Haus versorgte —
+  es war dieselbe Energie, einmal falsch beschriftet. Ursache war die in 0.65.8 eingeführte
+  Rückfallebene: Liefert ein Gerät keine DC-Leistung, wurde ersatzweise die AC-Wirkleistung als
+  PV-Erzeugung übernommen, abgesichert nur durch den Betriebsstatus. Dieser Wächter trägt
+  nicht — ein Hybridgerät meldet auch nachts „Normal (MPPT)", solange es aus der Batterie
+  einspeist.
+  Jetzt wird nur noch abgeleitet, wenn die **Herkunft der Energie geklärt** ist: Bei Geräten
+  ohne Batterie bleibt AC ≈ PV zulässig; bei Hybridgeräten nur, wenn die Batterieleistung
+  tatsächlich gelesen wurde (dann PV ≈ AC + Ladeleistung). Ist eine Batterie vorhanden, ihre
+  Leistung aber unbekannt, werden 0 W geschrieben — lieber kein Wert als eine erfundene
+  Erzeugung. Dafür werden die Batterieregister jetzt unabhängig davon gelesen, ob die
+  Batteriegruppe eingeschaltet ist; geschrieben werden die Variablen weiterhin nur dann.
+  Gefunden von sirkentucky.
+
 ## 0.66.6-beta.1 (2026-07-22)
 
 - **Nachkontrolle der Sprachpflege.** Alle Texte der Gerätesuche darauf geprüft, ob beim
