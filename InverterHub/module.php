@@ -1921,6 +1921,12 @@ class SmaDriver implements InverterDriverInterface
             'GroupMeter' => ['caption' => 'Smart Meter (Leistung)', 'vars' => [
                 ['meter_total', 'Netz Leistung (Meter)', 'F', 'SMA.Watt', true, 'meter', 'SunSpec Meter Model 201/203'],
             ]],
+            'GroupBat' => ['caption' => 'Batterie (Hybrid-/Storage-Geräte)', 'vars' => [
+                ['bat_soc',  'Batterie SOC',        'I', '~Battery.100',  true,  'bat', 'RO 30845 (SMA-Profil, %)'],
+                ['bat_pwr',  'Batterie Leistung',   'F', 'SMA.Watt',      true,  'bat', 'RO 31393-31395 (Laden minus Entladen, + = laedt)'],
+                ['bat_volt', 'Batterie Spannung',   'F', 'SMA.Volt',      false, 'bat', 'RO 30851 (SMA-Profil, V ÷100)'],
+                ['bat_temp', 'Batterie Temperatur', 'F', '~Temperature',  false, 'bat', 'RO 30849 (SMA-Profil, °C ÷10)'],
+            ]],
             'GroupDevice' => ['caption' => 'Geräteinformation', 'vars' => [
                 ['dev_model', 'Modell', 'S', '', false, 'device', 'SunSpec Common Block'],
                 ['dev_sn',    'Seriennummer', 'S', '', false, 'device', 'SunSpec Common Block'],
@@ -2038,6 +2044,40 @@ class SmaDriver implements InverterDriverInterface
         if ($dcSum !== null) {
             $hub->SetVarFloat('pv_total', $dcSum);
         }
+
+        // Batterie (Hybrid-/Storage-Geraete) aus dem SMA-Eigenprofil. Alle
+        // Register u32, NaN = 0xFFFFFFFF ("keine Batterie" bzw. gerade kein
+        // Wert). Quellen: SOC 30845 (%), Temperatur 30849 (÷10 °C), Spannung
+        // 30851 (÷100 V), Ladeleistung 31393 (W), Entladeleistung 31395 (W) -
+        // lt. SMA Modbus-TI (EDMx) und CodeKing-Registerkarte. Vorzeichen:
+        // + = laedt, - = entlaedt.
+        $batNet = null;   // + = laedt, - = entlaedt; fuer den PV-Fallback unten
+        if ($hub->GetPropBool('GroupBat')) {
+            $bs = $mb->readHolding(30845, 8);   // 30845..30852: SOC, 30849 Temp, 30851 Volt
+            if ($bs !== null) {
+                $soc = $mb->u32($bs, 0);
+                if ($soc !== 0xFFFFFFFF) {
+                    $hub->SetVarInt('bat_soc', $soc);
+                }
+                $t = $mb->u32($bs, 4);
+                if ($t !== 0xFFFFFFFF) {
+                    $hub->SetVarFloat('bat_temp', $t / 10.0);
+                }
+                $u = $mb->u32($bs, 6);
+                if ($u !== 0xFFFFFFFF) {
+                    $hub->SetVarFloat('bat_volt', $u / 100.0);
+                }
+            }
+            $bp = $mb->readHolding(31393, 4);   // Laden (W), Entladen (W)
+            if ($bp !== null) {
+                $chg = $mb->u32($bp, 0);
+                $dis = $mb->u32($bp, 2);
+                if ($chg !== 0xFFFFFFFF && $dis !== 0xFFFFFFFF) {
+                    $batNet = (float)$chg - (float)$dis;
+                    $hub->SetVarFloat('bat_pwr', $batNet);
+                }
+            }
+        }
         $mb->unitId = $sunspecUnit; // zurueck auf die SunSpec-Kennung
 
         // Offsets siehe FroniusDriver (identische SunSpec-Modelle 101/103/111/113),
@@ -2131,7 +2171,14 @@ class SmaDriver implements InverterDriverInterface
         // ein eingefrorener Wert. Ausserhalb des Einspeisebetriebs: 0 W, damit
         // nachts kein Batterie-Entladestrom als PV-Leistung erscheint.
         if ($dcSum === null) {
-            $hub->SetVarFloat('pv_total', ($st === 4 && $acW !== null && $acW > 0) ? (float)$acW : 0.0);
+            // Ist die Batterieleistung bekannt (Hybridgeraete), wird sie mit
+            // verrechnet: PV ≈ AC-Ausgang + Ladeleistung (bzw. minus Entlade-
+            // leistung, damit nachts entladene Energie nicht als PV erscheint).
+            $pv = 0.0;
+            if ($st === 4 && $acW !== null) {
+                $pv = max(0.0, (float)$acW + ($batNet ?? 0.0));
+            }
+            $hub->SetVarFloat('pv_total', $pv);
         }
 
         if ($hub->GetPropBool('GroupMeter')) {

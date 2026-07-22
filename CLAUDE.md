@@ -399,6 +399,28 @@ Botschaft sie nicht beschrieb.
   hält beide synchron (es ist schon vorgekommen, dass das Changelog eine Version nannte, die
   `library.json` noch nicht hatte).
 
+## Verbund-Konvention: Kacheln mit Datumssteuerung bedienen sich identisch
+
+Gilt für **alle** Kacheln mit Zeitraum-/Datumsauswahl — derzeit `InverterHubMonitor` und
+`InverterHubEnergy` (Sankey), künftig jede weitere im Verbund. Wer eine Kachel mit
+Datumssteuerung baut oder ändert, zieht **alle** anderen im selben Zug nach; die Bedienung
+darf nie auseinanderlaufen, auch nicht vorübergehend.
+
+Der vereinbarte Aufbau (Referenz: `InverterHubMonitor/module.html`):
+
+1. **Position:** Steuerleiste `#bar` horizontal **zentriert**, direkt unter dem Kacheltitel
+   (nicht ins Titelband — dort fängt die IPS-Kopfzeile die Klicks ab).
+2. **Reihenfolge:** Ansichts-Auswahl (`Tag/Woche/Monat/…`) · ◀ · Datumsfeld · ▶ ·
+   Schnellwahl.
+3. **Schnellwahl „Vorgestern / Gestern / Heute":** nur in der **Tagesansicht** sichtbar;
+   der angezeigte Tag ist hervorgehoben und wandert bei jeder Navigationsart mit; Tage ohne
+   Archivdaten sind ausgegraut (Buttons `.qday`, Container `#quick`).
+4. **Optik:** gleiche Klassen/Stile (`.sel`, `.nav`, `.pick`, `.qday`), gleiche Radien und
+   Grautöne, Theme-Färbung über `applyTheme`.
+
+Änderungen an dieser Konvention werden über den Repo-Eigentümer in den Verbund getragen,
+damit auch Kacheln anderer Module (z. B. GoodweET, StromGedachtTile) nachziehen können.
+
 ## Browser-Eigenheiten der Kacheln (teuer erkauftes Wissen)
 
 Gilt für `InverterHubTile/module.html` und sinngemäß für andere Kachel-HTML:

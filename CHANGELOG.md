@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.65.9-beta.1 (2026-07-22)
+
+- **SMA: Batterie-Unterstützung für Hybrid-/Storage-Geräte** (z. B. STP Smart Energy). Neue
+  optionale Gruppe „Batterie" mit SOC (Reg 30845), Leistung (31393 − 31395, + = lädt),
+  Spannung (30851) und Temperatur (30849) aus dem SMA-Eigenprofil; Registerbelegung gegen die
+  SMA Modbus-TI (EDMx) und die CodeKing-Registerkarte verifiziert. Meldet das Gerät „keine
+  Batterie" (NaN), bleiben die Variablen unberührt.
+- **SMA: PV-Näherung bei Hybridgeräten verbessert.** Fehlt die echte DC-Leistung (siehe
+  0.65.8), rechnet die Rückfallebene jetzt die Batterieleistung mit ein:
+  PV ≈ AC-Ausgang + Ladeleistung. Damit stimmt der Wert auch, während die Batterie aus PV
+  lädt, und nachts entladene Energie erscheint nicht als PV-Leistung.
+- **Sankey-Kachel: Datumssteuerung zentriert** — analog zur Monitoring-Kachel. Gleichzeitig
+  als Verbund-Konvention festgeschrieben (CLAUDE.md): Alle Kacheln mit Datumssteuerung
+  bedienen sich identisch (Aufbau, Reihenfolge, Schnellwahl, Optik); Änderungen werden immer
+  auf alle betroffenen Kacheln gleichzeitig angewendet.
+
 ## 0.65.8-beta.1 (2026-07-22)
 
 - **SMA: „PV Gesamtleistung" zeigte −2 W bei laufender Produktion.** Zwei Ursachen:

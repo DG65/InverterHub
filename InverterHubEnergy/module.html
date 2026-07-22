@@ -8,7 +8,9 @@
      ein - ohne diesen Abstand überlagert er unsere Kopfzeile (und fängt
      Klicks auf das Zeitraum-Dropdown ab). */
   .wrap { box-sizing: border-box; height: 100vh; display: flex; flex-direction: column; padding: 52px 12px 10px; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  #bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  /* Verbund-Konvention: Datumssteuerung horizontal zentriert, direkt unter dem
+     Kacheltitel — wie in der Monitoring-Kachel. Siehe CLAUDE.md. */
+  #bar { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
   select.sel { font: inherit; font-size: 13px; font-weight: 600; padding: 4px 26px 4px 10px; border-radius: 8px; border: 1px solid rgba(127,135,145,.35); background: rgba(127,135,145,.12); color: inherit; cursor: pointer; -webkit-appearance: none; appearance: none;
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%239aa4b0'/></svg>"); background-repeat: no-repeat; background-position: right 9px center; }
   button.nav { font: inherit; font-size: 14px; line-height: 1; width: 30px; height: 30px; border-radius: 8px; border: 1px solid rgba(127,135,145,.35); background: rgba(127,135,145,.12); color: inherit; cursor: pointer; }
