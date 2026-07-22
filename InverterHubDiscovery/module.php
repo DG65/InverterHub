@@ -266,7 +266,7 @@ class InverterHubDiscovery extends IPSModule
             ],
             'status' => [
                 ['code' => 102, 'icon' => 'active',   'caption' => 'Bereit.'],
-                ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte Such-IP-Bereich eintragen.'],
+                ['code' => 104, 'icon' => 'inactive', 'caption' => 'Bitte den IP-Bereich für die Suche eintragen.'],
             ],
         ];
 

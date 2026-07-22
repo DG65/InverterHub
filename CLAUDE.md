@@ -411,6 +411,18 @@ Log-Meldungen, Variablen- und Profilnamen, README und Changelog.
 Vermeidbare Anglizismen ersetzen: Dry-Run → Probelauf, Link → Verknüpfung, Event → Ereignis,
 Button → Schaltfläche, Checkliste → Prüfliste, Scan/scannen → Suche/suchen.
 
+**Wort-für-Wort-Ersetzen reicht nicht.** Zwei Fehlerarten sind im Verbund real aufgetreten und
+überstehen jede maschinelle Ersetzung:
+
+1. **Genus-Bruch.** „einen langsameren, aber zuverlässigen Port*check*" wird mit „Port-*Prüfung*"
+   (feminin) grammatisch falsch. Nach jeder Ersetzung den **Diff lesen**, nicht nur die
+   Trefferliste. (Hier passiert, beim Durchsehen bemerkt.)
+2. **Objekt-Verwechslung.** „scannen" heißt zweierlei, was im Englischen dasselbe Wort ist:
+   Wird ein **Adressbereich abgesucht** → „durchsuchen/absuchen"; sollen **Geräte gefunden**
+   werden → „finden". „Zähler lassen sich nicht durchsuchen" ist grammatisch tadellos und
+   trotzdem falsch — man durchsucht nicht die Zähler, die Suche findet sie nicht.
+   (Bei MeterHub passiert, dort korrigiert.)
+
 **Ausgenommen — bleibt englisch, weil Umbenennen Verträge bricht:**
 
 - Bezeichner im Code: Klassen-, Methoden-, Variablen-, Property- und vor allem **Ident-Namen**.

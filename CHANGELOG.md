@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.66.6-beta.1 (2026-07-22)
+
+- **Nachkontrolle der Sprachpflege.** Alle Texte der Gerätesuche darauf geprüft, ob beim
+  Ersetzen von „scannen" das Objekt verrutscht ist (man durchsucht einen Adressbereich, aber man
+  *findet* Geräte) — die Formulierungen sind korrekt. Geglättet wurde die holprige Wortbildung
+  „Bitte Such-IP-Bereich eintragen" → „Bitte den IP-Bereich für die Suche eintragen".
+
 ## 0.66.5-beta.1 (2026-07-22)
 
 - **Sprachpflege: Anglizismen in Anzeigetexten ersetzt.** „Scan/scannen" → „Suche/absuchen",
