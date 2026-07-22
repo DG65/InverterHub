@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.65.10-beta.1 (2026-07-22)
+
+- **SMA: Eigenprofil-Register (Riso, DC-Leistung, Batterie) blieben stumm, wenn als Unit-ID
+  direkt die SunSpec-Kennung eingetragen war.** SMA trennt zwei Registerwelten: SunSpec liegt
+  auf Geräte-Unit-ID + 123, das SMA-Eigenprofil (30000er) auf der Geräte-Unit-ID selbst. Wer —
+  wie z. B. OpenEMS-Standard 126 — direkt die SunSpec-Kennung einträgt, bekam SunSpec-Werte,
+  aber alle Eigenprofil-Reads liefen ins Leere: Isolationswiderstand eingefroren, DC-Leistung
+  −1/NaN, Batterie ohne Werte — obwohl das Gerät die Register (auf Unit 3) nachweislich
+  liefert. Die Geräte-Unit-ID wird jetzt sondiert (eingetragene ID, minus 123, Werksvorgabe 3;
+  Prüfregister 30775) und für alle Eigenprofil-Zugriffe verwendet. Damit liefern auf solchen
+  Anlagen auch die echte DC-Leistung (30773) und die Batteriegruppe (0.65.9) Werte, und die
+  AC-Näherung entfällt von selbst.
+
 ## 0.65.9-beta.1 (2026-07-22)
 
 - **SMA: Batterie-Unterstützung für Hybrid-/Storage-Geräte** (z. B. STP Smart Energy). Neue

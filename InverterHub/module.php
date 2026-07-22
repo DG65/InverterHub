@@ -2006,12 +2006,35 @@ class SmaDriver implements InverterDriverInterface
             return false;
         }
 
-        // Isolationswiderstand aus dem proprietären SMA-Profil (Reg 30225,
-        // uint32 in Ohm). Sentinel 0xFFFFFFFF = "nicht verfügbar" überspringen.
-        // Riso stammt aus dem SMA-EIGENEN Profil und liegt auf der unveraenderten
-        // Unit-ID - nicht auf der um 123 versetzten SunSpec-Kennung.
+        // ---- SMA-Eigenprofil (30000er-Register) --------------------------
+        // Es liegt NICHT auf der SunSpec-Kennung, sondern auf der Geraete-
+        // Unit-ID. Welche das ist, haengt davon ab, was der Nutzer eingetragen
+        // hat: die Geraete-ID (z. B. 3, dann SunSpec via +123-Retry) ODER
+        // direkt die SunSpec-Kennung (z. B. 126, der OpenEMS-Standard) - dann
+        // ist die Geraete-ID die eingetragene MINUS 123. Beim Tester fror so
+        // der Isolationswiderstand ein und die Batterie blieb stumm, obwohl
+        // sein Altmodul dieselben Register (auf Unit 3) problemlos las.
+        // Deshalb wird die Geraete-ID sondiert: Kandidaten der Reihe nach
+        // gegen Reg 30775 (AC-Wirkleistung, liefert auch nachts einen Wert
+        // statt NaN) geprueft, der erste Treffer gewinnt.
         $sunspecUnit = $mb->unitId;
-        $mb->unitId  = $native;
+        $cands = [$native];
+        if ($native > 123) {
+            $cands[] = $native - 123;
+        }
+        if (!in_array(3, $cands, true)) {
+            $cands[] = 3;   // SMA-Werksvorgabe
+        }
+        $devUnit = $native;
+        foreach ($cands as $c) {
+            $mb->unitId = $c;
+            $probe = $mb->readHolding(30775, 2);
+            if ($probe !== null && $mb->u32($probe, 0) !== 0xFFFFFFFF) {
+                $devUnit = $c;
+                break;
+            }
+        }
+        $mb->unitId = $devUnit;
         $risoBlk = $mb->readHolding(30225, 2);
         if ($risoBlk !== null) {
             $r = $mb->u32($risoBlk, 0);
