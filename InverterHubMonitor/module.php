@@ -26,6 +26,8 @@ class InverterHubMonitor extends IPSModule
     private const ARCHIVE_GUID   = '{43192F0B-135B-4CE7-A0A7-1475603F3060}';
     private const INVERTERHUB_GUID = '{BBE2C593-1A91-426D-A714-29A9C7E87589}';
     private const PVF_GUID        = '{257DD4E8-9705-462E-89FC-56D0A1038353}'; // PV-Prognose
+    private const TIBBER_GUID     = '{E92F62F4-88A6-4C6E-9F0D-E76C3B1C9A01}'; // Tibber Grid Reward (Preisquelle)
+    private const PRICE_COLOR     = '#ffb300';
     private const WINDOW_DAYS   = 8;    // navigierbares Tages-Fenster (Verlauf)
     private const WINDOW_WEEKS  = 26;   // Wochen-Fenster (Energie-Balken)
     private const WINDOW_MONTHS = 12;   // Monats-Fenster (Energie-Balken)
@@ -97,6 +99,10 @@ class InverterHubMonitor extends IPSModule
         $this->RegisterPropertyBoolean('show_irr', true);
         // Batterie-Leistung invertieren (Vorzeichen laden/entladen je nach Anlage).
         $this->RegisterPropertyBoolean('BatInvert', false);
+        // Strompreis-Kurve (optionale Kopplung an ein Preisquellen-Modul,
+        // derzeit Tibber Grid Rewards). 0 = aus.
+        $this->RegisterPropertyInteger('PriceInstance', 0);
+        $this->RegisterPropertyBoolean('show_price', true);
 
         $this->RegisterPropertyString('Engine', 'echarts');
         $this->RegisterPropertyInteger('ColorBackground', -1);
@@ -243,6 +249,22 @@ class InverterHubMonitor extends IPSModule
         }
         $elements[] = ['type' => 'ExpansionPanel', 'caption' => 'Werte', 'expanded' => true, 'items' => $valueItems];
 
+        // --- Strompreis (optionale Kopplung an eine Preisquelle) -------------
+        $priceItems = [];
+        $tibberAll = @IPS_GetInstanceListByModuleID(self::TIBBER_GUID);
+        $tibberAll = is_array($tibberAll) ? $tibberAll : [];
+        if (count($tibberAll) === 0) {
+            $priceItems[] = ['type' => 'Label', 'caption' => 'ℹ️ Kein Preisquellen-Modul gefunden. Mit installiertem „Tibber Grid Reward" lässt sich der Strompreis als Stufenkurve in den Tagesverlauf legen (Reiter „Leistung"), inklusive Vorschau auf die kommenden Stunden.'];
+        } else {
+            $priceItems[] = ['type' => 'CheckBox', 'name' => 'show_price', 'caption' => 'Strompreis im Tagesverlauf anzeigen'];
+            $priceItems[] = ['type' => 'SelectInstance', 'name' => 'PriceInstance', 'caption' => 'Preisquelle (leer = automatisch, wenn nur eine vorhanden)'];
+            $has = $this->PriceVarID() > 0;
+            $priceItems[] = ['type' => 'Label', 'caption' => $has
+                ? '✅ Preisvariable gefunden. Vergangenheit kommt aus dem Archiv, die Vorschau direkt aus dem Preismodul. Tipp: Für den Rückblick muss die Variable „Aktueller Preis" dort archiviert werden.'
+                : '⚠️ Preisvariable nicht gefunden — ist die Preisquelle konfiguriert (Token/Zuhause)?'];
+        }
+        $elements[] = ['type' => 'ExpansionPanel', 'caption' => 'Strompreis', 'expanded' => false, 'items' => $priceItems];
+
         $elements[] = [
             'type' => 'ExpansionPanel', 'caption' => 'Darstellung', 'expanded' => false,
             'items' => [
@@ -322,6 +344,31 @@ class InverterHubMonitor extends IPSModule
                 'dash'      => false,
                 'scale'     => 1.0,
                 'powerVid'  => $irr,   // wird zu kWh/m² integriert
+                'energyVid' => 0,
+            ];
+        }
+
+        // Strompreis: Die Quelle ist ein FREMDES Modul, deshalb kein Katalog-
+        // Eintrag (der sucht Idents in der InverterHub-Instanz). Vergangenheit
+        // kommt aus der archivierten Variable „CurrentPrice" (€/kWh, daher
+        // scale 100 → ct/kWh), die Zukunft in BuildPayload() aus
+        // TIBBERGR_GetPriceCurve(). „noEnergy" => nur Tagesverlauf, denn eine
+        // Wochen-/Monatssumme eines Preises ergibt keinen Sinn.
+        $priceVid = $this->PriceVarID();
+        if ($this->ReadPropertyBoolean('show_price') && $priceVid > 0) {
+            $out[] = [
+                'key'       => 'price',
+                'label'     => 'Strompreis',
+                'color'     => self::PRICE_COLOR,
+                'axis'      => 'right',
+                'unit'      => 'ct/kWh',
+                'noEnergy'  => true,
+                'groups'    => ['energy'],
+                'isIrr'     => false,
+                'dash'      => false,
+                'step'      => true,   // Preise gelten slotweise, keine Rampe
+                'scale'     => 100.0,  // €/kWh → ct/kWh
+                'powerVid'  => $priceVid,
                 'energyVid' => 0,
             ];
         }
@@ -450,7 +497,7 @@ class InverterHubMonitor extends IPSModule
 
         $meta = [];
         foreach ($series as $s) {
-            $meta[] = ['label' => $s['label'], 'color' => $s['color'], 'axis' => $s['axis'], 'unit' => $s['unit'], 'dash' => !empty($s['dash'])];
+            $meta[] = ['label' => $s['label'], 'color' => $s['color'], 'axis' => $s['axis'], 'unit' => $s['unit'], 'dash' => !empty($s['dash']), 'step' => !empty($s['step'])];
         }
 
         // Seitliche Reiter: je Gruppe die Serienindizes + eigene Achsen-Einheiten.
@@ -515,6 +562,16 @@ class InverterHubMonitor extends IPSModule
                     // SOC o. Ä.: BMS-Rauschen glätten (gleitender Mittelwert) →
                     // ruhige Kurve statt Zackenmuster.
                     $pts = $this->SmoothPoints($pts, 15);
+                }
+                // Strompreis am HEUTIGEN Tag um die Zukunft ergänzen: Der Archiv-
+                // teil endet „jetzt", der Vertrag kennt die Slots bis morgen
+                // Abend. Nur Punkte ab dem Archivende anhängen, damit sich
+                // Vergangenheit und Vorschau nicht überlappen.
+                if (!empty($s['step']) && $k === 0) {
+                    $cut = count($pts) ? $pts[count($pts) - 1][0] : ($start * 1000);
+                    foreach ($this->FuturePricePoints() as $fp) {
+                        if ($fp[0] > $cut) { $pts[] = $fp; }
+                    }
                 }
                 $rows[] = $pts;
             }
@@ -709,6 +766,56 @@ class InverterHubMonitor extends IPSModule
             $pts[] = [((int)$row['TimeStamp']) * 1000, round((float)$row['Avg'], 2)];
         }
         usort($pts, function ($a, $b) { return $a[0] <=> $b[0]; });
+        return $pts;
+    }
+
+    // Preisquellen-Instanz: konfigurierte, sonst die einzige vorhandene.
+    // Bewusst nur automatisch, wenn es GENAU EINE gibt - bei mehreren muss der
+    // Nutzer wählen, statt dass wir die erste raten.
+    private function PriceInstanceID(): int
+    {
+        $cfg = $this->ReadPropertyInteger('PriceInstance');
+        if ($cfg > 0) {
+            return IPS_InstanceExists($cfg) ? $cfg : 0;
+        }
+        $all = @IPS_GetInstanceListByModuleID(self::TIBBER_GUID);
+        return (is_array($all) && count($all) === 1) ? (int)$all[0] : 0;
+    }
+
+    // Archivierte Preisvariable (€/kWh) der Preisquelle.
+    private function PriceVarID(): int
+    {
+        $iid = $this->PriceInstanceID();
+        return ($iid > 0) ? $this->FindIdentRecursive($iid, 'CurrentPrice') : 0;
+    }
+
+    // Zukünftige Preis-Slots als Diagrammpunkte [ms, ct/kWh].
+    // Der Vertrag liefert [start, end) je Slot; für eine Stufenkurve genügt der
+    // Startpunkt je Slot plus ein Abschlusspunkt am Ende des letzten Slots.
+    // Guard zwingend: Ohne installiertes Preismodul wäre der Aufruf ein Fatal
+    // Error (siehe Eigenständigkeitsregel in CLAUDE.md).
+    private function FuturePricePoints(): array
+    {
+        $iid = $this->PriceInstanceID();
+        if ($iid <= 0 || !function_exists('TIBBERGR_GetPriceCurve')) {
+            return [];
+        }
+        $curve = @TIBBERGR_GetPriceCurve($iid);
+        if (!is_array($curve) || count($curve) === 0) {
+            return [];
+        }
+        $pts = []; $lastEnd = 0; $lastPrice = null;
+        foreach ($curve as $slot) {
+            if (!isset($slot['start'], $slot['end'], $slot['price'])) {
+                continue;
+            }
+            $pts[] = [((int)$slot['start']) * 1000, round((float)$slot['price'], 2)];
+            $lastEnd   = (int)$slot['end'];
+            $lastPrice = round((float)$slot['price'], 2);
+        }
+        if ($lastEnd > 0 && $lastPrice !== null) {
+            $pts[] = [$lastEnd * 1000, $lastPrice];   // Stufe bis Slot-Ende ausziehen
+        }
         return $pts;
     }
 

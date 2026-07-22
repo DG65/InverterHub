@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.66.0-beta.1 (2026-07-22)
+
+- **Monitoring-Kachel: Strompreis im Tagesverlauf.** Neu ist eine Preiskurve auf der rechten
+  Achse (ct/kWh) im Reiter „Leistung" — als **Stufenkurve**, weil ein Preis slotweise gilt und
+  nicht zwischen zwei Zeitpunkten hochläuft. Sie besteht aus zwei Teilen: Der Rückblick kommt
+  aus der archivierten Preisvariable, die **Vorschau** für die kommenden Stunden direkt aus dem
+  Preismodul (`TIBBERGR_GetPriceCurve`, Tibber Grid Reward ab 2.2.0). Damit lässt sich die
+  eigene Erzeugung unmittelbar gegen den Preisverlauf lesen.
+  Details: Slot-Breite wird aus dem Vertrag übernommen (Stunden **oder** Viertelstunden),
+  die Kurve wird nur so weit gezeichnet, wie Daten vorliegen (kein starres 48-h-Raster), und
+  das Zeitfenster des Diagramms wird so erweitert, dass die Vorschau nicht abgeschnitten wird.
+  Konfiguration im neuen Abschnitt „Strompreis"; ohne Preismodul bleibt alles wie bisher
+  (Aufruf ist per `function_exists` abgesichert). Angeregt von Dietmar über die Tibber-Sitzung.
+
 ## 0.65.11-beta.1 (2026-07-22)
 
 - **Stromflusskachel: Einheit richtet sich nach der Größenordnung.** Bisher stand überall fest
