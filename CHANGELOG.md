@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.65.4-beta.1 (2026-07-22)
+
+- **SMA: Alle Messwerte lagen um Zehnerpotenzen daneben.** SunSpec kennt zwei Bauformen des
+  Wechselrichter-Modells: Fließkomma (111/113) und Ganzzahl mit separatem Skalierungsfaktor
+  (101/103). Der Ganzzahl-Zweig übernahm den **Rohwert**, ohne das zugehörige
+  Skalierungsfaktor-Register auszuwerten. SMA bietet **ausschließlich** diese Bauform an,
+  deshalb traf es dort jeden Nutzer — bei Fronius fiel es nie auf, weil der Datamanager die
+  Fließkomma-Modelle anbietet und der Code die bevorzugt.
+  Gemeldet wurden z. B. 2390 statt 239,0 V (Faktor −1) und 57 statt 0,57 A (Faktor −2).
+  Gegenprobe aus dem Tester-Screenshot: 0,57 A × 239 V = 136 W, zeitgleich meldete die
+  AC-Wirkleistung 137 W. Behoben für SMA und Fronius, einschließlich der Zählerleistung
+  (Modell 201/203), deren Skalierungsfaktor ebenfalls fehlte.
+
+- **SMA: „Ertrag Gesamt" blieb dauerhaft auf 0,00 kWh.** Der Gesamtertrag wurde nur im
+  Fließkomma-Zweig gelesen und fehlte im Ganzzahl-Zweig vollständig — also genau in dem Zweig,
+  den SMA-Geräte benutzen. Ergänzt.
+
+- **Nicht belegte Register werden nicht mehr als Messwert übernommen.** Meldet ein Gerät für ein
+  Feld den Modbus-Kennwert „nicht implementiert" (0xFFFF bzw. 0x8000 bei vorzeichenbehafteten
+  Feldern), bleibt die Variable jetzt unverändert, statt −32768 W oder 65535 % anzuzeigen.
+
+- **Warnung bei falsch eingestelltem Hersteller.** Antwortet ein Gerät auf den abgefragten
+  Bereich nur mit 0xFFFF, ist es zwar erreichbar, liefert aber keine Daten — typischerweise,
+  weil in der Instanz ein anderer Hersteller eingestellt ist, als das Gerät tatsächlich ist.
+  Bisher entstanden daraus Geisterwerte (6553,5 V, 4294967295 W, Seriennummern aus lauter „ÿ").
+  Jetzt bleibt „Verbindung" auf *nicht verbunden* und es erscheint einmalig ein Hinweis im
+  Meldungslog. Aktiv für SMA, Fronius und GoodWe.
+
 ## 0.65.3-beta.1 (2026-07-22)
 
 - **Stromflusskachel: Inhalt saß nach rechts unten versetzt und stieß dort an.** Ursache

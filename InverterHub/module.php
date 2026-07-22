@@ -564,6 +564,14 @@ class GoodweDriver implements InverterDriverInterface
         if (!$ok) {
             return false;
         }
+        // Ein fremdes Geraet (z. B. ein SMA-Wechselrichter, bei dem versehentlich
+        // GoodWe eingestellt wurde) antwortet auf diese Adressen mit lauter
+        // 0xFFFF. Ohne diese Pruefung entstuenden daraus 65535 %, 6553,5 V und
+        // Seriennummern aus lauter „ÿ".
+        if ($hub->BlockLooksUnset($inv)) {
+            $hub->SetVarBool('connected', false);
+            return false;
+        }
 
         $pvTotal = ($pvext !== null) ? (float)$mb->u32($pvext, 0) : 0.0;
         $hub->SetVarFloat('pv_total', $pvTotal);
@@ -1859,6 +1867,32 @@ class SmaDriver implements InverterDriverInterface
         return null;
     }
 
+    // ---- SunSpec Int+SF ----------------------------------------------------
+    // Bewusst als eigene Methoden DIESER Klasse (nicht aus FroniusDriver
+    // mitbenutzt): Die Treiber sind getrennte Klassen, ein klassenübergreifender
+    // $this->-Aufruf wäre ein Fatal Error zur Laufzeit.
+
+    // sunssf-Skalierungsfaktor auswerten (int16, 0x8000 = nicht implementiert).
+    private function sfVal($raw)
+    {
+        $v = ($raw > 32767) ? $raw - 65536 : $raw;
+        return ($v === -32768) ? 0 : $v;
+    }
+
+    // Ganzzahlregister mit zugehörigem SF-Register zu einem echten Messwert
+    // verrechnen. Liefert null, wenn das Feld den Sentinel „nicht implementiert"
+    // trägt - u16: 0xFFFF, s16: 0x8000. Bei s16 ist 0xFFFF der gültige Wert -1
+    // und darf gerade NICHT als Sentinel gelten.
+    private function scaled($mb, $blk, $off, $sfOff, bool $signed = false)
+    {
+        $raw = $mb->u16($blk, $off);
+        if ($signed ? ($raw === 0x8000) : ($raw === 0xFFFF)) {
+            return null;
+        }
+        $val = $signed ? $mb->s16($blk, $off) : $raw;
+        return $val * pow(10, $this->sfVal($mb->u16($blk, $sfOff)));
+    }
+
     public function getBaseVars()
     {
         return [
@@ -1961,6 +1995,10 @@ class SmaDriver implements InverterDriverInterface
             $hub->SetVarBool('connected', false);
             return false;
         }
+        if ($hub->BlockLooksUnset($blk)) {
+            $hub->SetVarBool('connected', false);
+            return false;
+        }
 
         // Isolationswiderstand aus dem proprietären SMA-Profil (Reg 30225,
         // uint32 in Ohm). Sentinel 0xFFFFFFFF = "nicht verfügbar" überspringen.
@@ -1996,16 +2034,54 @@ class SmaDriver implements InverterDriverInterface
                 $hub->SetVarFloat('temp_cab', $mb->readFloat32($blk, 38));
             }
         } else {
-            $hub->SetVarFloat('ac_power', (float)$mb->s16($blk, 12));
+            // Int+SF-Variante (Model 101/103): Jedes Feld ist ein Ganzzahl-
+            // Register MIT einem eigenen Skalierungsfaktor-Register (sunssf).
+            // Ohne dessen Auswertung liegen die Werte um Zehnerpotenzen daneben.
+            // SMA bietet ausschliesslich diese Modelle an (keine Float-Modelle
+            // 111/113), deshalb traf das bis 0.65.3 jeden SMA-Nutzer:
+            // Netzspannung 2390 statt 239,0 V (V_SF = -1), Netzstrom 57 statt
+            // 0,57 A (A_SF = -2). Gegenprobe: 0,57 A * 239 V = 136 W, und die
+            // AC-Wirkleistung meldete zeitgleich 137 W.
+            //
+            // Offsets ab Modellstart (Model 101/103, identische Feldreihenfolge):
+            //   0 A(+SF@4) | 8 PhVphA(+SF@11) | 12 W(+SF@13) | 14 Hz(+SF@15)
+            //   22 WH acc32(+SF@24) | 29 DCW(+SF@30) | 31 TmpCab(+SF@35) | 36 St
+            $v = $this->scaled($mb, $blk, 12, 13, true);
+            if ($v !== null) {
+                $hub->SetVarFloat('ac_power', $v);
+            }
             $hub->SetVarInt('status', $mb->u16($blk, 36));
-            $hub->SetVarFloat('pv_total', (float)$mb->s16($blk, 29));
+            $v = $this->scaled($mb, $blk, 29, 30, true);
+            if ($v !== null) {
+                $hub->SetVarFloat('pv_total', $v);
+            }
             if ($hub->GetPropBool('GroupGrid')) {
-                $hub->SetVarFloat('grid_curr', (float)$mb->u16($blk, 0));
-                $hub->SetVarFloat('grid_volt', (float)$mb->u16($blk, 8));
-                $hub->SetVarFloat('grid_freq', $mb->u16($blk, 14) / 100.0);
+                $v = $this->scaled($mb, $blk, 0, 4);
+                if ($v !== null) {
+                    $hub->SetVarFloat('grid_curr', $v);
+                }
+                $v = $this->scaled($mb, $blk, 8, 11);
+                if ($v !== null) {
+                    $hub->SetVarFloat('grid_volt', $v);
+                }
+                $v = $this->scaled($mb, $blk, 14, 15);
+                if ($v !== null) {
+                    $hub->SetVarFloat('grid_freq', $v);
+                }
+            }
+            // Gesamtertrag fehlte in diesem Zweig komplett - die Variable blieb
+            // bei SMA dauerhaft auf 0,00 kWh / "Nie aktualisiert".
+            if ($hub->GetPropBool('GroupEnergy')) {
+                $wh = $mb->u32($blk, 22);
+                if ($wh !== 0xFFFFFFFF) {
+                    $hub->SetVarFloat('e_total', $wh * pow(10, $this->sfVal($mb->u16($blk, 24))) / 1000.0);
+                }
             }
             if ($hub->GetPropBool('GroupTemp')) {
-                $hub->SetVarFloat('temp_cab', $mb->s16($blk, 31) / 10.0);
+                $v = $this->scaled($mb, $blk, 31, 35, true);
+                if ($v !== null) {
+                    $hub->SetVarFloat('temp_cab', $v);
+                }
             }
         }
 
@@ -2013,9 +2089,13 @@ class SmaDriver implements InverterDriverInterface
             $meter = $this->findModel($mb, 201) ?: $this->findModel($mb, 203) ?: $this->findModel($mb, 211) ?: $this->findModel($mb, 213);
             if ($meter !== null) {
                 [$mtbase, $mtlen] = $meter;
-                $mtblk = $mb->readHolding($mtbase, min($mtlen, 20));
+                // Model 201/203: W@16 mit W_SF@20 - der Block muss bis 20 reichen.
+                $mtblk = $mb->readHolding($mtbase, min($mtlen, 24));
                 if ($mtblk !== null) {
-                    $hub->SetVarFloat('meter_total', (float)$mb->s16($mtblk, 16));
+                    $v = $this->scaled($mb, $mtblk, 16, 20, true);
+                    if ($v !== null) {
+                        $hub->SetVarFloat('meter_total', $v);
+                    }
                 }
             }
         }
@@ -2160,6 +2240,20 @@ class FroniusDriver implements InverterDriverInterface
         return ($v === -32768) ? 0 : $v;
     }
 
+    // Ganzzahlregister mit zugehoerigem SF-REGISTER (Offset, nicht Faktor)
+    // verrechnen. null bei Sentinel „nicht implementiert" - u16: 0xFFFF,
+    // s16: 0x8000. Bewusst anders benannt als scaledU16(), das einen bereits
+    // ausgewerteten Faktor erwartet.
+    private function scaledSf($mb, $blk, $off, $sfOff, bool $signed = false)
+    {
+        $raw = $mb->u16($blk, $off);
+        if ($signed ? ($raw === 0x8000) : ($raw === 0xFFFF)) {
+            return null;
+        }
+        $val = $signed ? $mb->s16($blk, $off) : $raw;
+        return $val * pow(10, $this->sfVal($mb->u16($blk, $sfOff)));
+    }
+
     // uint16-Registerwert mit Skalierungsfaktor; 0xFFFF = nicht implementiert.
     private function scaledU16($mb, $blk, $off, $sf)
     {
@@ -2212,6 +2306,10 @@ class FroniusDriver implements InverterDriverInterface
             $hub->SetVarBool('connected', false);
             return false;
         }
+        if ($hub->BlockLooksUnset($blk)) {
+            $hub->SetVarBool('connected', false);
+            return false;
+        }
 
         // Offsets ab Modellstart gemäß offizieller SunSpec-Modelldefinition
         // (Model 113/103 "Inverter Three Phase" — Feldreihenfolge, gegen die
@@ -2232,14 +2330,38 @@ class FroniusDriver implements InverterDriverInterface
                 $hub->SetVarFloat('e_total', $mb->readFloat32($blk, 30) / 1000.0);
             }
         } else {
-            // Int+SF-Variante: Werte ganzzahlig mit separatem Skalierungsfaktor-
-            // Register (SF), hier vereinfacht ohne SF-Auswertung (Rohwert).
-            $hub->SetVarFloat('ac_power', (float)$mb->s16($blk, 12));
+            // Int+SF-Variante (Model 101/103): Ganzzahlregister mit eigenem
+            // Skalierungsfaktor-Register. Bis 0.65.3 wurde hier der Rohwert
+            // uebernommen - bei Fronius faellt das kaum auf, weil der
+            // Datamanager die Float-Modelle 111/113 anbietet und der Code die
+            // bevorzugt. Der Zweig greift nur bei aelteren Geraeten, war dort
+            // aber genauso falsch wie bei SMA.
+            // Offsets: 0 A(+SF@4) | 8 PhVphA(+SF@11) | 12 W(+SF@13)
+            //          14 Hz(+SF@15) | 22 WH acc32(+SF@24) | 36 St
+            $v = $this->scaledSf($mb, $blk, 12, 13, true);
+            if ($v !== null) {
+                $hub->SetVarFloat('ac_power', $v);
+            }
             $hub->SetVarInt('status', $mb->u16($blk, 36));
             if ($hub->GetPropBool('GroupGrid')) {
-                $hub->SetVarFloat('grid_curr', (float)$mb->u16($blk, 0));
-                $hub->SetVarFloat('grid_volt', (float)$mb->u16($blk, 8));
-                $hub->SetVarFloat('grid_freq', $mb->u16($blk, 14) / 100.0);
+                $v = $this->scaledSf($mb, $blk, 0, 4);
+                if ($v !== null) {
+                    $hub->SetVarFloat('grid_curr', $v);
+                }
+                $v = $this->scaledSf($mb, $blk, 8, 11);
+                if ($v !== null) {
+                    $hub->SetVarFloat('grid_volt', $v);
+                }
+                $v = $this->scaledSf($mb, $blk, 14, 15);
+                if ($v !== null) {
+                    $hub->SetVarFloat('grid_freq', $v);
+                }
+            }
+            if ($hub->GetPropBool('GroupEnergy')) {
+                $wh = $mb->u32($blk, 22);
+                if ($wh !== 0xFFFFFFFF) {
+                    $hub->SetVarFloat('e_total', $wh * pow(10, $this->sfVal($mb->u16($blk, 24))) / 1000.0);
+                }
             }
         }
 
@@ -4076,6 +4198,47 @@ class InverterHub extends IPSModule
         $this->RegisterTimer('EnableActionsTimer', 0, 'IHUB_EnableActions($_IPS[\'TARGET\']);');
 
         $this->RegisterAttributeBoolean('DeviceInfoRead', false);
+        $this->RegisterAttributeBoolean('ImplausibleLogged', false);
+    }
+
+    // Ein Gerät, das auf Adressen antwortet, die es gar nicht belegt, liefert
+    // reihenweise 0xFFFF - den Modbus-/SunSpec-Sentinel „nicht implementiert".
+    // Häufigste Ursache: In der Instanz ist der falsche Hersteller eingestellt,
+    // dann werden fremde Registeradressen abgefragt und das Gerät quittiert sie
+    // höflich mit lauter Einsen. Ohne diese Prüfung landen daraus Geisterwerte
+    // in den Variablen (65535 %, 6553,5 V, 4294967295 W, Strings aus „ÿ").
+    // Gemeldet wird einmal pro Instanzstart, damit das Log nicht vollläuft.
+    public function BlockLooksUnset(array $regs): bool
+    {
+        $n = count($regs);
+        if ($n < 8) {
+            return false;   // zu kurz für eine belastbare Aussage
+        }
+        $unset = 0;
+        foreach ($regs as $r) {
+            if (($r & 0xFFFF) === 0xFFFF) {
+                $unset++;
+            }
+        }
+        if ($unset * 5 < $n * 4) {
+            // Unter 80 % - normaler Betrieb, ggf. gemeldeten Zustand zurücknehmen.
+            if ($this->ReadAttributeBoolean('ImplausibleLogged')) {
+                $this->WriteAttributeBoolean('ImplausibleLogged', false);
+            }
+            return false;
+        }
+        if (!$this->ReadAttributeBoolean('ImplausibleLogged')) {
+            $this->WriteAttributeBoolean('ImplausibleLogged', true);
+            $this->LogMessage(
+                'Das Gerät antwortet auf den abgefragten Registerbereich ausschließlich mit '
+                . '0xFFFF ("Register nicht belegt"). Es ist erreichbar, liefert aber keine '
+                . 'Messwerte. Bitte in den Instanzeinstellungen den Hersteller und die '
+                . 'Unit-ID prüfen - meist ist ein anderer Hersteller eingestellt, als das '
+                . 'Gerät tatsächlich ist.',
+                KL_WARNING
+            );
+        }
+        return true;
     }
 
     public function ApplyChanges()
