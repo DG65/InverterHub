@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.65.5-beta.1 (2026-07-22)
+
+- **SMA: „PV Gesamtleistung" wurde nie befüllt.** Der Wert kam bisher aus dem SunSpec-Feld DCW —
+  das SMA in seinen Geräten gar nicht belegt (Kennwert „nicht implementiert"). Beim frisch
+  angelegten Gerät blieb die Variable dadurch leer, bei bestehenden blieb der letzte alte Wert
+  stehen (im Extremfall der Geisterwert 4294967295 W aus der Zeit vor 0.65.4). Die DC-Leistung
+  wird jetzt aus dem SMA-Eigenprofil gelesen (Register 30773 + 30961, MPP-Eingänge A und B,
+  gleiche Unit-ID wie der Isolationswiderstand) und summiert. Melden beide Eingänge nachts den
+  Kennwert „nicht verfügbar", wird 0 W geschrieben statt der letzte Tageswert stehen zu bleiben.
+  Für Geräte, die DCW doch liefern, bleibt SunSpec als Rückfallebene erhalten.
+
 ## 0.65.4-beta.1 (2026-07-22)
 
 - **SMA: Alle Messwerte lagen um Zehnerpotenzen daneben.** SunSpec kennt zwei Bauformen des

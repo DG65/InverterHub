@@ -1899,7 +1899,7 @@ class SmaDriver implements InverterDriverInterface
             ['connected', 'Verbindung',        'B', '~Alert.Reversed', false, 'errors', ''],
             ['status',    'Betriebsstatus',    'I', 'SMA.Status',      true,  'device', 'SunSpec St'],
             ['ac_power',  'AC Wirkleistung',   'F', 'SMA.Watt',        true,  'device', 'SunSpec W (Model 101/103)'],
-            ['pv_total',  'PV Gesamtleistung', 'F', 'SMA.Watt',        true,  'pv',     'SunSpec DCW (Model 101/103)'],
+            ['pv_total',  'PV Gesamtleistung', 'F', 'SMA.Watt',        true,  'pv',     'RO 30773+30961 (SMA-Profil, DC MPP A+B), Fallback SunSpec DCW'],
             ['riso',      'Isolationswiderstand','F', 'SMA.KOhm',      true,  'pv',     'RO 30225 (SMA-Profil, Ohm ÷1000)'],
         ];
     }
@@ -2013,6 +2013,35 @@ class SmaDriver implements InverterDriverInterface
                 $hub->SetVarFloat('riso', $r / 1000.0);
             }
         }
+        // PV-Gesamtleistung ebenfalls aus dem SMA-Eigenprofil: SMA belegt das
+        // SunSpec-Feld DCW nicht (Sentinel 0x8000), die Variable bliebe leer
+        // bzw. auf ihrem letzten Stand. Stattdessen die DC-Leistungen der MPP-
+        // Eingaenge summieren: Reg 30773 (MPP A) und 30961 (MPP B), jeweils
+        // int32 in W. Sentinel 0x80000000 = "nicht verfuegbar" (z. B. kein
+        // zweiter Eingang oder nachts) zaehlt nicht mit.
+        $dcSum  = null;
+        $dcSeen = false;   // Eigenprofil hat geantwortet (auch wenn nur Sentinel)
+        foreach ([30773, 30961] as $reg) {
+            $dcBlk = $mb->readHolding($reg, 2);
+            if ($dcBlk === null) {
+                continue;
+            }
+            $dcSeen = true;
+            $w = $mb->s32($dcBlk, 0);
+            if ($w === -2147483648) {
+                continue;   // Sentinel: Eingang nicht vorhanden oder nachts
+            }
+            $dcSum = ($dcSum ?? 0.0) + $w;
+        }
+        if ($dcSum !== null) {
+            $hub->SetVarFloat('pv_total', $dcSum);
+        } elseif ($dcSeen) {
+            // Geraet erreichbar, aber beide Eingaenge melden Sentinel - das ist
+            // der Nachtzustand. 0 W schreiben, statt den letzten Tageswert
+            // stehen zu lassen.
+            $hub->SetVarFloat('pv_total', 0.0);
+            $dcSum = 0.0;   // SunSpec-DCW unten nicht mehr druebeschreiben lassen
+        }
         $mb->unitId = $sunspecUnit; // zurueck auf die SunSpec-Kennung
 
         // Offsets siehe FroniusDriver (identische SunSpec-Modelle 101/103/111/113),
@@ -2021,7 +2050,9 @@ class SmaDriver implements InverterDriverInterface
         if ($isFloat) {
             $hub->SetVarFloat('ac_power', $mb->readFloat32($blk, 20));
             $hub->SetVarInt('status', $mb->u16($blk, 46));
-            $hub->SetVarFloat('pv_total', $mb->readFloat32($blk, 36));
+            if ($dcSum === null) {
+                $hub->SetVarFloat('pv_total', $mb->readFloat32($blk, 36));
+            }
             if ($hub->GetPropBool('GroupGrid')) {
                 $hub->SetVarFloat('grid_curr', $mb->readFloat32($blk, 0));
                 $hub->SetVarFloat('grid_volt', $mb->readFloat32($blk, 14));
@@ -2051,9 +2082,11 @@ class SmaDriver implements InverterDriverInterface
                 $hub->SetVarFloat('ac_power', $v);
             }
             $hub->SetVarInt('status', $mb->u16($blk, 36));
-            $v = $this->scaled($mb, $blk, 29, 30, true);
-            if ($v !== null) {
-                $hub->SetVarFloat('pv_total', $v);
+            if ($dcSum === null) {
+                $v = $this->scaled($mb, $blk, 29, 30, true);
+                if ($v !== null) {
+                    $hub->SetVarFloat('pv_total', $v);
+                }
             }
             if ($hub->GetPropBool('GroupGrid')) {
                 $v = $this->scaled($mb, $blk, 0, 4);
