@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.66.1-beta.1 (2026-07-22)
+
+- **Strompreis-Konfiguration sagt jetzt je Quelle, was bereitsteht.** Die Kurve besteht aus zwei
+  Teilen, und die Maske prüft beide einzeln statt einen allgemeinen Tipp zu geben: „Vorschau
+  bereit" (kommt aus dem Preismodul) und „Rückblick bereit" (nur wenn die Preisvariable
+  tatsächlich archiviert wird — das wird jetzt geprüft, nicht vermutet). Fehlt das Archiv, nennt
+  der Hinweis den Grund, wo das Häkchen sitzt, und dass die Aufzeichnung **erst ab dem Setzen**
+  beginnt — rückwirkend gibt es nichts. Genau daran wäre sonst der nächste Nutzer hängen
+  geblieben, der das Häkchen setzt und sich über die leere linke Hälfte wundert.
+
 ## 0.66.0-beta.1 (2026-07-22)
 
 - **Monitoring-Kachel: Strompreis im Tagesverlauf.** Neu ist eine Preiskurve auf der rechten

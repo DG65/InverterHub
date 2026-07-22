@@ -258,10 +258,19 @@ class InverterHubMonitor extends IPSModule
         } else {
             $priceItems[] = ['type' => 'CheckBox', 'name' => 'show_price', 'caption' => 'Strompreis im Tagesverlauf anzeigen'];
             $priceItems[] = ['type' => 'SelectInstance', 'name' => 'PriceInstance', 'caption' => 'Preisquelle (leer = automatisch, wenn nur eine vorhanden)'];
-            $has = $this->PriceVarID() > 0;
-            $priceItems[] = ['type' => 'Label', 'caption' => $has
-                ? '✅ Preisvariable gefunden. Vergangenheit kommt aus dem Archiv, die Vorschau direkt aus dem Preismodul. Tipp: Für den Rückblick muss die Variable „Aktueller Preis" dort archiviert werden.'
-                : '⚠️ Preisvariable nicht gefunden — ist die Preisquelle konfiguriert (Token/Zuhause)?'];
+            // Die Kurve besteht aus zwei Quellen; wir sagen für JEDE einzeln, ob
+            // sie bereitsteht, statt einen allgemeinen Tipp zu geben.
+            $pvid = $this->PriceVarID();
+            $aid  = $this->ArchiveID();
+            if ($pvid <= 0) {
+                $priceItems[] = ['type' => 'Label', 'caption' => '⚠️ Preisvariable nicht gefunden — ist die Preisquelle konfiguriert (Token/Zuhause)?'];
+            } else {
+                $logged = ($aid > 0 && @AC_GetLoggingStatus($aid, $pvid));
+                $priceItems[] = ['type' => 'Label', 'caption' => '✅ Vorschau bereit: Die kommenden Stunden kommen direkt aus dem Preismodul.'];
+                $priceItems[] = ['type' => 'Label', 'caption' => $logged
+                    ? '✅ Rückblick bereit: Die Preisvariable wird archiviert.'
+                    : '➜ Rückblick fehlt: Die Variable „Aktueller Preis" der Preisquelle ist NICHT archiviert. Ohne Archiv zeigt die Kachel nur die Vorschau ab jetzt — das Preismodul selbst liefert keine Historie. Das Häkchen dazu sitzt in der Instanz der Preisquelle. Hinweis: Aufgezeichnet wird erst ab dem Setzen des Häkchens, rückwirkend gibt es nichts.'];
+            }
         }
         $elements[] = ['type' => 'ExpansionPanel', 'caption' => 'Strompreis', 'expanded' => false, 'items' => $priceItems];
 
