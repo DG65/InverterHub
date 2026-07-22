@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.65.2-beta.1 (2026-07-22)
+
+- **Stromflusskachel: Knoten wurden am Rand abgeschnitten.** Die Zeichenfläche war zu knapp
+  bemessen. Der Knotenrand lag nur 26 Einheiten vor der Kante, die **Corona** ragte sogar
+  24 Einheiten darüber hinaus und wurde abgeschnitten. Bei wenigen Verbrauchern fiel das kaum
+  auf, weil die Diagonalen frei blieben — **ab etwa acht Knoten** sind auch die Ecken besetzt und
+  der Inhalt stößt ringsum an.
+  Die Zeichenfläche rechnet den Platzbedarf jetzt aus dem tatsächlichen Inhalt (äußerster
+  Knotenmittelpunkt + Corona + Luft) statt mit einem festen Zuschlag. Der Inhalt wird dadurch
+  auf 88 % der bisherigen Größe skaliert, dafür ist ringsum Rand und nichts wird beschnitten.
+
 ## 0.65.1-beta.1 (2026-07-22)
 
 - **Stromflusskachel: Anordnung wirkte nach unten verschoben / unten abgeschnitten.** Rückschlag

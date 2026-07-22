@@ -246,7 +246,11 @@
 </head>
 <body>
 
-<svg class="flow-svg" id="svg" viewBox="20 41 520 520" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+<!-- viewBox MUSS zu R_CONTENT im Skript passen: Kantenlaenge = 2 * R_CONTENT,
+     zentriert auf CX/CY (280/301). Aktuell R_CONTENT = 297 -> 594, also
+     x = 280-297 = -17, y = 301-297 = 4. Wird R_CONTENT geaendert, hier
+     nachziehen - fitViewBox() ist bewusst ein No-op und korrigiert nichts. -->
+<svg class="flow-svg" id="svg" viewBox="-17 4 594 594" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
   <defs id="markerDefs"></defs>
   <defs>
     <!-- Münz-Look für AKTIVE Kreise. Inaktive Kreise bleiben bewusst flach
@@ -471,9 +475,17 @@ function el(tag, attrs) {
   return e;
 }
 
-// Benötigter Radius um das Zentrum: die Knoten reichen konstruktionsbedingt
-// bis exakt R_MAX, dazu etwas Luft für die Corona.
-const R_CONTENT = R_MAX + 26;
+// Benötigter Radius um das Zentrum. Die Knotenränder reichen bis R_MAX — die
+// CORONA aber noch deutlich weiter: Sie ist ein Kreis mit DESIGN_R * 1.9 um den
+// Knotenmittelpunkt, ragt also rund 50 Einheiten über den Knotenrand hinaus.
+//
+// Mit den früheren 26 Einheiten Luft wurde sie abgeschnitten, und die Knoten
+// standen fast auf der Kante. Bei WENIGEN Knoten fiel das kaum auf, weil die
+// Diagonalen frei blieben; ab etwa acht Knoten sind auch die Ecken besetzt und
+// der Inhalt stößt ringsum an. Deshalb wird jetzt der tatsächliche Bedarf
+// gerechnet: äußerster Knotenmittelpunkt + Corona + etwas Luft.
+const R_GLOW    = DESIGN_R * 1.9;
+const R_CONTENT = Math.ceil((R_MAX - DESIGN_R) + R_GLOW + 12);
 
 // Die viewBox ist bewusst FEST und quadratisch (Zentrum CX/CY, Kantenlänge
 // 2*R_CONTENT) - sie umschließt den Inhalt exakt und symmetrisch. Das
