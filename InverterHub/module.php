@@ -2074,13 +2074,25 @@ class SmaDriver implements InverterDriverInterface
         // 30851 (÷100 V), Ladeleistung 31393 (W), Entladeleistung 31395 (W) -
         // lt. SMA Modbus-TI (EDMx) und CodeKing-Registerkarte. Vorzeichen:
         // + = laedt, - = entlaedt.
-        // Batterieleistung IMMER lesen, auch wenn die Batteriegruppe abgewählt
-        // ist: Sie wird unten gebraucht, um zu erkennen, ob dieses Gerät
-        // ueberhaupt eine Batterie hat. Geschrieben werden die Variablen nur bei
-        // eingeschalteter Gruppe.
-        $batNet    = null;   // + = laedt, - = entlaedt
-        $hasBattery = false; // Geraet meldet ueberhaupt eine Batterie
-        $bp = $mb->readHolding(31393, 4);   // Laden (W), Entladen (W)
+        // Batterie IMMER lesen, auch bei abgewählter Gruppe: Ob ueberhaupt eine
+        // Batterie da ist, entscheidet unten darueber, ob die PV-Leistung aus
+        // der AC-Leistung abgeleitet werden darf. Geschrieben werden die
+        // Variablen weiterhin nur bei eingeschalteter Gruppe.
+        //
+        // Erkennungsmerkmal ist der SOC (30845) und NICHT die Lade-/Entlade-
+        // leistung: 30845/30849/30851 stehen im GERAETE-Registerprofil, die
+        // Leistungsregister 31393/31395 dagegen nur im Profil des SMA DATA
+        // MANAGER. Auf dem Wechselrichter selbst antworten sie mit NaN - und
+        // genau daran scheiterte die erste Fassung: Das Geraet galt als
+        // batterielos, und die Entladeleistung erschien wieder als Solarertrag.
+        $batNet     = null;    // + = laedt, - = entlaedt; null = unbekannt
+        $hasBattery = false;
+        $bs = $mb->readHolding(30845, 8);   // 30845 SOC, 30849 Temp, 30851 Volt
+        $soc = ($bs !== null) ? $mb->u32($bs, 0) : 0xFFFFFFFF;
+        if ($soc !== 0xFFFFFFFF && $soc <= 100) {
+            $hasBattery = true;
+        }
+        $bp = $mb->readHolding(31393, 4);   // Laden (W), Entladen (W) - s. o.
         if ($bp !== null) {
             $chg = $mb->u32($bp, 0);
             $dis = $mb->u32($bp, 2);
@@ -2093,9 +2105,7 @@ class SmaDriver implements InverterDriverInterface
             if ($batNet !== null) {
                 $hub->SetVarFloat('bat_pwr', $batNet);
             }
-            $bs = $mb->readHolding(30845, 8);   // 30845..30852: SOC, 30849 Temp, 30851 Volt
             if ($bs !== null) {
-                $soc = $mb->u32($bs, 0);
                 if ($soc !== 0xFFFFFFFF) {
                     $hub->SetVarInt('bat_soc', $soc);
                 }

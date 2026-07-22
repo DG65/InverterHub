@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.66.8-beta.1 (2026-07-22)
+
+- **Batterie wurde auf dem Wechselrichter nicht erkannt — Scheinerzeugung blieb dadurch bestehen.**
+  Die Korrektur aus 0.66.7 griff nicht, weil sie am falschen Register hing: Die Lade-/Entlade-
+  leistung (31393/31395) steht nur im Registerprofil des **SMA Data Manager**, nicht in dem des
+  Wechselrichters — dort antwortet sie mit „nicht belegt". Das Gerät galt deshalb als
+  batterielos, und die aus der Batterie gespeiste AC-Leistung erschien weiterhin als
+  Solarerzeugung (577 W „Solar" bei tatsächlich 0 W Erzeugung und 588 W Entladung).
+  Erkennungsmerkmal ist jetzt der **Ladezustand (30845)**, der im Geräteprofil steht und
+  belegt ist. Wird eine Batterie erkannt, deren Leistung aber nicht gelesen, bleibt die
+  PV-Leistung bei 0 W statt zu raten. Reine PV-Wechselrichter ohne Batterie behalten die
+  Näherung über die AC-Leistung.
+
 ## 0.66.7-beta.1 (2026-07-22)
 
 - **SMA-Hybrid: Nachts wurde die Batterieentladung als Solarerzeugung angezeigt.** Um 21:50 Uhr
