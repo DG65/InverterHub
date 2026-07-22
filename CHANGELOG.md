@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.65.6-beta.1 (2026-07-22)
+
+- **Monitoring-Kachel: Schnellwahl „Vorgestern / Gestern / Heute".** In der Tagesansicht stehen
+  die drei Tage jetzt als direkte Knöpfe neben der Datumsauswahl — ohne den Umweg über das
+  Datumsfeld. Der gerade angezeigte Tag ist hervorgehoben, Tage ohne Archivdaten sind
+  ausgegraut. In den Energie-Ansichten (Woche/Monat/Jahr) sind die Knöpfe ausgeblendet.
+
 ## 0.65.5-beta.1 (2026-07-22)
 
 - **SMA: „PV Gesamtleistung" wurde nie befüllt.** Der Wert kam bisher aus dem SunSpec-Feld DCW —

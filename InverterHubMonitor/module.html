@@ -16,6 +16,12 @@
   #chartcol { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
   button.nav { font: inherit; font-size: 14px; line-height: 1; width: 30px; height: 30px; border-radius: 8px; border: 1px solid rgba(127,135,145,.35); background: rgba(127,135,145,.12); color: inherit; cursor: pointer; }
   button.nav:disabled { opacity: .35; cursor: default; }
+  /* Schnellwahl Vorgestern/Gestern/Heute — nur in der Tagesansicht sichtbar. */
+  #quick { display: flex; gap: 4px; }
+  button.qday { font: inherit; font-size: 12px; font-weight: 600; padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(127,135,145,.35); background: rgba(127,135,145,.12); color: inherit; cursor: pointer; }
+  button.qday:hover:not(:disabled) { background: rgba(127,135,145,.22); }
+  button.qday.active { background: rgba(127,135,145,.30); border-color: rgba(127,135,145,.55); }
+  button.qday:disabled { opacity: .35; cursor: default; }
   input.pick, select.pick, select.sel { font: inherit; font-size: 13px; font-weight: 600; padding: 4px 8px; border-radius: 8px; border: 1px solid rgba(127,135,145,.35); background: rgba(127,135,145,.12); color: inherit; cursor: pointer; }
   select.sel { padding-right: 26px; -webkit-appearance: none; appearance: none; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%239aa4b0'/></svg>"); background-repeat: no-repeat; background-position: right 9px center; }
   #pickwrap .rangeTxt { font-size: 13px; font-weight: 600; padding: 0 4px; }
@@ -30,6 +36,7 @@
       <button id="prev" class="nav" title="Zurück">&#9664;</button>
       <span id="pickwrap"></span>
       <button id="next" class="nav" title="Vor">&#9654;</button>
+      <span id="quick"></span>
     </div>
     <div id="body">
       <div id="tabs"></div>
@@ -63,7 +70,7 @@
       document.body.style.background = data.bg ? data.bg : 'transparent';
       document.documentElement.style.background = data.bg ? data.bg : 'transparent';
       applyTheme(data);
-      var ctl = ['type', 'prev', 'pickwrap', 'next'];
+      var ctl = ['type', 'prev', 'pickwrap', 'next', 'quick'];
       if (!data.ok || !data.types || !data.tabs || !data.tabs.length) {
         destroyChart();
         ctl.forEach(function (id) { document.getElementById(id).style.display = 'none'; });
@@ -136,6 +143,30 @@
       sel.onchange = function () { curType = this.value; curIdx = 0; buildPicker(); render(); };
     }
 
+    // Schnellwahl Vorgestern/Gestern/Heute — direkter Sprung ohne Datumsfeld.
+    // Nur in der Tagesansicht; Tage ohne Archivdaten sind ausgegraut.
+    function localISO(offsetDays) {
+      var d = new Date(); d.setDate(d.getDate() + offsetDays);
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+    function buildQuick() {
+      var q = document.getElementById('quick');
+      q.innerHTML = '';
+      if (curType !== 'day') { q.style.display = 'none'; return; }
+      q.style.display = '';
+      var arr = periods();
+      [['Vorgestern', -2], ['Gestern', -1], ['Heute', 0]].forEach(function (def) {
+        var i = idxById(arr, localISO(def[1]));
+        var b = document.createElement('button');
+        b.className = 'qday' + (i >= 0 && i === curIdx ? ' active' : '');
+        b.textContent = def[0];
+        b.disabled = (i < 0);
+        b.onclick = function () { if (i >= 0 && i !== curIdx) { curIdx = i; syncNav(); render(); } };
+        q.appendChild(b);
+      });
+      applyTheme(lastData);   // frisch erzeugte Buttons einfärben
+    }
+
     function buildPicker() {
       var wrap = document.getElementById('pickwrap');
       // Benutzerdefiniert: zwei Datumsfelder Von–Bis.
@@ -180,6 +211,7 @@
     }
 
     function syncNav() {
+      buildQuick();
       if (curType === 'custom') { return; }
       var arr = periods(), el = document.querySelector('#pickwrap .pick');
       if (el) { if (el.tagName === 'SELECT') { el.value = curIdx; } else { el.value = arr[curIdx].id; } }
@@ -217,6 +249,7 @@
     function applyTheme(d) {
       var dark = themeDark(d), fg = dark ? '#e8edf2' : '#1b2430';
       ['type', 'prev', 'next'].forEach(function (id) { var e = document.getElementById(id); if (e) { e.style.color = fg; } });
+      Array.prototype.forEach.call(document.querySelectorAll('#quick .qday'), function (e) { e.style.color = fg; });
       var pk = document.querySelector('#pickwrap .pick'); if (pk) { pk.style.color = fg; pk.style.colorScheme = dark ? 'dark' : 'light'; }
       if (d && d.font) { document.querySelector('.wrap').style.fontFamily = d.font; }
     }
