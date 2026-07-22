@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.67.0-beta.1 (2026-07-22)
+
+- **GoodWe: Irreführende Beschriftung eines Steuerschalters korrigiert — konnte ungewollt zur
+  Nulleinspeisung führen.** Register 47509 heißt bei GoodWe `Feed_Power_Enable` und schaltet
+  **nicht die Einspeisung, sondern deren Begrenzung**. Beschriftet war es als „Einspeisung
+  Ja/Nein" — wer den Schalter einschaltete, um die Einspeisung zu *erlauben*, aktivierte in
+  Wahrheit die Begrenzung, und zwar auf den hinterlegten Wert. Steht dort 0 W, ist das Ergebnis
+  Nulleinspeisung: das genaue Gegenteil der Absicht, und bei laufender Einspeisevergütung teuer.
+  Belegt an einer realen Anlage: Schalter „Aus", Grenze 0 W — und trotzdem 42,7 kWh Einspeisung
+  am selben Tag.
+  Neu beschriftet als **„Einspeisebegrenzung aktiv"** und **„Einspeisegrenze (W)"**; die
+  Registerhinweise nennen jetzt die tatsächliche Wirkung. Zusätzlich warnt das Modul im
+  Meldungslog, wenn die Begrenzung eingeschaltet wird, während die Grenze auf 0 W steht — das
+  kann gewollt sein (Direktvermarktung, Netzbetreiberauflage), ist aber meist ein Irrtum.
+  **Idents bleiben unverändert** (`ctl_export_enable`, `ctl_export_limit`), bestehende Skripte
+  und Verknüpfungen funktionieren weiter. Gemeldet von der Tibber-Sitzung.
+
 ## 0.66.8-beta.1 (2026-07-22)
 
 - **Batterie wurde auf dem Wechselrichter nicht erkannt — Scheinerzeugung blieb dadurch bestehen.**

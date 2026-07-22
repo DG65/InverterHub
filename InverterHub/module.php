@@ -494,8 +494,20 @@ class GoodweDriver implements InverterDriverInterface
                 ['ctl_ems_enable',    'EMS-Steuerung aktiv',  'B', '~Switch',      false, 'control', 'RW 47505'],
                 ['ctl_ems_mode',      'EMS Leistungsmodus',   'I', 'GWH.EMSMode',  false, 'control', 'RW 47511'],
                 ['ctl_ems_power',     'EMS Leistung (W)',     'I', 'GWH.WattEMS',  false, 'control', 'RW 47512'],
-                ['ctl_export_enable', 'Einspeisung Ja/Nein',  'B', '~Switch',      false, 'control', 'RW 47509'],
-                ['ctl_export_limit',  'Einspeisung Max. (W)', 'I', 'GWH.WattEMS',  false, 'control', 'RW 47510'],
+                // ACHTUNG, Semantik von 47509 ist umgekehrt zur frueheren
+                // Beschriftung: Das Register heisst bei GoodWe „Feed_Power_Enable"
+                // und schaltet nicht die EINSPEISUNG, sondern deren BEGRENZUNG.
+                // „Aus" = keine Begrenzung = unbegrenzt einspeisen.
+                // „Ein" = Begrenzung aktiv, und zwar auf den Wert aus 47510.
+                // Die alte Beschriftung „Einspeisung Ja/Nein" verleitete dazu,
+                // den Schalter einzuschalten, um Einspeisung zu ERLAUBEN - bei
+                // einer hinterlegten Grenze von 0 W ist das Ergebnis
+                // Nulleinspeisung, also das Gegenteil der Absicht.
+                // Belegt an einer realen Anlage: Schalter „Aus", Grenze 0 W,
+                // und trotzdem 42,7 kWh Einspeisung am selben Tag.
+                // Idents bleiben unveraendert (Idents sind API).
+                ['ctl_export_enable', 'Einspeisebegrenzung aktiv', 'B', '~Switch',      false, 'control', 'RW 47509 (Feed_Power_Enable: EIN = Begrenzung aus 47510 gilt)'],
+                ['ctl_export_limit',  'Einspeisegrenze (W)',       'I', 'GWH.WattEMS',  false, 'control', 'RW 47510 (wirkt nur bei aktiver Begrenzung)'],
                 ['ctl_soc_min',       'SOC Min. Entladung',   'I', 'GWH.Percent',  false, 'control', 'RW 45356'],
                 ['ctl_internet',      'Cloud-Verbindung',     'B', '~Switch',      false, 'control', 'RW 47017'],
                 ['ctl_restart',       'WR Neustart',          'B', '~Switch',      false, 'control', 'WO 45220'],
@@ -833,6 +845,22 @@ class GoodweDriver implements InverterDriverInterface
 
             case 'ctl_export_enable':
                 $val = (bool)$value ? 1 : 0;
+                // Einschalten heisst: Die Begrenzung aus 47510 gilt ab jetzt.
+                // Steht dort 0 W, ist das Ergebnis NULLEINSPEISUNG. Das kann
+                // gewollt sein (Direktvermarktung, Netzbetreiberauflage), ist
+                // aber meist ein Missverstaendnis - deshalb ein deutlicher
+                // Hinweis ins Meldungslog, statt es stillschweigend zu tun.
+                if ($val === 1) {
+                    $lim = $mb->readHolding(self::REG_FEED_POWER_LIMIT, 1);
+                    if ($lim !== null && $mb->u16($lim, 0) === 0) {
+                        $hub->WarnUser(
+                            'Einspeisebegrenzung wurde eingeschaltet, die hinterlegte Grenze '
+                            . 'beträgt aber 0 W. Der Wechselrichter speist damit NICHTS mehr ins '
+                            . 'Netz ein. Falls das nicht beabsichtigt ist: Grenze auf den '
+                            . 'gewünschten Wert setzen oder die Begrenzung wieder ausschalten.'
+                        );
+                    }
+                }
                 if ($mb->writeSingle(self::REG_FEED_POWER_ENABLE, $val)) {
                     $hub->SetVarBool('ctl_export_enable', (bool)$value);
                 }
@@ -4354,6 +4382,12 @@ class InverterHub extends IPSModule
     // höflich mit lauter Einsen. Ohne diese Prüfung landen daraus Geisterwerte
     // in den Variablen (65535 %, 6553,5 V, 4294967295 W, Strings aus „ÿ").
     // Gemeldet wird einmal pro Instanzstart, damit das Log nicht vollläuft.
+    // Warnung ins Meldungslog, aus einem Treiber heraus aufrufbar.
+    public function WarnUser(string $message)
+    {
+        $this->LogMessage($message, KL_WARNING);
+    }
+
     public function BlockLooksUnset(array $regs): bool
     {
         $n = count($regs);
