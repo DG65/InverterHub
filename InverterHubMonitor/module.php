@@ -154,6 +154,33 @@ class InverterHubMonitor extends IPSModule
         $this->UpdateFormField('NewsPanel', 'visible', false);
     }
 
+    // Schaltet die Archivierung der Preisvariable ein. Sie gehört einem FREMDEN
+    // Modul - deshalb passiert das ausdrücklich NUR auf Knopfdruck des Nutzers
+    // und niemals automatisch: Ungefragt eine Variable in die Datenbank zu
+    // schreiben, ist die Entscheidung des Anlagenbetreibers, nicht unsere.
+    // Das Häkchen sitzt in IP-Symcon an der Variable selbst (nicht im Formular
+    // des Preismoduls), weshalb es dort erfahrungsgemäß niemand findet.
+    public function EnablePriceLogging()
+    {
+        $pvid = $this->PriceVarID();
+        $aid  = $this->ArchiveID();
+        if ($pvid <= 0 || $aid <= 0) {
+            $this->UpdateFormField('PriceLogHint', 'caption', '⚠️ Preisvariable oder Archiv nicht gefunden.');
+            return;
+        }
+        if (@AC_GetLoggingStatus($aid, $pvid)) {
+            $this->UpdateFormField('PriceLogHint', 'caption', '✅ Rückblick bereit: Die Preisvariable wird bereits archiviert.');
+            return;
+        }
+        @AC_SetLoggingStatus($aid, $pvid, true);
+        @IPS_ApplyChanges($aid);
+        $ok = @AC_GetLoggingStatus($aid, $pvid);
+        $this->UpdateFormField('PriceLogHint', 'caption', $ok
+            ? '✅ Archivierung eingeschaltet. Ab jetzt wächst der Rückblick mit — rückwirkend gibt es keine Daten, die Kurve füllt sich also erst nach und nach.'
+            : '⚠️ Einschalten fehlgeschlagen. Bitte an der Variable „Aktueller Preis" von Hand aktivieren (Rechtsklick → Archivierung).');
+        $this->UpdateFormField('PriceLogButton', 'visible', !$ok);
+    }
+
     public function GetVisualizationTile()
     {
         $html = file_get_contents(__DIR__ . '/module.html');
@@ -267,9 +294,11 @@ class InverterHubMonitor extends IPSModule
             } else {
                 $logged = ($aid > 0 && @AC_GetLoggingStatus($aid, $pvid));
                 $priceItems[] = ['type' => 'Label', 'caption' => '✅ Vorschau bereit: Die kommenden Stunden kommen direkt aus dem Preismodul.'];
-                $priceItems[] = ['type' => 'Label', 'caption' => $logged
+                $priceItems[] = ['type' => 'Label', 'name' => 'PriceLogHint', 'caption' => $logged
                     ? '✅ Rückblick bereit: Die Preisvariable wird archiviert.'
-                    : '➜ Rückblick fehlt: Die Variable „Aktueller Preis" der Preisquelle ist NICHT archiviert. Ohne Archiv zeigt die Kachel nur die Vorschau ab jetzt — das Preismodul selbst liefert keine Historie. Das Häkchen dazu sitzt in der Instanz der Preisquelle. Hinweis: Aufgezeichnet wird erst ab dem Setzen des Häkchens, rückwirkend gibt es nichts.'];
+                    : '➜ Rückblick fehlt: Die Variable „Aktueller Preis" wird nicht archiviert — ohne Archiv zeigt die Kachel nur die Vorschau ab jetzt, denn das Preismodul liefert keine Historie. Aufgezeichnet wird erst ab dem Einschalten, rückwirkend gibt es nichts.'];
+                $priceItems[] = ['type' => 'Button', 'name' => 'PriceLogButton', 'caption' => 'Archivierung der Preisvariable einschalten',
+                    'visible' => !$logged, 'onClick' => 'IHUBMON_EnablePriceLogging($id);'];
             }
         }
         $elements[] = ['type' => 'ExpansionPanel', 'caption' => 'Strompreis', 'expanded' => false, 'items' => $priceItems];

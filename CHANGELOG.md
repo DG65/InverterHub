@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.66.2-beta.1 (2026-07-22)
+
+- **Knopf „Archivierung der Preisvariable einschalten".** Der Hinweis „muss archiviert werden"
+  war zwar richtig, aber nicht hilfreich: Das Häkchen sitzt in IP-Symcon **an der Variable
+  selbst** (Rechtsklick → Archivierung), nicht im Formular des Preismoduls — dort sucht man
+  vergeblich. Jetzt steht der Knopf direkt neben dem Hinweis und erledigt es. Er erscheint nur,
+  solange die Archivierung aus ist, und verschwindet nach dem Einschalten.
+  Bewusst nur auf Knopfdruck und nie automatisch: Ob eine Variable in die Datenbank geschrieben
+  wird, entscheidet der Anlagenbetreiber, nicht das Modul.
+
 ## 0.66.1-beta.1 (2026-07-22)
 
 - **Strompreis-Konfiguration sagt jetzt je Quelle, was bereitsteht.** Die Kurve besteht aus zwei
