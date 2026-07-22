@@ -399,6 +399,33 @@ Botschaft sie nicht beschrieb.
   hält beide synchron (es ist schon vorgekommen, dass das Changelog eine Version nannte, die
   `library.json` noch nicht hatte).
 
+## SMA mit Sunny Home Manager: zweiter Regler außerhalb von IPS
+
+Betrifft SMA-Hybridgeräte (z. B. STP Smart Energy) an Anlagen mit **Sunny Home Manager 2.0
+(SHM)**. Der SHM ist kein reiner Zähler, sondern ein **aktiver Regler**: Er schreibt selbst
+Leistungsvorgaben an den Wechselrichter. Schreibt zusätzlich unser EMS über InverterHub
+Vorgaben, stehen zwei Regler auf derselben Batterie — dieselbe Situation, die die
+Steuerhoheits-Regel oben verhindert, nur dass der zweite Regler diesmal ein SMA-Gerät ist
+und kein IPS-Modul. **Das Einlesen des SHM macht ihn nicht passiv.**
+
+Vereinbarte Betriebsarten für solche Anlagen (beim Einbau der SMA-Steuerregister in der
+Konfigmaske abbilden und davor warnen):
+
+1. **SHM regelt, wir beobachten nur** — sicher; EMS-Steuerung auf diesem Gerät deaktiviert.
+2. **SHM nur als Zähler** (keine Verbraucher-/Batteriesteuerung im Sunny Portal aktiv) —
+   dann darf das EMS steuern.
+3. **Mischbetrieb — aktiv ausschließen**, mindestens deutlich warnen.
+
+Zuordnung im Verbund (über den Repo-Eigentümer angestoßen, Prüfung bei MeterHub angefragt):
+
+- **SHM 2.0 und SMA Energy Meter gehören als Zähler in den MeterHub.** Achtung: Beide
+  sprechen **kein Modbus TCP**, sondern senden per **Speedwire-Multicast** (UDP an
+  239.12.255.254:9522, „EMETER-Protokoll") mehrmals pro Sekunde von selbst. MeterHub bräuchte
+  dafür einen zweiten Empfangsweg (UDP-Listener statt Polling) — Architekturentscheidung der
+  MeterHub-Sitzung. Die Messwertstruktur beider Geräte ist identisch.
+- **InverterHub-Seite** (hier): SMA-Steuerregister für den Smart Energy erst zusammen mit der
+  SHM-Betriebsarten-Warnung einbauen — nicht vorher.
+
 ## Verbund-Konvention: Kacheln mit Datumssteuerung bedienen sich identisch
 
 Gilt für **alle** Kacheln mit Zeitraum-/Datumsauswahl — derzeit `InverterHubMonitor` und
