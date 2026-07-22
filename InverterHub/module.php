@@ -1922,10 +1922,31 @@ class SmaDriver implements InverterDriverInterface
     public function readFast($mb, $hub)
     {
         // Float-Inverter-Model bevorzugt (111/112/113), sonst Int+SF (101/102/103)
+        // SMA-Besonderheit: Die SunSpec-Kette liegt NICHT auf der Unit-ID, die in
+        // der SMA-Oberflaeche eingestellt ist, sondern auf dieser Zahl PLUS 123.
+        // So dokumentiert es SMA selbst; OpenEMS setzt seine Vorgabe deshalb auf
+        // 126 (= 3 + 123). Wer in der Oberflaeche 4 eingestellt hat, braucht 127.
+        //
+        // Weil das kaum jemand weiss, probiert der Treiber es selbst: Findet sich
+        // unter der eingetragenen Unit-ID keine SunSpec-Kette, wird einmalig mit
+        // +123 erneut gesucht. Das SMA-EIGENE Registerprofil (30000er, z. B. Riso)
+        // liegt dagegen auf der unveraenderten Unit-ID.
+        $native = $mb->unitId;
         $inv = $this->findModel($mb, 111) ?: $this->findModel($mb, 112) ?: $this->findModel($mb, 113);
         $isFloat = ($inv !== null);
         if ($inv === null) {
             $inv = $this->findModel($mb, 101) ?: $this->findModel($mb, 102) ?: $this->findModel($mb, 103);
+        }
+        if ($inv === null && $native <= 124) {
+            $mb->unitId = $native + 123;
+            $inv = $this->findModel($mb, 111) ?: $this->findModel($mb, 112) ?: $this->findModel($mb, 113);
+            $isFloat = ($inv !== null);
+            if ($inv === null) {
+                $inv = $this->findModel($mb, 101) ?: $this->findModel($mb, 102) ?: $this->findModel($mb, 103);
+            }
+            if ($inv === null) {
+                $mb->unitId = $native;
+            }
         }
 
         $ok = ($inv !== null);
@@ -1943,6 +1964,10 @@ class SmaDriver implements InverterDriverInterface
 
         // Isolationswiderstand aus dem proprietären SMA-Profil (Reg 30225,
         // uint32 in Ohm). Sentinel 0xFFFFFFFF = "nicht verfügbar" überspringen.
+        // Riso stammt aus dem SMA-EIGENEN Profil und liegt auf der unveraenderten
+        // Unit-ID - nicht auf der um 123 versetzten SunSpec-Kennung.
+        $sunspecUnit = $mb->unitId;
+        $mb->unitId  = $native;
         $risoBlk = $mb->readHolding(30225, 2);
         if ($risoBlk !== null) {
             $r = $mb->u32($risoBlk, 0);
@@ -1950,6 +1975,7 @@ class SmaDriver implements InverterDriverInterface
                 $hub->SetVarFloat('riso', $r / 1000.0);
             }
         }
+        $mb->unitId = $sunspecUnit; // zurueck auf die SunSpec-Kennung
 
         // Offsets siehe FroniusDriver (identische SunSpec-Modelle 101/103/111/113),
         // gegen OpenEMS-SunSpec-Referenz verifiziert. Zusätzlich hier genutzt:
@@ -4221,6 +4247,19 @@ class InverterHub extends IPSModule
                     ['caption' => 'little-endian (CDAB) — Standard Modbus (Werkseinstellung)', 'value' => 0],
                     ['caption' => 'big-endian (ABCD) — Sunspec', 'value' => 1],
                 ],
+            ];
+        }
+
+        // SMA: Die SunSpec-Kette liegt auf einer um 123 versetzten Unit-ID.
+        if ($this->ReadPropertyString('Manufacturer') === 'sma') {
+            $groupItems[] = [
+                'type'    => 'Label',
+                'caption' => 'ℹ SMA-Besonderheit bei der Unit-ID: Die SunSpec-Daten liegen NICHT auf der Unit-ID, '
+                    . 'die in der SMA-Oberfläche eingestellt ist, sondern auf dieser Zahl PLUS 123 — bei der '
+                    . 'SMA-Vorgabe 3 also auf 126, bei 4 auf 127. Das Modul probiert den Versatz automatisch, '
+                    . 'wenn unter der eingetragenen Unit-ID nichts gefunden wird. Kommt trotzdem keine Verbindung '
+                    . 'zustande: In der SMA-Oberfläche unter „Externe Kommunikation" den Modbus-TCP-Server '
+                    . 'aktivieren und prüfen, welche Unit-ID dort steht.',
             ];
         }
 

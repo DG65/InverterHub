@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.65.0-beta.1 (2026-07-21)
+
+- **SMA: Verbindung kam nicht zustande — Unit-ID-Versatz von 123.** Bei SMA liegen die
+  SunSpec-Daten **nicht** auf der Unit-ID, die in der SMA-Oberfläche eingestellt ist, sondern auf
+  dieser Zahl **plus 123**: Bei der SMA-Vorgabe 3 also auf 126, bei eingestellter 4 auf 127.
+  SMA dokumentiert das selbst; OpenEMS setzt seine Vorgabe deshalb auf 126. Wer die in der
+  Oberfläche sichtbare Zahl einträgt, bekommt an Register 40000 nur 0xFFFF oder gar keine
+  Antwort — genau der Befund unseres Beta-Testers.
+  Der Treiber probiert den Versatz jetzt **selbst**: Findet sich unter der eingetragenen Unit-ID
+  keine SunSpec-Kette, sucht er einmalig mit +123 weiter. Zusätzlich erklärt ein Hinweis in der
+  Konfigurationsmaske den Zusammenhang.
+  Der Isolationswiderstand stammt aus dem SMA-**eigenen** Registerprofil (30000er) und liegt auf
+  der unversetzten Unit-ID — er wird jetzt entsprechend mit umgeschalteter Kennung gelesen.
+
 ## 0.64.0-beta.1 (2026-07-21)
 
 - **Victron: Solarertrag jetzt aus dem 32-Bit-Register — Überlaufkorrektur wird überflüssig.**
