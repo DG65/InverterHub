@@ -2019,28 +2019,24 @@ class SmaDriver implements InverterDriverInterface
         // Eingaenge summieren: Reg 30773 (MPP A) und 30961 (MPP B), jeweils
         // int32 in W. Sentinel 0x80000000 = "nicht verfuegbar" (z. B. kein
         // zweiter Eingang oder nachts) zaehlt nicht mit.
-        $dcSum  = null;
-        $dcSeen = false;   // Eigenprofil hat geantwortet (auch wenn nur Sentinel)
+        // SMA meldet "nicht verfuegbar" je nach Geraet als 0x80000000 (signed
+        // NaN) ODER 0xFFFFFFFF (unsigned NaN, als s32 = -1). Der STP Smart
+        // Energy z. B. belegt 30773/30961 gar nicht und lieferte so -1 je
+        // Register - die Kachel zeigte -2 W bei laufender Produktion.
+        $dcSum = null;
         foreach ([30773, 30961] as $reg) {
             $dcBlk = $mb->readHolding($reg, 2);
             if ($dcBlk === null) {
                 continue;
             }
-            $dcSeen = true;
             $w = $mb->s32($dcBlk, 0);
-            if ($w === -2147483648) {
-                continue;   // Sentinel: Eingang nicht vorhanden oder nachts
+            if ($w === -2147483648 || $w === -1) {
+                continue;   // Sentinel: Register nicht belegt oder nachts
             }
             $dcSum = ($dcSum ?? 0.0) + $w;
         }
         if ($dcSum !== null) {
             $hub->SetVarFloat('pv_total', $dcSum);
-        } elseif ($dcSeen) {
-            // Geraet erreichbar, aber beide Eingaenge melden Sentinel - das ist
-            // der Nachtzustand. 0 W schreiben, statt den letzten Tageswert
-            // stehen zu lassen.
-            $hub->SetVarFloat('pv_total', 0.0);
-            $dcSum = 0.0;   // SunSpec-DCW unten nicht mehr druebeschreiben lassen
         }
         $mb->unitId = $sunspecUnit; // zurueck auf die SunSpec-Kennung
 
@@ -2048,10 +2044,16 @@ class SmaDriver implements InverterDriverInterface
         // gegen OpenEMS-SunSpec-Referenz verifiziert. Zusätzlich hier genutzt:
         // DCW (aggregierte DC-Leistung) Float @36, Int+SF @29; TmpCab Float @38, Int+SF @31.
         if ($isFloat) {
-            $hub->SetVarFloat('ac_power', $mb->readFloat32($blk, 20));
-            $hub->SetVarInt('status', $mb->u16($blk, 46));
+            $acW = $mb->readFloat32($blk, 20);
+            $st  = $mb->u16($blk, 46);
+            $hub->SetVarFloat('ac_power', $acW);
+            $hub->SetVarInt('status', $st);
             if ($dcSum === null) {
-                $hub->SetVarFloat('pv_total', $mb->readFloat32($blk, 36));
+                $dcw = $mb->readFloat32($blk, 36);
+                if (is_finite($dcw)) {
+                    $hub->SetVarFloat('pv_total', $dcw);
+                    $dcSum = $dcw;
+                }
             }
             if ($hub->GetPropBool('GroupGrid')) {
                 $hub->SetVarFloat('grid_curr', $mb->readFloat32($blk, 0));
@@ -2077,15 +2079,17 @@ class SmaDriver implements InverterDriverInterface
             // Offsets ab Modellstart (Model 101/103, identische Feldreihenfolge):
             //   0 A(+SF@4) | 8 PhVphA(+SF@11) | 12 W(+SF@13) | 14 Hz(+SF@15)
             //   22 WH acc32(+SF@24) | 29 DCW(+SF@30) | 31 TmpCab(+SF@35) | 36 St
-            $v = $this->scaled($mb, $blk, 12, 13, true);
-            if ($v !== null) {
-                $hub->SetVarFloat('ac_power', $v);
+            $acW = $this->scaled($mb, $blk, 12, 13, true);
+            if ($acW !== null) {
+                $hub->SetVarFloat('ac_power', $acW);
             }
-            $hub->SetVarInt('status', $mb->u16($blk, 36));
+            $st = $mb->u16($blk, 36);
+            $hub->SetVarInt('status', $st);
             if ($dcSum === null) {
                 $v = $this->scaled($mb, $blk, 29, 30, true);
                 if ($v !== null) {
                     $hub->SetVarFloat('pv_total', $v);
+                    $dcSum = $v;
                 }
             }
             if ($hub->GetPropBool('GroupGrid')) {
@@ -2116,6 +2120,18 @@ class SmaDriver implements InverterDriverInterface
                     $hub->SetVarFloat('temp_cab', $v);
                 }
             }
+        }
+
+        // Letzte Rueckfallebene fuer die PV-Gesamtleistung: Liefert weder das
+        // SMA-Eigenprofil (30773/30961) noch SunSpec-DCW einen Wert - der STP
+        // Smart Energy etwa belegt beides nicht -, wird die AC-Wirkleistung
+        // uebernommen, solange der WR einspeist (Status 4 = MPPT). Das ist um
+        // die Wandlerverluste zu niedrig und bei Hybridgeraeten um die gerade
+        // geladene Batterieleistung daneben, aber ehrlicher als gar kein oder
+        // ein eingefrorener Wert. Ausserhalb des Einspeisebetriebs: 0 W, damit
+        // nachts kein Batterie-Entladestrom als PV-Leistung erscheint.
+        if ($dcSum === null) {
+            $hub->SetVarFloat('pv_total', ($st === 4 && $acW !== null && $acW > 0) ? (float)$acW : 0.0);
         }
 
         if ($hub->GetPropBool('GroupMeter')) {

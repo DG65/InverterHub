@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.65.8-beta.1 (2026-07-22)
+
+- **SMA: „PV Gesamtleistung" zeigte −2 W bei laufender Produktion.** Zwei Ursachen:
+  1. SMA meldet „nicht verfügbar" je nach Gerät nicht nur als 0x80000000, sondern auch als
+     0xFFFFFFFF — als vorzeichenbehaftete Zahl gelesen ist das **−1**. Der STP Smart Energy
+     belegt die DC-Register 30773/30961 gar nicht und lieferte so −1 je Register, zusammen die
+     gemeldeten −2 W. Beide NaN-Formen werden jetzt erkannt und übersprungen.
+  2. Damit die Variable auf solchen Geräten nicht leer bleibt, gibt es eine letzte
+     Rückfallebene: Liefert weder das SMA-Eigenprofil noch SunSpec einen DC-Wert, wird die
+     (korrekt skalierte) AC-Wirkleistung übernommen, solange der Wechselrichter einspeist
+     (Status „Normal (MPPT)") — sonst 0 W. Der Wert ist dann um die Wandlerverluste zu
+     niedrig und bei Hybridgeräten um die gerade geladene Batterieleistung daneben; das ist
+     dokumentiert und ehrlicher als ein eingefrorener oder fehlender Wert.
+
 ## 0.65.7-beta.1 (2026-07-22)
 
 - **Sankey-Kachel: Schnellwahl „Vorgestern / Gestern / Heute".** Wie in der Monitoring-Kachel
