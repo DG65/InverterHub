@@ -121,6 +121,9 @@ class InverterHubMonitor extends IPSModule
         // derzeit Tibber Grid Rewards). 0 = aus.
         $this->RegisterPropertyInteger('PriceInstance', 0);
         $this->RegisterPropertyBoolean('show_price', true);
+        // PV-Prognose-Instanz für die Erwartungswerte. 0 = automatisch (nur bei
+        // genau einer). Bei mehreren wird NICHT geraten (Prognose-Empfehlung).
+        $this->RegisterPropertyInteger('PvfInstance', 0);
 
         $this->RegisterPropertyString('Engine', 'echarts');
         $this->RegisterPropertyInteger('ColorBackground', -1);
@@ -282,6 +285,16 @@ class InverterHubMonitor extends IPSModule
             $valueItems[] = ['type' => 'Label', 'caption' => '— Einstrahlungssensor (optional, externe W/m²-Variable) —'];
             $valueItems[] = ['type' => 'CheckBox', 'name' => 'show_irr', 'caption' => 'Einstrahlung anzeigen (rechte Achse)'];
             $valueItems[] = ['type' => 'SelectVariable', 'name' => 'IrradianceID', 'caption' => 'Einstrahlungs-Variable (W/m²)'];
+
+            // Auswahl der PV-Prognose-Instanz nur anbieten, wenn es MEHRERE gibt
+            // — bei genau einer wird sie automatisch genommen (kein Feld nötig).
+            $pvfList = @IPS_GetInstanceListByModuleID(self::PVF_GUID) ?: [];
+            if (count($pvfList) > 1) {
+                $valueItems[] = ['type' => 'SelectInstance', 'name' => 'PvfInstance', 'caption' => 'PV-Prognose-Instanz (bei mehreren bitte wählen)'];
+                if ($this->PvfInstanceID() <= 0) {
+                    $valueItems[] = ['type' => 'Label', 'caption' => '⚠️ Es sind mehrere PV-Prognose-Instanzen vorhanden. Bitte oben eine auswählen — sonst werden keine Erwartungswerte berechnet (es wird bewusst nicht geraten).'];
+                }
+            }
 
             // Hinweis aufs Prognose-Modul, sobald ein Einstrahlungssensor gewählt
             // ist: dessen Modulfläche macht aus der reinen Kurven-Ansicht später
@@ -521,13 +534,28 @@ class InverterHubMonitor extends IPSModule
     // Liest aus der PV-Prognose (PVF) die Parameter fürs Erwartungs-Modell:
     // Performance-Ratio (PVF_PR) und je Generator kWp + manueller Faktor.
     // Rückgabe null, wenn keine PVF-Instanz / keine Generatoren mit kWp da sind.
+    // PV-Prognose-Instanz: konfigurierte, sonst automatisch NUR bei genau einer.
+    // Bei mehreren ohne explizite Wahl wird NICHT geraten (0) — sonst nähme man
+    // still die erste (früheres Verhalten, von der Prognose-Sitzung als eigener
+    // Fehler bestätigt). Eine ungültig gewählte Instanz fällt still auf die
+    // Automatik zurück, damit ein Update keine laufende Installation lahmlegt.
+    private function PvfInstanceID(): int
+    {
+        $cfg = $this->ReadPropertyInteger('PvfInstance');
+        if ($cfg > 0 && IPS_InstanceExists($cfg)
+            && IPS_GetInstance($cfg)['ModuleInfo']['ModuleID'] === self::PVF_GUID) {
+            return $cfg;
+        }
+        $ids = @IPS_GetInstanceListByModuleID(self::PVF_GUID);
+        return (is_array($ids) && count($ids) === 1) ? (int)$ids[0] : 0;
+    }
+
     private function PvfModel(): ?array
     {
-        $ids = IPS_GetInstanceListByModuleID(self::PVF_GUID);
-        if (count($ids) === 0) {
+        $id = $this->PvfInstanceID();
+        if ($id <= 0) {
             return null;
         }
-        $id = $ids[0];
 
         // Bevorzugt der stabile öffentliche Getter (versionsunabhängiger
         // Vertrag); Fallback auf die internen Properties per IPS_GetConfiguration
@@ -1056,11 +1084,10 @@ class InverterHubMonitor extends IPSModule
     // Statusvariable PVF_ModuleArea.
     private function PvfArea(): array
     {
-        $ids = IPS_GetInstanceListByModuleID(self::PVF_GUID);
-        if (count($ids) === 0) {
+        $iid = $this->PvfInstanceID();
+        if ($iid <= 0) {
             return ['installed' => false, 'area' => 0.0, 'id' => 0];
         }
-        $iid = $ids[0];
         $area = 0.0;
         if (function_exists('PVF_GetModuleArea')) {
             $area = (float)@PVF_GetModuleArea($iid);

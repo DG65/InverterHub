@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.71.1-beta.1 (2026-07-23)
+
+- **Monitor: PV-Prognose-Instanz wird bei mehreren nicht mehr stillschweigend geraten.** Bisher
+  nahm der Monitor bei mehreren installierten PV-Prognose-Instanzen kommentarlos die erste. Jetzt
+  gilt: bei genau einer wird sie automatisch genommen, bei mehreren muss man im Formular
+  auswählen (Feld erscheint nur dann) — sonst werden bewusst keine Erwartungswerte berechnet,
+  statt die falsche Quelle zu verwenden. Eine ungültige Auswahl fällt still auf die Automatik
+  zurück, damit ein Update keine laufende Installation lahmlegt. Der Normalfall (genau eine
+  Instanz) ändert sich nicht. Muster und schonender Migrationsweg mit der Prognose-Sitzung
+  abgestimmt (die denselben Fehler in ihrem Build 43 behoben hatte).
+
 ## 0.71.0-beta.1 (2026-07-23)
 
 - **GoodWe: BMS-Zelldiagnostik ergänzt (18 neue Werte je Batterie-Paar).** Pro Batterie jetzt

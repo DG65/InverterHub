@@ -194,6 +194,26 @@ Verfügbar, aktuell ungenutzt: `PVF_GetModuleAreas($id)` (seit Build 39) liefert
 **je Generator** mit `name`, `modules`, `lengthMM`, `widthMM`, `areaPerModule`, `area` — die
 Basis, falls spez. Leistung / PR einmal pro Generator statt gesamt ausgewertet werden soll.
 
+**Diagnose = GEMESSENE Einstrahlung × Generatorparameter, NIE `PVF_GetForecast`** (Prognose-
+Sitzung, 23.07.2026): Die Wetter-Prognose-Abweichung stammt überwiegend vom Wetterfehler, nicht
+von Verschmutzung — GetForecast als Diagnose-Referenz würde also Wetterfehler als Anlagenfehler
+ausweisen. Für die Soll/Ist-Diagnose immer den Weg über `PVF_GetGenerators` × gemessene
+Einstrahlung nehmen (macht `PvfModel()` bereits). **`PVF_GetForecast` NICHT pollen:** Es kann
+einen Wetter-API-Abruf auslösen (Forecast.Solar ratenbegrenzt → häufiges Pollen sperrt aus); für
+reine Anzeige die Statusvariablen `PVF_Today`/`Tomorrow`/`DayAfter` lesen (aktualisiert der
+Prognose-Timer selbst). Unsere jetzige Nutzung (`GetGenerators`/`GetModuleArea`, nur Konfig) ist
+kostenlos.
+
+**Instanzwahl (behoben 2026-07-23):** `PvfInstanceID()` — explizite Wahl (`PvfInstance`) gewinnt,
+sonst Automatik NUR bei genau einer Instanz; bei mehreren wird NICHT geraten (Formularhinweis).
+Eine ungültige explizite Wahl fällt still auf die Automatik zurück. Früher nahm `PvfModel`/
+`PvfArea` still `$ids[0]` — von der Prognose-Sitzung als derselbe Fehler bestätigt, den sie in
+ihrem Build 43 behoben haben.
+
+`contractVersion`: `PVF_GetGenerators` trägt die Version der Generatoren-Familie (Start 1.0),
+`PVF_GetForecast` die der Prognose-Familie — getrennt. Wir konsumieren `GetGenerators`, also nur
+DEREN Major prüfen (wenn die Meldepflicht gebaut wird). Fehlt das Feld = 1.0.
+
 **Vertrag (mit der Prognose-Sitzung abgestimmt):** Die `PVF_Get*`-Funktionen sind die
 öffentliche Schnittstelle — Signatur- oder Strukturänderungen dort werden angekündigt und in
 `InverterHubMonitor/module.php` nachgezogen. Interne Umbauten der Prognose sind frei, solange
