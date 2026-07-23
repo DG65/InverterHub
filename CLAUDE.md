@@ -488,6 +488,13 @@ Inexogy (`billing` + `delayed`) und einen lokalen Modbus-Zähler (`auxiliary` + 
 einzelnes „billingGrade"-Flag könnte das nicht trennen — deshalb **kein eigenes Feld**, sondern
 `authority` konsumieren.
 
+Wo die Felder sitzen (MeterHub 0.15.1-beta.1, fixiert): **Zähler-Eigenschaften**
+(`latency`/`authority`/`pollInterval`) stehen an beiden Orten — auf Instanz-Ebene UND in jede
+Zuordnung gespiegelt (aus derselben Property, können nicht auseinanderlaufen).
+**Zuordnungs-Eigenschaften** (`energyKind`/`sourceCount`) nur je Zuordnung. `BillingGridImportVid()`
+liest `authority` deshalb bewusst je Zuordnung (`assignments[]`), dort wo auch `function`/
+`energyImportID` stehen — das ist garantiert vorhanden.
+
 **Berührungspunkt bei uns:** Die Netzbezug-Balken im Strompreis-Reiter des `InverterHubMonitor`
 (`SlotEnergyBars`) integrieren sie derzeit aus der Wechselrichter-Netzleistung (`meter_total`) —
 das bleibt der **Rückfallweg**. Sobald das Format steht, den Balken auf die Quelle mit
