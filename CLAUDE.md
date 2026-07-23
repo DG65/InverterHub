@@ -417,6 +417,12 @@ Verträge entstehen (v. a. das künftige `IHUB_GetFunctions` beim [[InverterHubV
 - Konkret bei uns: Kachel/Monitor konsumieren `MHUB_/MHUBV_GetFunctions`, `TIBBERGR_GetPriceCurve`,
   `PVF_Get*`. Beim nächsten Anfassen dieser Konsumstellen die Mindest-Major prüfen und melden;
   `IHUB_GetFunctions` (InverterHubVirtual) trägt `contractVersion` von Anfang an.
+- Baseline-Stände (Stand 23.07.2026): `MHUB_/MHUBV_GetFunctions` ab MeterHub 0.17.0-beta.1 auf
+  **`contractVersion '1.1'`** (1.0 = Ur-Vertrag, 1.1 = latency/authority/energyKind/sourceCount —
+  die billing-Balken brauchen 1.1). Major bleibt 1, solange kein Bruch. Unser billing-Konsum
+  (`BillingGridImportVid`) degradiert bereits weich: fehlt `authority`, gilt `auxiliary`, der
+  Zähler wird nicht als billing gewählt und der Integrations-Rückfall läuft — eine sichtbare
+  Versionswarnung ist dort also nicht nötig (optionale Anzeige, keine kritische Kopplung).
 
 ## Emojis sind erwünscht (Verbund-Regel, Dietmar 23.07.2026)
 
