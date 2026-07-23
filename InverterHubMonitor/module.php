@@ -27,6 +27,8 @@ class InverterHubMonitor extends IPSModule
     private const INVERTERHUB_GUID = '{BBE2C593-1A91-426D-A714-29A9C7E87589}';
     private const PVF_GUID        = '{257DD4E8-9705-462E-89FC-56D0A1038353}'; // PV-Prognose
     private const TIBBER_GUID     = '{E92F62F4-88A6-4C6E-9F0D-E76C3B1C9A01}'; // Tibber Grid Reward (Preisquelle)
+    private const METERHUB_GUID   = '{BAB8E05C-9150-43B9-9F2B-E5215FA54F0A}'; // MeterHub (echte Zähler)
+    private const METERHUBV_GUID  = '{ADF18291-2E60-4354-92F5-B96863C127C8}'; // MeterHub Virtuelle Zähler
     private const PRICE_COLOR     = '#ffb300';
     private const WINDOW_DAYS   = 8;    // navigierbares Tages-Fenster (Verlauf)
     private const WINDOW_WEEKS  = 26;   // Wochen-Fenster (Energie-Balken)
@@ -443,23 +445,30 @@ class InverterHubMonitor extends IPSModule
             // (Rechnungspruefung liegt beim EMS). Aus der Netz-LEISTUNG
             // integriert (meter_total), nicht aus einem kumulativen Zaehler -
             // das vermeidet die Zaehlertausch-/Einheitenwechsel-Fallen.
-            $gridVid = $this->FirstIdent($this->ReadPropertyInteger('SourceInstance'), self::CATALOG['grid']['power']);
+            // Quelle für den Bezug: bevorzugt der abrechnungsgenaue MeterHub-
+            // Netzzähler (kumulativer kWh-Counter, exakt), sonst die integrierte
+            // Wechselrichter-Netzleistung (Näherung, aber immer verfügbar).
+            $billVid = $this->BillingGridImportVid();
+            $gridVid = $billVid > 0
+                ? $billVid
+                : $this->FirstIdent($this->ReadPropertyInteger('SourceInstance'), self::CATALOG['grid']['power']);
             if ($gridVid > 0) {
                 $out[] = [
-                    'key'       => 'gridnrg',
-                    'label'     => 'Netzbezug',
-                    'color'     => '#4aa3e0',
-                    'axis'      => 'left',
-                    'unit'      => 'kWh',
-                    'noEnergy'  => true,
-                    'groups'    => ['price'],
-                    'isIrr'     => false,
-                    'dash'      => false,
-                    'bars'      => true,   // als Balken je Slot zeichnen
-                    'slotEnergy'=> true,   // aus Leistung je 15-min integrieren
-                    'scale'     => 1.0,
-                    'powerVid'  => $gridVid,
-                    'energyVid' => 0,
+                    'key'         => 'gridnrg',
+                    'label'       => $billVid > 0 ? 'Netzbezug (abrechnungsgenau)' : 'Netzbezug',
+                    'color'       => '#4aa3e0',
+                    'axis'        => 'left',
+                    'unit'        => 'kWh',
+                    'noEnergy'    => true,
+                    'groups'      => ['price'],
+                    'isIrr'       => false,
+                    'dash'        => false,
+                    'bars'        => true,   // als Balken je Slot zeichnen
+                    'slotEnergy'  => true,   // Slot-Energie (Balken)
+                    'counterMode' => ($billVid > 0),  // true: Zähler-Differenz; false: aus Leistung integrieren
+                    'scale'       => 1.0,
+                    'powerVid'    => $gridVid,
+                    'energyVid'   => 0,
                 ];
             }
         }
@@ -646,7 +655,7 @@ class InverterHubMonitor extends IPSModule
                 // integrieren, Vorzeichen umdrehen (+ = Bezug). Aus denselben
                 // 5-Minuten-Archivwerten wie die Leistungslinie.
                 if (!empty($s['slotEnergy'])) {
-                    $rows[] = $this->SlotEnergyBars($aid, $s['powerVid'], $start, $end);
+                    $rows[] = $this->SlotEnergyBars($aid, $s['powerVid'], $start, $end, !empty($s['counterMode']));
                     continue;
                 }
                 $pts = $this->DaySeries($aid, $s['powerVid'], $start, $end);
@@ -870,14 +879,26 @@ class InverterHubMonitor extends IPSModule
         return $pts;
     }
 
-    // Netz-BEZUG je 15-Minuten-Fenster (kWh) aus der Netz-Leistung (W). Feste
-    // Viertelstunden-Raster, an der vollen Stunde ausgerichtet - passt zur
-    // 15-Minuten-Abrechnung (§14a/Tibber). Jeder Balken sitzt am FENSTERANFANG,
-    // damit die Balkenbreite (= Slotdauer) korrekt nach rechts laeuft und sich
-    // mit der Preis-Stufenkurve deckt. meter_total ist + = Einspeisung, Bezug
-    // also die NEGATIVE Leistung; nur dieser Anteil zaehlt (max(0, −P)), die
-    // Einspeisung bleibt aussen vor. Rein rechnerisch aus 5-Minuten-Mitteln.
-    private function SlotEnergyBars(int $aid, int $vid, int $start, int $end): array
+    // Netz-BEZUG je 15-Minuten-Fenster (kWh). Feste Viertelstunden-Raster, an
+    // der vollen Stunde ausgerichtet - passt zur 15-Minuten-Abrechnung
+    // (§14a/Tibber). Jeder Balken sitzt am FENSTERANFANG, damit die Balkenbreite
+    // (= Slotdauer) korrekt nach rechts laeuft und sich mit der Preis-Stufenkurve
+    // deckt.
+    //
+    // Zwei Quellen, je nach $counter:
+    //  - $counter=false: aus der Netz-LEISTUNG (meter_total) integriert.
+    //    meter_total ist + = Einspeisung, Bezug also die NEGATIVE Leistung; nur
+    //    dieser Anteil zaehlt (max(0, −P)), Einspeisung bleibt aussen vor. Aus
+    //    5-Minuten-Mitteln (Wh = W × 5/60 h).
+    //  - $counter=true: aus einem kumulativen ENERGIE-Zaehler (MeterHub billing).
+    //    AC_GetAggregatedValues liefert bei Counter-Variablen im Feld Avg den
+    //    VERBRAUCH je Periode (nicht den Rohstand) - an Dietmars Anlage
+    //    verifiziert; Ueberlauf/Zaehlerwechsel behandelt das Archiv selbst.
+    //    Deshalb NICHT roh differenzieren, sondern die 5-Minuten-Verbraeuche zu
+    //    15 min SUMMIEREN (Verbrauchswerte darf man summieren). Ein Import-Zaehler
+    //    steigt nur, der Wert ist bereits reiner Bezug (≥ 0), keine Vorzeichen-
+    //    behandlung noetig.
+    private function SlotEnergyBars(int $aid, int $vid, int $start, int $end, bool $counter = false): array
     {
         if (!IPS_VariableExists($vid) || !@AC_GetLoggingStatus($aid, $vid)) {
             return [];
@@ -887,19 +908,23 @@ class InverterHubMonitor extends IPSModule
             return [];
         }
         $slot = 900;                  // 15 min
-        $buckets = [];                // slotStartSec => Wh Bezug (immer ≥ 0)
+        $buckets = [];                // slotStartSec => kWh Bezug (immer ≥ 0)
         foreach ($data as $row) {
             $ts = (int)$row['TimeStamp'];
             $bucket = $start + intdiv($ts - $start, $slot) * $slot;
-            // Nur der BEZUGSANTEIL: negative Netzleistung (Bezug) → positiv,
-            // Einspeisung (positive Leistung) traegt 0 bei.
-            $drawW = max(0.0, -(float)$row['Avg']);
-            $buckets[$bucket] = ($buckets[$bucket] ?? 0.0) + $drawW * (5.0 / 60.0);
+            if ($counter) {
+                // Avg = Verbrauch (kWh) in diesem 5-min-Abschnitt.
+                $buckets[$bucket] = ($buckets[$bucket] ?? 0.0) + max(0.0, (float)$row['Avg']);
+            } else {
+                // Bezugsanteil der Leistung (W) → kWh.
+                $drawW = max(0.0, -(float)$row['Avg']);
+                $buckets[$bucket] = ($buckets[$bucket] ?? 0.0) + $drawW * (5.0 / 60.0) / 1000.0;
+            }
         }
         ksort($buckets);
         $bars = [];
-        foreach ($buckets as $bStart => $wh) {
-            $bars[] = [$bStart * 1000, round($wh / 1000.0, 3)];   // Wh → kWh
+        foreach ($buckets as $bStart => $kwh) {
+            $bars[] = [$bStart * 1000, round($kwh, 3)];
         }
         return $bars;
     }
@@ -915,6 +940,39 @@ class InverterHubMonitor extends IPSModule
         }
         $all = @IPS_GetInstanceListByModuleID(self::TIBBER_GUID);
         return (is_array($all) && count($all) === 1) ? (int)$all[0] : 0;
+    }
+
+    // Abrechnungsgenauer Netzzähler aus MeterHub: die energyImportID (kumulativer
+    // kWh-Zähler) der EINEN Zuordnung mit function=='grid' UND authority=='billing'
+    // (Inexogy am Netzübergabepunkt). Rein OPTIONAL - fehlt MeterHub oder ein
+    // solcher Zähler, liefert dies 0 und die Balken bleiben auf der Integration
+    // aus der Wechselrichter-Netzleistung. Guard zwingend (function_exists),
+    // sonst Fatal Error ohne MeterHub. Fehlende Vertragsfelder gelten konservativ
+    // als authority='auxiliary' (also NICHT billing) - so wird eine ältere
+    // MeterHub-Version ohne die Felder nie fälschlich als billing-Quelle gewählt.
+    private function BillingGridImportVid(): int
+    {
+        foreach ([['MHUB_GetFunctions', self::METERHUB_GUID], ['MHUBV_GetFunctions', self::METERHUBV_GUID]] as $src) {
+            [$fn, $guid] = $src;
+            if (!function_exists($fn)) {
+                continue;
+            }
+            foreach (@IPS_GetInstanceListByModuleID($guid) ?: [] as $iid) {
+                $info = @$fn($iid);
+                if (!is_array($info) || empty($info['assignments'])) {
+                    continue;
+                }
+                foreach ($info['assignments'] as $a) {
+                    $function  = $a['function']  ?? '';
+                    $authority = $a['authority'] ?? 'auxiliary';
+                    $vid       = (int)($a['energyImportID'] ?? 0);
+                    if ($function === 'grid' && $authority === 'billing' && $vid > 0 && IPS_VariableExists($vid)) {
+                        return $vid;
+                    }
+                }
+            }
+        }
+        return 0;
     }
 
     // Archivierte Preisvariable (€/kWh) der Preisquelle.

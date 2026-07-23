@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.70.0-beta.1 (2026-07-23)
+
+- **Netzbezug-Balken nutzen bevorzugt den abrechnungsgenauen Zähler.** Ist über MeterHub ein
+  Netzzähler mit `function == 'grid'` UND `authority == 'billing'` vorhanden (z. B. Inexogy am
+  Netzübergabepunkt), speisen die Balken im Strompreis-Reiter jetzt aus dessen geeichter
+  Bezugsenergie (Beschriftung dann „Netzbezug (abrechnungsgenau)"). Fehlt ein solcher Zähler,
+  bleibt es beim bisherigen Verhalten: Integration aus der Wechselrichter-Netzleistung. Rein
+  optional, hinter `function_exists`-Guard — ohne MeterHub oder ohne billing-Zähler ändert sich
+  nichts.
+  Die Bezugsenergie des Zählers ist ein kumulativer Zählerstand; sie wird über die
+  Counter-Aggregation des Archivs zu Intervall-Differenzen aufgelöst (an der Live-Anlage
+  verifiziert: `AC_GetAggregatedValues` liefert bei Counter-Variablen den Verbrauch je Periode,
+  Überläufe/Zählerwechsel behandelt das Archiv selbst) — bewusst keine rohe Differenzbildung.
+
 ## 0.69.1-beta.1 (2026-07-22)
 
 - **Strompreis-Reiter: Balken zeigen nur noch den Netzbezug, nicht mehr die Netto-Netzenergie.**
