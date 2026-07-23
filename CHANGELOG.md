@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.71.0-beta.1 (2026-07-23)
+
+- **GoodWe: BMS-Zelldiagnostik ergänzt (18 neue Werte je Batterie-Paar).** Pro Batterie jetzt
+  Paket-Temperatur, höchste/niedrigste Zellspannung und -temperatur sowie die Nummer der
+  jeweiligen Zelle (Register 37003–37023 für Batterie 1, 39001–39021 für Batterie 2; Offsets aus
+  dem GoodweET-Vorgängermodul übernommen, an der Anlage verifiziert). Die Zellspannungsspreizung
+  (max − min) ist ein Frühindikator für Batteriealterung. Die Werte liegen in den Gruppen
+  „Batterie 1/2" und sind standardmäßig nicht archiviert (Diagnose, kein Verlaufsbedarf).
+  Damit deckt der GoodWe-Treiber alle 138 Datenpunkte des GoodweET-Moduls ab — Grundlage für die
+  verlustfreie Ablösung über MigrationsHub (jeder alte Ident hat jetzt ein Ziel).
+
 ## 0.70.1-beta.1 (2026-07-23)
 
 - **Eingesteckte Wallbox wird nicht mehr ausgegraut, auch wenn sie gerade nicht lädt.** Bisher

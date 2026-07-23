@@ -420,6 +420,17 @@ class GoodweDriver implements InverterDriverInterface
                 ['bat1_dis_max_a','Bat.1 max. Entladestrom', 'F', 'GWH.Ampere', false, 'bat1', 'BMS 47905'],
                 ['bat1_bms_warn', 'Bat.1 BMS Warnung',       'I', '', true,  'bat1', 'BMS 47911'],
                 ['bat1_bms_alarm','Bat.1 BMS Alarm',         'I', '', true,  'bat1', 'BMS 47913'],
+                // BMS-Zelldiagnostik (37003er-Block). Zellspannungsspreizung
+                // (vmax−vmin) ist ein Frühindikator für Batteriealterung.
+                ['bat1_pack_temp','Bat.1 Paket-Temperatur',  'F', '~Temperature',  false, 'bat1', 'BMS 37003 (÷10)'],
+                ['bat1_cell_vmax','Bat.1 Zellspg. max',      'I', 'GWH.MilliVolt', false, 'bat1', 'BMS 37022'],
+                ['bat1_cell_vmin','Bat.1 Zellspg. min',      'I', 'GWH.MilliVolt', false, 'bat1', 'BMS 37023'],
+                ['bat1_cell_tmax','Bat.1 Zelltemp. max',     'F', '~Temperature',  false, 'bat1', 'BMS 37020 (÷10)'],
+                ['bat1_cell_tmin','Bat.1 Zelltemp. min',     'F', '~Temperature',  false, 'bat1', 'BMS 37021 (÷10)'],
+                ['bat1_idx_vmax', 'Bat.1 Zelle Nr. Spg. max','I', 'GWH.CellIdx',   false, 'bat1', 'BMS 37018'],
+                ['bat1_idx_vmin', 'Bat.1 Zelle Nr. Spg. min','I', 'GWH.CellIdx',   false, 'bat1', 'BMS 37019'],
+                ['bat1_idx_tmax', 'Bat.1 Zelle Nr. Temp. max','I', 'GWH.CellIdx',  false, 'bat1', 'BMS 37016'],
+                ['bat1_idx_tmin', 'Bat.1 Zelle Nr. Temp. min','I', 'GWH.CellIdx',  false, 'bat1', 'BMS 37017'],
             ]],
             'GroupBat2' => ['caption' => 'Batterie 2 (Spannung, Strom, Leistung, Modus)', 'vars' => [
                 ['bat2_volt', 'Bat.2 Spannung', 'F', 'GWH.Volt',   false, 'bat2', 'DSP 35262'],
@@ -431,6 +442,16 @@ class GoodweDriver implements InverterDriverInterface
                 ['bat2_temp', 'Bat.2 Temperatur', 'F', '~Temperature', true, 'bat2', 'BMS 47928'],
                 ['bat2_bms_volt', 'Bat.2 Spannung (BMS)', 'F', 'GWH.Volt',   false, 'bat2', 'BMS 47924'],
                 ['bat2_bms_curr', 'Bat.2 Strom (BMS)',    'F', 'GWH.Ampere', true,  'bat2', 'BMS 47925'],
+                // BMS-Zelldiagnostik Batterie 2 (39001er-Block), analog Bat.1.
+                ['bat2_pack_temp','Bat.2 Paket-Temperatur',  'F', '~Temperature',  false, 'bat2', 'BMS 39001 (÷10)'],
+                ['bat2_cell_vmax','Bat.2 Zellspg. max',      'I', 'GWH.MilliVolt', false, 'bat2', 'BMS 39020'],
+                ['bat2_cell_vmin','Bat.2 Zellspg. min',      'I', 'GWH.MilliVolt', false, 'bat2', 'BMS 39021'],
+                ['bat2_cell_tmax','Bat.2 Zelltemp. max',     'F', '~Temperature',  false, 'bat2', 'BMS 39018 (÷10)'],
+                ['bat2_cell_tmin','Bat.2 Zelltemp. min',     'F', '~Temperature',  false, 'bat2', 'BMS 39019 (÷10)'],
+                ['bat2_idx_vmax', 'Bat.2 Zelle Nr. Spg. max','I', 'GWH.CellIdx',   false, 'bat2', 'BMS 39016'],
+                ['bat2_idx_vmin', 'Bat.2 Zelle Nr. Spg. min','I', 'GWH.CellIdx',   false, 'bat2', 'BMS 39017'],
+                ['bat2_idx_tmax', 'Bat.2 Zelle Nr. Temp. max','I', 'GWH.CellIdx',  false, 'bat2', 'BMS 39014'],
+                ['bat2_idx_tmin', 'Bat.2 Zelle Nr. Temp. min','I', 'GWH.CellIdx',  false, 'bat2', 'BMS 39015'],
             ]],
             'GroupEnergy' => ['caption' => 'Energiezähler (kWh Heute/Gesamt: PV, Netz, Last, Batterie)', 'vars' => [
                 ['e_pv_day',       'PV Heute',           'F', '~Electricity', true, 'energy', 'DSP 35193'],
@@ -532,6 +553,8 @@ class GoodweDriver implements InverterDriverInterface
             'GWH.Percent'   => [VARIABLETYPE_INTEGER, ' %',          0,     100, 1,    0],
             'GWH.WattEMS'   => [VARIABLETYPE_INTEGER, ' W',          0,   34500, 1,    0],
             'GWH.KOhm'      => [VARIABLETYPE_FLOAT,   ' kΩ',       0.0,  5000.0, 0.1,  1],
+            'GWH.MilliVolt' => [VARIABLETYPE_INTEGER, ' mV',         0,    5000, 1,    0],
+            'GWH.CellIdx'   => [VARIABLETYPE_INTEGER, '',            0,     512, 1,    0],
         ];
     }
 
@@ -680,6 +703,21 @@ class GoodweDriver implements InverterDriverInterface
                 $hub->SetVarInt('bat1_bms_warn',  $mb->u32($bms, 11));
                 $hub->SetVarInt('bat1_bms_alarm', $mb->u32($bms, 13));
             }
+            // BMS-Zelldiagnostik: eigener Block 37003 (count 21). Getrennt vom
+            // BMS-Block gelesen; Offsets an der Anlage verifiziert (aus dem
+            // GoodweET-Vorgängermodul übernommen).
+            $cells1 = $mb->readHolding(37003, 21);
+            if ($cells1 !== null) {
+                $hub->SetVarFloat('bat1_pack_temp', $mb->s16($cells1, 0) / 10.0);  // 37003
+                $hub->SetVarInt('bat1_idx_tmax',    $mb->u16($cells1, 13));         // 37016
+                $hub->SetVarInt('bat1_idx_tmin',    $mb->u16($cells1, 14));         // 37017
+                $hub->SetVarInt('bat1_idx_vmax',    $mb->u16($cells1, 15));         // 37018
+                $hub->SetVarInt('bat1_idx_vmin',    $mb->u16($cells1, 16));         // 37019
+                $hub->SetVarFloat('bat1_cell_tmax', $mb->s16($cells1, 17) / 10.0);  // 37020
+                $hub->SetVarFloat('bat1_cell_tmin', $mb->s16($cells1, 18) / 10.0);  // 37021
+                $hub->SetVarInt('bat1_cell_vmax',   $mb->u16($cells1, 19));         // 37022
+                $hub->SetVarInt('bat1_cell_vmin',   $mb->u16($cells1, 20));         // 37023
+            }
         }
 
         if ($hub->GetPropBool('GroupTemp')) {
@@ -699,6 +737,19 @@ class GoodweDriver implements InverterDriverInterface
                 $hub->SetVarFloat('bat2_temp', $mb->s16($bms, 28) / 10.0);
                 $hub->SetVarFloat('bat2_bms_volt', $mb->u16($bms, 24) / 10.0);
                 $hub->SetVarFloat('bat2_bms_curr', $mb->s16($bms, 25) / 10.0);
+            }
+            // BMS-Zelldiagnostik Batterie 2: Block 39001 (count 21), analog Bat.1.
+            $cells2 = $mb->readHolding(39001, 21);
+            if ($cells2 !== null) {
+                $hub->SetVarFloat('bat2_pack_temp', $mb->s16($cells2, 0) / 10.0);  // 39001
+                $hub->SetVarInt('bat2_idx_tmax',    $mb->u16($cells2, 13));         // 39014
+                $hub->SetVarInt('bat2_idx_tmin',    $mb->u16($cells2, 14));         // 39015
+                $hub->SetVarInt('bat2_idx_vmax',    $mb->u16($cells2, 15));         // 39016
+                $hub->SetVarInt('bat2_idx_vmin',    $mb->u16($cells2, 16));         // 39017
+                $hub->SetVarFloat('bat2_cell_tmax', $mb->s16($cells2, 17) / 10.0);  // 39018
+                $hub->SetVarFloat('bat2_cell_tmin', $mb->s16($cells2, 18) / 10.0);  // 39019
+                $hub->SetVarInt('bat2_cell_vmax',   $mb->u16($cells2, 19));         // 39020
+                $hub->SetVarInt('bat2_cell_vmin',   $mb->u16($cells2, 20));         // 39021
             }
         }
 
