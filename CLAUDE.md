@@ -458,6 +458,28 @@ Zuordnung im Verbund (über den Repo-Eigentümer angestoßen, Prüfung bei Meter
 - **InverterHub-Seite** (hier): SMA-Steuerregister für den Smart Energy erst zusammen mit der
   SHM-Betriebsarten-Warnung einbauen — nicht vorher.
 
+## Abrechnungsgenauer Netzzähler (Inexogy) — optional, nie fest verdrahtet
+
+Dietmar baut einen **Inexogy mMSD/iMSys** am Netzübergabepunkt ein — den Zähler, dessen
+Zählerstand auch auf der Rechnung steht, mit abrechnungsgenauen 15-Minuten-Werten (per API auch
+an Tibber angebunden). Das ist die genaue Quelle für alles, was mit Netzbezug/Kosten zu tun hat.
+
+**Harte Regel (Anweisung Dietmar, 2026-07-23): NICHT fest verdrahten. Nicht jeder ist bei
+Inexogy.** Der Zähler ist eine mögliche, bevorzugte Quelle — nie eine Voraussetzung. Jede
+Nutzung liegt hinter `function_exists`/`IPS_ModuleExists`, mit Rückfall auf das bisherige
+Verhalten.
+
+Zuständigkeit: Zähler gehören zu **MeterHub** (wie SMA Energy Meter/Speedwire). Inexogy liefert
+per Cloud-API (kein Modbus) — also erneut ein eigener Empfangsweg, MeterHubs Architekturfrage.
+Die Rechnungsprüfung selbst (Bezugsenergie je Slot × Preis) liegt beim **EMS**.
+
+**Berührungspunkt bei uns:** Die Netzbezug-Balken im Strompreis-Reiter des `InverterHubMonitor`
+integrieren ihn derzeit aus der Wechselrichter-Netzleistung (`meter_total`). Sobald MeterHub
+einen abrechnungsgenauen Netzzähler bereitstellt (als `grid`-Funktion, idealerweise mit
+Kennzeichnung „Netzübergabepunkt/abrechnungsgenau"), sollte der Reiter diese Quelle **bevorzugt**
+nutzen — aber weiter zurückfallen auf die Integration, wenn kein solcher Zähler da ist. Erst
+umsetzen, wenn MeterHub das Bereitstellungsformat festgelegt hat.
+
 ## Verbund-Konvention: Kacheln mit Datumssteuerung bedienen sich identisch
 
 Gilt für **alle** Kacheln mit Zeitraum-/Datumsauswahl — derzeit `InverterHubMonitor` und
