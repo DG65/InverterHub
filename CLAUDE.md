@@ -399,6 +399,20 @@ Botschaft sie nicht beschrieb.
   hält beide synchron (es ist schon vorgekommen, dass das Changelog eine Version nannte, die
   `library.json` noch nicht hatte).
 
+## Emojis sind erwünscht (Verbund-Regel, Dietmar 23.07.2026)
+
+Ersetzt jede frühere „keine Emojis"-Vorsichtsregel. Emojis sind erwünscht, wo sie Nutzen stiften:
+1. als **Panel-Icon** — ein Zeichen am Anfang einer ExpansionPanel-Überschrift (📖🔌📊), Ersatz
+   fürs fehlende `icon`-Feld;
+2. als **Status-/Aufmerksamkeitssymbol** (✅ ❌ ⚠️ 💡 ℹ️) dort, wo etwas beim Lesen Aufmerksamkeit
+   erfordert oder herausgestellt werden soll (Status, Warnungen, wichtige Hinweise) — für Fokus
+   und Auflockerung.
+
+Faktenlage: Kein Symcon-Store-Review hat Emojis je beanstandet; die frühere Regel war präventiv.
+**Beobachtungsklausel:** Bemängelt ein Stable-Review Emojis doch je, entscheidet der Verbund neu
+(Rückfall: gemeinsam emoji-frei). Die bestehenden Emoji-Captions (Formular-Hinweise, Discovery-
+🔎, Preis-💶) sind damit regelkonform.
+
 ## Sprachregel: alles Nutzersichtbare auf Deutsch
 
 Verbund-Regel seit 22.07.2026, gilt für alle zehn Mitglieder. Anweisung des Repo-Eigentümers:
