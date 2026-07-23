@@ -44,14 +44,14 @@ class InverterHubMonitor extends IPSModule
     // „groups" => in welchen seitlichen Reitern der Wert erscheint (ein Wert
     //   kann in mehreren Reitern auftauchen, z. B. PV in „Leistung" und „PV").
     private const CATALOG = [
-        'pv'      => ['label' => 'PV-Erzeugung',       'power' => ['pv_total'],                 'energy' => ['e_pv_total'],                       'color' => '#e53935', 'axis' => 'left',  'unit' => 'W',    'default' => true,  'groups' => ['energy', 'solar', 'price']],
+        'pv'      => ['label' => 'PV-Erzeugung',       'power' => ['pv_total'],                 'energy' => ['e_pv_total'],                       'color' => '#e53935', 'axis' => 'left',  'unit' => 'W',    'default' => true,  'groups' => ['energy', 'solar']],
         'load'    => ['label' => 'Verbrauch',          'power' => [],                            'energy' => ['e_load_total', 'e_load_day'],        'color' => '#f0883e', 'axis' => 'left',  'unit' => 'W',    'default' => true,  'groups' => ['energy']],
         'gridbuy' => ['label' => 'Netzbezug',          'power' => [],                            'energy' => ['e_buy_total', 'e_buy_day'],          'color' => '#4aa3e0', 'axis' => 'left',  'unit' => 'W',    'default' => true,  'groups' => ['energy']],
         'gridsell'=> ['label' => 'Einspeisung',        'power' => [],                            'energy' => ['e_sell_total', 'e_sell_day'],        'color' => '#26a69a', 'axis' => 'left',  'unit' => 'W',    'default' => true,  'groups' => ['energy']],
         'grid'    => ['label' => 'Netzleistung',       'power' => ['meter_total'],               'energy' => [],                                    'color' => '#7e9fb5', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['energy', 'price']],
         'bcharge' => ['label' => 'Batterie laden',     'power' => [],                            'energy' => ['e_charge_total', 'e_charge_day'],    'color' => '#5fcb6b', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['energy', 'battery']],
         'bdisch'  => ['label' => 'Batterie entladen',  'power' => [],                            'energy' => ['e_disch_total', 'e_disch_day'],      'color' => '#2e7d32', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['energy', 'battery']],
-        'bat'     => ['label' => 'Batterie-Leistung',  'power' => ['bat_total_pwr', 'bat_power'], 'energy' => [],                                   'color' => '#43a047', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['battery', 'price']],
+        'bat'     => ['label' => 'Batterie-Leistung',  'power' => ['bat_total_pwr', 'bat_power'], 'energy' => [],                                   'color' => '#43a047', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['battery']],
         'ac'      => ['label' => 'AC-Wirkleistung',    'power' => ['ac_power'],                  'energy' => [],                                    'color' => '#ab47bc', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['energy']],
         'inv'     => ['label' => 'Inverter gesamt',    'power' => ['inv_total'],                 'energy' => [],                                    'color' => '#c2185b', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['energy']],
         'mppt1'   => ['label' => 'MPPT 1',             'power' => ['mppt1_power'],               'energy' => [],                                    'color' => '#e53935', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['mpp']],
@@ -584,7 +584,10 @@ class InverterHubMonitor extends IPSModule
                 continue;
             }
             if ($dayLeft === '') { $dayLeft = $dayRight !== '' ? $dayRight : 'W'; }
-            $types = $hasEnergy ? ['day', 'week', 'month', 'year', 'all', 'custom'] : ['day'];
+            // Der Strompreis-Reiter bleibt bewusst auf die Tagesansicht
+            // beschraenkt: Die Preisquelle liefert nur heute/morgen, eine
+            // Wochen-/Monatssumme eines Preises ergibt keinen Sinn.
+            $types = ($gkey === 'price') ? ['day'] : ($hasEnergy ? ['day', 'week', 'month', 'year', 'all', 'custom'] : ['day']);
             $tabs[] = [
                 'key'   => $gkey,
                 'label' => $glabel,

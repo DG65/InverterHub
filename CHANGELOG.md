@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.68.1-beta.1 (2026-07-22)
+
+- **Strompreis-Reiter fokussiert auf die Netzinteraktion.** Bisher standen im Preis-Reiter auch
+  PV-Erzeugung und Batterie-Leistung — die haben mit dem Preis nichts zu tun (der sinnvolle
+  Bezug ist Preis × Netzenergie = Kosten). Der Reiter zeigt jetzt nur noch **Netzleistung** und
+  den **Strompreis** und ist auf die Tagesansicht beschränkt (die Preisquelle liefert nur
+  heute/morgen). PV und Batterie bleiben in ihren eigenen Reitern. Angeregt von Dietmar.
+
 ## 0.68.0-beta.1 (2026-07-22)
 
 - **Neuer Schalter „Messwerte automatisch archivieren" (Standard: an) — Vorbereitung der
