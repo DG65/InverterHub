@@ -489,10 +489,19 @@ einzelnes „billingGrade"-Flag könnte das nicht trennen — deshalb **kein eig
 `authority` konsumieren.
 
 **Berührungspunkt bei uns:** Die Netzbezug-Balken im Strompreis-Reiter des `InverterHubMonitor`
-integrieren ihn derzeit aus der Wechselrichter-Netzleistung (`meter_total`). Sobald das Format
-steht, den Balken auf die Quelle mit **`function == 'grid'` UND `authority == 'billing'`**
-umstellen — mit Rückfall auf die Integration, wenn keine solche vorhanden ist. Erst umsetzen,
-wenn MeterHub sich meldet (Format vom EMS abgesegnet). Nicht pollen — MeterHub gibt Bescheid.
+(`SlotEnergyBars`) integrieren sie derzeit aus der Wechselrichter-Netzleistung (`meter_total`) —
+das bleibt der **Rückfallweg**. Sobald das Format steht, den Balken auf die Quelle mit
+**`function == 'grid'` UND `authority == 'billing'`** umstellen. Erst umsetzen, wenn MeterHub
+sich meldet (Format vom EMS abgesegnet). Nicht pollen — MeterHub gibt Bescheid.
+
+**Integrationslogik nach `energyKind` (MeterHub-Vertrag), NICHT selbst roh differenzieren:**
+- `energyKind: 'counter'` (Inexogy: kumulativer Zählerstand): Intervall-Bezug über
+  `AC_GetAggregatedValues` mit **Counter-Aggregationstyp** holen — das Archiv behandelt
+  Zählerwechsel, Überläufe und Lücken sauber. **Kein** rohes `wert[t2] − wert[t1]` (still falsch
+  bei Sprüngen — die Falle aus der Zeitreihen-Diskussion).
+- `energyKind: 'interval'` (fertige Periodenwerte): je Slot **summieren** statt differenzieren.
+- Nur wenn gar kein billing-Zähler da ist: aus `meter_total`-Leistung integrieren (heutiger
+  Weg). Einheit (Wh/kWh) und Vorzeichen liefert MeterHub bereits normiert — nicht selbst raten.
 
 ## Verbund-Konvention: Kacheln mit Datumssteuerung bedienen sich identisch
 
