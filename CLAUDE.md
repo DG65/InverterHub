@@ -553,8 +553,8 @@ virtuelle WR ist der instanzübergreifende Fall.
 - **Testgerüst, das wirklich rechnet** (nachgebildetes IPS, echte Summen) — Aggregationslogik ist
   Code, wo `php -l` nichts beweist. MeterHubs `.tools/test-virtual.php` als Muster.
 
-Feldnamen (mit MeterHub kompatibel, MeterHub übernimmt sie): `activeSourceCount`, `aggregation`
-(sum|mean|plant|device), `virtual`.
+Feldnamen (von Dietmar bestätigt 2026-07-23; mit MeterHub kompatibel, MeterHub übernimmt sie):
+`activeSourceCount`, `aggregation` (sum|mean|plant|device), `virtual`.
 
 ## Verbund-Konvention: Kacheln mit Datumssteuerung bedienen sich identisch
 
