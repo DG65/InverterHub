@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.69.1-beta.1 (2026-07-22)
+
+- **Strompreis-Reiter: Balken zeigen nur noch den Netzbezug, nicht mehr die Netto-Netzenergie.**
+  Eingespeiste Energie wird zur festen Einspeisevergütung verkauft (Bestandsanlage 18,36 ct),
+  nicht zum dynamischen Preis — sie neben die Preiskurve zu legen, verwässerte den Fokus. Jetzt
+  zeigen die Balken allein den Bezug (die Energie, deren Kosten = Bezug × dynamischer Preis);
+  während Einspeisung bleibt der Balken leer. Umbenannt zu „Netzbezug". Auf Hinweis von Dietmar.
+
 ## 0.69.0-beta.1 (2026-07-22)
 
 - **Strompreis-Reiter zeigt jetzt die Netzenergie je Viertelstunde als Balken** — neben der

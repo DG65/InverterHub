@@ -433,21 +433,22 @@ class InverterHubMonitor extends IPSModule
                 'energyVid' => 0,
             ];
 
-            // Netzenergie je Viertelstunde als Balken, im Preis-Reiter neben der
-            // Preiskurve: Preis × Netzenergie ist der sinnvolle Bezug (nicht
-            // Preis × PV/Batterie). Reine ANZEIGE - keine Kostenrechnung; die
-            // Rechnungspruefung gehoert nach Verbund-Absprache ins EMS. Die
-            // Energie wird aus der Netz-LEISTUNG integriert (meter_total), nicht
-            // aus einem kumulativen Zaehler - so entfallen die Zaehlertausch-/
-            // Einheitenwechsel-Fallen, die MeterHub fuer Zaehlerstaende nennt.
-            // Vorzeichen: + = Bezug (meter_total ist + = Einspeisung, daher
-            // unten negiert). Nur sinnvoll, wenn eine Netzleistung existiert.
+            // NUR der Netz-BEZUG je Viertelstunde als Balken, im Preis-Reiter
+            // neben der Preiskurve. Bewusst NICHT die Einspeisung und nicht die
+            // Netto-Netzenergie: Eingespeiste Energie wird zur festen
+            // Einspeiseverguetung verkauft (Bestandsanlage 18,36 ct), nicht zum
+            // dynamischen Preis - sie neben die Preiskurve zu legen, wuerde den
+            // Fokus verwaessern. Relevant ist allein die Energie, deren Kosten
+            // = Bezug × dynamischer Preis. Reine ANZEIGE, keine Kostenrechnung
+            // (Rechnungspruefung liegt beim EMS). Aus der Netz-LEISTUNG
+            // integriert (meter_total), nicht aus einem kumulativen Zaehler -
+            // das vermeidet die Zaehlertausch-/Einheitenwechsel-Fallen.
             $gridVid = $this->FirstIdent($this->ReadPropertyInteger('SourceInstance'), self::CATALOG['grid']['power']);
             if ($gridVid > 0) {
                 $out[] = [
                     'key'       => 'gridnrg',
-                    'label'     => 'Netzenergie (+ Bezug / − Einspeisung)',
-                    'color'     => '#7e9fb5',
+                    'label'     => 'Netzbezug',
+                    'color'     => '#4aa3e0',
                     'axis'      => 'left',
                     'unit'      => 'kWh',
                     'noEnergy'  => true,
@@ -869,13 +870,13 @@ class InverterHubMonitor extends IPSModule
         return $pts;
     }
 
-    // Netzenergie je 15-Minuten-Fenster (kWh) aus der Netz-Leistung (W). Feste
+    // Netz-BEZUG je 15-Minuten-Fenster (kWh) aus der Netz-Leistung (W). Feste
     // Viertelstunden-Raster, an der vollen Stunde ausgerichtet - passt zur
     // 15-Minuten-Abrechnung (§14a/Tibber). Jeder Balken sitzt am FENSTERANFANG,
     // damit die Balkenbreite (= Slotdauer) korrekt nach rechts laeuft und sich
-    // mit der Preis-Stufenkurve deckt. Vorzeichen umgedreht: meter_total ist
-    // + = Einspeisung, hier + = Bezug (das, was mit dem Preis multipliziert die
-    // Kosten ergibt). Rein rechnerisch aus 5-Minuten-Mitteln integriert.
+    // mit der Preis-Stufenkurve deckt. meter_total ist + = Einspeisung, Bezug
+    // also die NEGATIVE Leistung; nur dieser Anteil zaehlt (max(0, −P)), die
+    // Einspeisung bleibt aussen vor. Rein rechnerisch aus 5-Minuten-Mitteln.
     private function SlotEnergyBars(int $aid, int $vid, int $start, int $end): array
     {
         if (!IPS_VariableExists($vid) || !@AC_GetLoggingStatus($aid, $vid)) {
@@ -886,13 +887,14 @@ class InverterHubMonitor extends IPSModule
             return [];
         }
         $slot = 900;                  // 15 min
-        $buckets = [];                // slotStartSec => Wh (Bezug positiv)
+        $buckets = [];                // slotStartSec => Wh Bezug (immer ≥ 0)
         foreach ($data as $row) {
             $ts = (int)$row['TimeStamp'];
             $bucket = $start + intdiv($ts - $start, $slot) * $slot;
-            // 5-Minuten-Mittel (W) → Wh in diesem 5-min-Abschnitt: W × (5/60) h.
-            $wh = (-(float)$row['Avg']) * (5.0 / 60.0);
-            $buckets[$bucket] = ($buckets[$bucket] ?? 0.0) + $wh;
+            // Nur der BEZUGSANTEIL: negative Netzleistung (Bezug) → positiv,
+            // Einspeisung (positive Leistung) traegt 0 bei.
+            $drawW = max(0.0, -(float)$row['Avg']);
+            $buckets[$bucket] = ($buckets[$bucket] ?? 0.0) + $drawW * (5.0 / 60.0);
         }
         ksort($buckets);
         $bars = [];
