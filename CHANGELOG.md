@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.69.0-beta.1 (2026-07-22)
+
+- **Strompreis-Reiter zeigt jetzt die Netzenergie je Viertelstunde als Balken** — neben der
+  Preis-Stufenkurve. Damit ist auf einen Blick erkennbar, in welchen (teuren/günstigen) Slots
+  wie viel Energie bezogen (Balken nach oben) oder eingespeist (nach unten) wurde. Linke Achse
+  kWh (Balken), rechte Achse ct/kWh (Preis). Die Netzleistung als Linie ist aus diesem Reiter
+  gewichen, weil Leistung (kW) und Energie (kWh) sich keine Achse teilen können und die Energie
+  die für den Preis relevante Größe ist (Preis × Energie); die Netzleistung bleibt im Reiter
+  „PV & Einstrahlung"/Energie erhalten.
+  Die Energie wird aus der Netz-Leistung integriert (nicht aus einem kumulativen Zählerstand) —
+  das vermeidet die Zählertausch-/Einheitenwechsel-Fallen und hält es bei reiner Anzeige. Eine
+  Kostenrechnung (Rechnungsprüfung) ist das bewusst NICHT; die bleibt nach Verbund-Absprache
+  Sache des EMS. Angeregt von Dietmar.
+
 ## 0.68.1-beta.1 (2026-07-22)
 
 - **Strompreis-Reiter fokussiert auf die Netzinteraktion.** Bisher standen im Preis-Reiter auch

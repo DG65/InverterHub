@@ -48,7 +48,7 @@ class InverterHubMonitor extends IPSModule
         'load'    => ['label' => 'Verbrauch',          'power' => [],                            'energy' => ['e_load_total', 'e_load_day'],        'color' => '#f0883e', 'axis' => 'left',  'unit' => 'W',    'default' => true,  'groups' => ['energy']],
         'gridbuy' => ['label' => 'Netzbezug',          'power' => [],                            'energy' => ['e_buy_total', 'e_buy_day'],          'color' => '#4aa3e0', 'axis' => 'left',  'unit' => 'W',    'default' => true,  'groups' => ['energy']],
         'gridsell'=> ['label' => 'Einspeisung',        'power' => [],                            'energy' => ['e_sell_total', 'e_sell_day'],        'color' => '#26a69a', 'axis' => 'left',  'unit' => 'W',    'default' => true,  'groups' => ['energy']],
-        'grid'    => ['label' => 'Netzleistung',       'power' => ['meter_total'],               'energy' => [],                                    'color' => '#7e9fb5', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['energy', 'price']],
+        'grid'    => ['label' => 'Netzleistung',       'power' => ['meter_total'],               'energy' => [],                                    'color' => '#7e9fb5', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['energy']],
         'bcharge' => ['label' => 'Batterie laden',     'power' => [],                            'energy' => ['e_charge_total', 'e_charge_day'],    'color' => '#5fcb6b', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['energy', 'battery']],
         'bdisch'  => ['label' => 'Batterie entladen',  'power' => [],                            'energy' => ['e_disch_total', 'e_disch_day'],      'color' => '#2e7d32', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['energy', 'battery']],
         'bat'     => ['label' => 'Batterie-Leistung',  'power' => ['bat_total_pwr', 'bat_power'], 'energy' => [],                                   'color' => '#43a047', 'axis' => 'left',  'unit' => 'W',    'default' => false, 'groups' => ['battery']],
@@ -432,6 +432,35 @@ class InverterHubMonitor extends IPSModule
                 'powerVid'  => $priceVid,
                 'energyVid' => 0,
             ];
+
+            // Netzenergie je Viertelstunde als Balken, im Preis-Reiter neben der
+            // Preiskurve: Preis × Netzenergie ist der sinnvolle Bezug (nicht
+            // Preis × PV/Batterie). Reine ANZEIGE - keine Kostenrechnung; die
+            // Rechnungspruefung gehoert nach Verbund-Absprache ins EMS. Die
+            // Energie wird aus der Netz-LEISTUNG integriert (meter_total), nicht
+            // aus einem kumulativen Zaehler - so entfallen die Zaehlertausch-/
+            // Einheitenwechsel-Fallen, die MeterHub fuer Zaehlerstaende nennt.
+            // Vorzeichen: + = Bezug (meter_total ist + = Einspeisung, daher
+            // unten negiert). Nur sinnvoll, wenn eine Netzleistung existiert.
+            $gridVid = $this->FirstIdent($this->ReadPropertyInteger('SourceInstance'), self::CATALOG['grid']['power']);
+            if ($gridVid > 0) {
+                $out[] = [
+                    'key'       => 'gridnrg',
+                    'label'     => 'Netzenergie (+ Bezug / − Einspeisung)',
+                    'color'     => '#7e9fb5',
+                    'axis'      => 'left',
+                    'unit'      => 'kWh',
+                    'noEnergy'  => true,
+                    'groups'    => ['price'],
+                    'isIrr'     => false,
+                    'dash'      => false,
+                    'bars'      => true,   // als Balken je Slot zeichnen
+                    'slotEnergy'=> true,   // aus Leistung je 15-min integrieren
+                    'scale'     => 1.0,
+                    'powerVid'  => $gridVid,
+                    'energyVid' => 0,
+                ];
+            }
         }
 
         // Berechnete Serien aus Generatorparametern (PV-Prognose) × Einstrahlung:
@@ -558,7 +587,7 @@ class InverterHubMonitor extends IPSModule
 
         $meta = [];
         foreach ($series as $s) {
-            $meta[] = ['label' => $s['label'], 'color' => $s['color'], 'axis' => $s['axis'], 'unit' => $s['unit'], 'dash' => !empty($s['dash']), 'step' => !empty($s['step'])];
+            $meta[] = ['label' => $s['label'], 'color' => $s['color'], 'axis' => $s['axis'], 'unit' => $s['unit'], 'dash' => !empty($s['dash']), 'step' => !empty($s['step']), 'bar' => !empty($s['bars'])];
         }
 
         // Seitliche Reiter: je Gruppe die Serienindizes + eigene Achsen-Einheiten.
@@ -612,6 +641,13 @@ class InverterHubMonitor extends IPSModule
             $rows = [];
             foreach ($series as $s) {
                 if ($s['powerVid'] <= 0) { $rows[] = []; continue; }
+                // Netzenergie-Balken: Leistung (W) je 15-Minuten-Fenster zu kWh
+                // integrieren, Vorzeichen umdrehen (+ = Bezug). Aus denselben
+                // 5-Minuten-Archivwerten wie die Leistungslinie.
+                if (!empty($s['slotEnergy'])) {
+                    $rows[] = $this->SlotEnergyBars($aid, $s['powerVid'], $start, $end);
+                    continue;
+                }
                 $pts = $this->DaySeries($aid, $s['powerVid'], $start, $end);
                 $scale = (float)($s['scale'] ?? 1.0);
                 // Berechnete Serien: Einstrahlung × kWp × PR × Faktor = erwartete W.
@@ -831,6 +867,39 @@ class InverterHubMonitor extends IPSModule
         }
         usort($pts, function ($a, $b) { return $a[0] <=> $b[0]; });
         return $pts;
+    }
+
+    // Netzenergie je 15-Minuten-Fenster (kWh) aus der Netz-Leistung (W). Feste
+    // Viertelstunden-Raster, an der vollen Stunde ausgerichtet - passt zur
+    // 15-Minuten-Abrechnung (§14a/Tibber). Jeder Balken sitzt am FENSTERANFANG,
+    // damit die Balkenbreite (= Slotdauer) korrekt nach rechts laeuft und sich
+    // mit der Preis-Stufenkurve deckt. Vorzeichen umgedreht: meter_total ist
+    // + = Einspeisung, hier + = Bezug (das, was mit dem Preis multipliziert die
+    // Kosten ergibt). Rein rechnerisch aus 5-Minuten-Mitteln integriert.
+    private function SlotEnergyBars(int $aid, int $vid, int $start, int $end): array
+    {
+        if (!IPS_VariableExists($vid) || !@AC_GetLoggingStatus($aid, $vid)) {
+            return [];
+        }
+        $data = @AC_GetAggregatedValues($aid, $vid, self::AGG_5MIN, $start, $end, 0);
+        if (!is_array($data)) {
+            return [];
+        }
+        $slot = 900;                  // 15 min
+        $buckets = [];                // slotStartSec => Wh (Bezug positiv)
+        foreach ($data as $row) {
+            $ts = (int)$row['TimeStamp'];
+            $bucket = $start + intdiv($ts - $start, $slot) * $slot;
+            // 5-Minuten-Mittel (W) → Wh in diesem 5-min-Abschnitt: W × (5/60) h.
+            $wh = (-(float)$row['Avg']) * (5.0 / 60.0);
+            $buckets[$bucket] = ($buckets[$bucket] ?? 0.0) + $wh;
+        }
+        ksort($buckets);
+        $bars = [];
+        foreach ($buckets as $bStart => $wh) {
+            $bars[] = [$bStart * 1000, round($wh / 1000.0, 3)];   // Wh → kWh
+        }
+        return $bars;
     }
 
     // Preisquellen-Instanz: konfigurierte, sonst die einzige vorhandene.

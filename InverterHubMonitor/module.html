@@ -312,7 +312,10 @@
         var m = lastData.seriesMeta[i];
         var u = (m.axis === 'right') ? (units.right || '') : (units.left || '');
         // m.step: Werte gelten slotweise (Strompreis) → Stufenkurve statt Rampe.
-        return { name: m.label, type: bar ? 'column' : 'line', step: (!bar && m.step) ? 'left' : undefined, data: p.series[i] || [], color: m.color, yAxis: (m.axis === 'right' ? 1 : 0), lineWidth: 1.6, dashStyle: (m.dash ? 'Dash' : 'Solid'), marker: { enabled: false }, visible: isVisible(m.label), tooltip: { valueSuffix: u ? ' ' + u : '' } };
+        // m.bar: einzelne Serie (Netzenergie je Slot) als Balken, auch in der
+        // Tages-Linienansicht.
+        var asBar = bar || m.bar;
+        return { name: m.label, type: asBar ? 'column' : 'line', step: (!asBar && m.step) ? 'left' : undefined, data: p.series[i] || [], color: m.color, yAxis: (m.axis === 'right' ? 1 : 0), lineWidth: 1.6, dashStyle: (m.dash ? 'Dash' : 'Solid'), marker: { enabled: false }, visible: isVisible(m.label), tooltip: { valueSuffix: u ? ' ' + u : '' } };
       });
       var xAxis = bar
         ? { type: 'category', categories: p.cats || [], gridLineWidth: 0, lineColor: T.GRID, tickLength: 0, labels: { style: { color: T.MUTED, fontSize: '10px' } } }
@@ -341,7 +344,9 @@
       var bar = (tp.mode === 'bar');
       var series = tab.idx.map(function (i) {
         var m = meta[i];
-        if (bar) { return { name: m.label, type: 'bar', data: p.series[i] || [], yAxisIndex: (m.axis === 'right' ? 1 : 0), itemStyle: { color: m.color } }; }
+        // m.bar: einzelne Serie (Netzenergie je Slot) als Balken, auch in der
+        // Tages-Linienansicht.
+        if (bar || m.bar) { return { name: m.label, type: 'bar', barWidth: '90%', data: p.series[i] || [], yAxisIndex: (m.axis === 'right' ? 1 : 0), itemStyle: { color: m.color, opacity: 0.55 } }; }
         // m.step: Werte gelten slotweise (Strompreis) → Stufenkurve statt Rampe.
         return { name: m.label, type: 'line', step: m.step ? 'end' : false, showSymbol: false, smooth: false, data: p.series[i] || [], yAxisIndex: (m.axis === 'right' ? 1 : 0), lineStyle: { color: m.color, width: 1.6, type: (m.dash ? 'dashed' : 'solid') }, itemStyle: { color: m.color } };
       });
