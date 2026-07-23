@@ -399,6 +399,25 @@ Botschaft sie nicht beschrieb.
   hält beide synchron (es ist schon vorgekommen, dass das Changelog eine Version nannte, die
   `library.json` noch nicht hatte).
 
+## Vertragsversionierung (Verbund-Konvention, 23.07.2026)
+
+Manifest: https://github.com/DG65/EMS/blob/main/SUITE.md. Betrifft uns bei jeder angebotenen und
+konsumierten Schnittstelle. **Bestehendes muss nicht umgebaut werden** — anwenden, sobald neue
+Verträge entstehen (v. a. das künftige `IHUB_GetFunctions` beim [[InverterHubVirtual]]).
+
+- **Modul-Version:** unser SemVer bleibt, eigener Takt (Store-Pflicht) — davon unberührt.
+- **`contractVersion` je Vertrag:** additives Feld `'Major.Minor'` (String, Start `'1.0'`).
+  Major NUR bei Bruch (Feld entfernt/umbenannt/umgedeutet); volle Kompatibilität nur innerhalb
+  derselben Major. Minor bei additiven Erweiterungen. **Fehlendes Feld = konservativ `'1.0'`.**
+- **Meldepflicht (Dietmars Kernanforderung):** Ein Konsument kennt seine Mindest-Major je Partner.
+  Ist die Partner-Major zu alt (oder umgekehrt der Konsument), bleibt das Modul **standalone voll
+  funktionsfähig**, nur die Kopplung wird deaktiviert — und der Zustand wird **sichtbar** gemeldet
+  (Instanzstatus/Formular, nicht nur Log): „⚠️ Partnermodul X benötigt eine Aktualisierung
+  (Vertrag 2.x benötigt, 1.4 vorhanden)".
+- Konkret bei uns: Kachel/Monitor konsumieren `MHUB_/MHUBV_GetFunctions`, `TIBBERGR_GetPriceCurve`,
+  `PVF_Get*`. Beim nächsten Anfassen dieser Konsumstellen die Mindest-Major prüfen und melden;
+  `IHUB_GetFunctions` (InverterHubVirtual) trägt `contractVersion` von Anfang an.
+
 ## Emojis sind erwünscht (Verbund-Regel, Dietmar 23.07.2026)
 
 Ersetzt jede frühere „keine Emojis"-Vorsichtsregel. Emojis sind erwünscht, wo sie Nutzen stiften:
