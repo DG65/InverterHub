@@ -510,6 +510,52 @@ sich meldet (Format vom EMS abgesegnet). Nicht pollen — MeterHub gibt Bescheid
 - Nur wenn gar kein billing-Zähler da ist: aus `meter_total`-Leistung integrieren (heutiger
   Weg). Einheit (Wh/kWh) und Vorzeichen liefert MeterHub bereits normiert — nicht selbst raten.
 
+## InverterHubVirtual — Anlagen-Summe mehrerer Wechselrichter (Designstand)
+
+Mehr-WR-Anlagen (z. B. sirkentucky: zwei getrennte SMA → zwei InverterHub-Instanzen, EINE
+Anlage) brauchen einen virtuellen Gesamt-WR: pro Gerät UND als Anlagen-Summe. Design mit EMS und
+MeterHub abgestimmt (2026-07-23), Umsetzung noch offen.
+
+**Abgrenzung zu ChristianLs Fall:** Der ist NICHT dies — ein Victron-System mit mehreren internen
+PV-Wechselrichtern (Unit 20/41) aggregiert der Victron-Treiber selbst (Erträge summieren). Der
+virtuelle WR ist der instanzübergreifende Fall.
+
+- **Eigene Instanz + eigene GUID** (Prefix z. B. IHUBV), analog MeterHubVirtual. Aggregation an
+  EINEM Ort; Monitor, Kachel und EMS konsumieren dieselbe Summe → kein Drift. NICHT ein Modus
+  einer bestehenden Instanz.
+- **Flache Summe, KEIN Verdrahtungsbaum.** MeterHubVirtual ist ein Baum (mit `_rest`,
+  Zyklenprüfung), weil bei Zählern SUBTRAHIERT wird. Bei WR wird nur ADDIERT (WR1+WR2=Anlage) —
+  Baum nur, wo subtrahiert wird. Die ganze `_rest`/Elternauflösungs-Komplexität entfällt.
+- **Aggregations-Klasse je Größe** (datengetrieben, an der Größen-Definition; jeder Treiber
+  deklariert mit). Physik extensiv vs. intensiv:
+  - `sum` — extensiv, wächst mit der Anlage: Ertrag, Leistung, MPPT-Strang.
+  - `mean` — intensiv: SOC (**kapazitätsgewichtet**, nicht arithmetisch — der Virtuelle braucht
+    dafür die nutzbare kWh-Kapazität je Batterie: Formularfeld je Instanz, oder ableiten wo der
+    WR sie liefert), ggf. Spannung/Frequenz.
+  - `plant` — EINMAL auf Anlagenebene, NIE pro WR summiert: **Netz, Hauslast**. Gefährlichste
+    Falle (N-fache Hauslast); kommt aus dem Inexogy-billing-Zähler, nicht aus WR-Netzwerten.
+  - `device` — nur pro Gerät, gar nicht aggregieren: Riso, Temperatur, Status, Seriennummer.
+    Bleibt in der WR-Sicht, taucht in der Anlagen-Sicht nicht auf.
+- **Dynamisches Abdeckungskennzeichen.** `sourceCount` (statisch, konfiguriert) reicht NICHT —
+  fällt ein WR aus, wird die Summe still zu klein. Zusätzlich **`activeSourceCount`** (in den
+  letzten X s aktualisiert), damit ein Konsument „2 von 3 WR liefern" sieht und die Summe als
+  unvollständig markieren kann. MeterHub übernimmt denselben Feldnamen.
+- **Nur-lesend + „virtuell"-Kennzeichen.** Der Virtuelle führt NIE Steuerung. Er bietet dieselbe
+  Schnittstelle wie ein physischer (`IHUB_GetFunctions` o. ä.) MIT einem Kennzeichen
+  `virtual`/`aggregated` (analog `authority`/`measured`), damit das EMS ihn als Aggregat erkennt
+  und nicht als weiteres Einzelgerät in die Steuerung nimmt.
+- **Steuerung bleibt physisch.** EMS verteilt Anlagen-Sollwerte auf die echten WR einzeln (je
+  eigene Register + `controlAuthority`), respektiert dabei `controlAuthority != 'ems'` (extern/
+  SHM-geregelte WR ausgenommen, wie externallyManaged bei Ladepunkten). Kein Sollwert am
+  Virtuellen, keine Sammel-Schreibstelle.
+- **Stabile Geräteidentität** (Seriennummer als Anker), damit die Zuordnung in der Anlagen-Sicht
+  nicht springt, wenn ein WR mal offline ist.
+- **Testgerüst, das wirklich rechnet** (nachgebildetes IPS, echte Summen) — Aggregationslogik ist
+  Code, wo `php -l` nichts beweist. MeterHubs `.tools/test-virtual.php` als Muster.
+
+Feldnamen (mit MeterHub kompatibel, MeterHub übernimmt sie): `activeSourceCount`, `aggregation`
+(sum|mean|plant|device), `virtual`.
+
 ## Verbund-Konvention: Kacheln mit Datumssteuerung bedienen sich identisch
 
 Gilt für **alle** Kacheln mit Zeitraum-/Datumsauswahl — derzeit `InverterHubMonitor` und
