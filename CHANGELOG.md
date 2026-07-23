@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.67.2-beta.1 (2026-07-22)
+
+- **Victron: Hauslast in der Stromflusskachel war um den Netzbezug zu hoch.** Die Kachel
+  berechnet die Hauslast normalerweise als „Wechselrichter-AC-Ausgang − Netzeinspeisung". Bei
+  Victron ist die AC-Variable aber gar nicht der Wechselrichter-Ausgang, sondern schon direkt
+  der **AC-Hausverbrauch** (Victron-System-Dienst). Dadurch wurde der Netzbezug fälschlich
+  aufaddiert: 385 W Last + 639 W Netz erschienen als 1,033 kW Hauslast. Jetzt erkennt die
+  Kachel Victron-Quellen und nimmt deren AC-Wert direkt als Hauslast — Anzeige stimmt mit der
+  VictronConnect-App überein (im Testfall 385 W). String-Wechselrichter (SMA, GoodWe, Fronius
+  …) sind nicht betroffen, dort bleibt die Bilanz unverändert. Gefunden von loerdy.
+
 ## 0.67.1-beta.1 (2026-07-22)
 
 - **SMA: DC-Leistung und Batterie werden jetzt tatsächlich gelesen — Kern des Solar-/Batterie-

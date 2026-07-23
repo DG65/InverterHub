@@ -743,6 +743,7 @@ class InverterHubTile extends IPSModule
         $gridInvert   = false;
         $batInvert    = false;
         $houseMeterID = 0;
+        $acIsHouseLoad = false;   // s. u. bei der Instanz-Auswertung (Victron)
 
         if ($useInstance) {
             $find = function (array $idents) use ($src) {
@@ -764,6 +765,15 @@ class InverterHubTile extends IPSModule
             $gridInvert   = (bool)@IPS_GetProperty($src, 'MeterInvert');
             $batInvert    = (bool)@IPS_GetProperty($src, 'BatInvert');
             $houseMeterID = (int)@IPS_GetProperty($src, 'HouseLoadMeterID');
+            // Semantik von ac_power ist NICHT bei allen Treibern gleich: Bei
+            // String-Wechselrichtern (SMA/GoodWe/Fronius …) ist es der
+            // Wechselrichter-AUSGANG, aus dem die Hauslast per Bilanz
+            // (ac − Netzeinspeisung) folgt. Victron dagegen liefert im
+            // System-Dienst direkt die AC-LAST des Hauses ("AC Verbrauch (Haus)")
+            // - dort IST ac_power schon die Hauslast, und die Bilanz würde den
+            // Netzbezug faelschlich obendrauf addieren (real gesehen: 385 W Last
+            // + 639 W Netz = 1033 W statt 385 W). Deshalb den Treiber abfragen.
+            $acIsHouseLoad = in_array((string)@IPS_GetProperty($src, 'Manufacturer'), ['victron'], true);
         } else {
             // Manueller Modus: einzelne Variablen direkt zuweisen (Leistungen in
             // Watt umgerechnet, SOC als Rohwert). So funktioniert die Kachel auch
@@ -847,7 +857,11 @@ class InverterHubTile extends IPSModule
         // positiv = Entladung, negativ = Ladung.
         $houseHave = false;
         $houseBalanceW = 0.0;
-        if ($ac !== null && $gridHave) {
+        if ($ac !== null && $acIsHouseLoad) {
+            // Victron: ac_power IST bereits die Hauslast, keine Bilanz noetig.
+            $houseHave     = true;
+            $houseBalanceW = max(0.0, (float)$ac);
+        } elseif ($ac !== null && $gridHave) {
             $houseHave     = true;
             $houseBalanceW = max(0.0, (float)$ac - $gridW);
         } elseif ($pvHave && $gridHave) {
