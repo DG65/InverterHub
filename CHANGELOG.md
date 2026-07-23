@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.68.0-beta.1 (2026-07-22)
+
+- **Neuer Schalter „Messwerte automatisch archivieren" (Standard: an) — Vorbereitung der
+  GoodweET-Ablösung.** Bisher aktivierte das Modul die Archivierung seiner Messwert-Variablen
+  fest beim Anlegen. Das steht der geplanten Migration im Weg: MigrationsHub übernimmt die
+  Historie eines Altgeräts per `AC_ChangeVariableID` (volumenunabhängig, hängt nur die
+  Variablen-ID am bestehenden Archiv um) — das gelingt aber nur an einer Zielvariable **ohne
+  eigene Historie**. Eine frisch angelegte InverterHub-Instanz hätte durch die
+  Auto-Archivierung binnen Sekunden Historie und würde die Migration blockieren. Der Schalter
+  lässt sich für Migrationsziele ausschalten; nach der Migration schaltet MigrationsHub das
+  Logging selbst ein. Für alle normalen Installationen ändert sich nichts (Standard an).
+  Nebeneffekt der Umstellung: Die Auto-Archivierung greift jetzt nur noch bei **neu angelegten**
+  Variablen — wer die Archivierung einer Variable von Hand ausgeschaltet hat, dem wird sie nicht
+  mehr bei jedem „Übernehmen" wieder eingeschaltet.
+
 ## 0.67.2-beta.1 (2026-07-22)
 
 - **Victron: Hauslast in der Stromflusskachel war um den Netzbezug zu hoch.** Die Kachel

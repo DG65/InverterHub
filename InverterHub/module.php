@@ -4315,6 +4315,15 @@ class InverterHub extends IPSModule
         // Energie-Ausgabe in Wh statt kWh (Basiseinheit, konsistent zu W;
         // die neue IPS-Darstellung skaliert dann selbst auf Wh/kWh/MWh).
         $this->RegisterPropertyBoolean('EnergyUnitWh', false);
+        // Messwerte automatisch archivieren (Standard an). Ausschalten NUR, wenn
+        // diese Instanz Ziel einer Migration aus einem Altmodul (z. B. GoodweET)
+        // werden soll: MigrationsHub haengt die Alt-Historie per
+        // AC_ChangeVariableID um, und das gelingt nur an einer Variable OHNE
+        // eigene Archivhistorie. Wuerde InverterHub sofort mitloggen, waere das
+        // Ziel binnen Sekunden "nicht mehr jungfraeulich" und die Migration
+        // wuerde blockiert. Nach der Migration schaltet MigrationsHub das Logging
+        // am Ziel selbst ein - oder man setzt diesen Schalter dann wieder auf an.
+        $this->RegisterPropertyBoolean('AutoArchive', true);
         // Modbus-Unit-ID des Smart Meters (SunSpec-Hersteller wie Fronius/SMA/
         // SolarEdge: der Zähler ist ein eigenes Modbus-Gerät, Adresse ab 200,
         // je nach Konfiguration z. B. auch 240).
@@ -4569,6 +4578,17 @@ class InverterHub extends IPSModule
             'name'    => 'EnergyUnitWh',
             'caption' => 'Energie in Wh statt kWh ausgeben (Basiseinheit; die neue IPS-Darstellung skaliert dann selbst auf Wh/kWh/MWh)',
         ];
+        $groupItems[] = [
+            'type'    => 'CheckBox',
+            'name'    => 'AutoArchive',
+            'caption' => 'Messwerte automatisch archivieren',
+        ];
+        if (!$this->ReadPropertyBoolean('AutoArchive')) {
+            $groupItems[] = [
+                'type'    => 'Label',
+                'caption' => '⚠️ Automatische Archivierung ist aus. Neue Messwert-Variablen werden nicht ins Archiv aufgenommen. Das ist nur für eine Migration aus einem Altmodul (z. B. GoodweET) gedacht — dabei muss die Zielvariable ohne eigene Historie bleiben, damit MigrationsHub die Alt-Historie übernehmen kann. Nach der Migration wieder einschalten.',
+            ];
+        }
 
         // Meter-Adresse nur bei Fronius relevant: Dort ist der Smart Meter ein
         // eigenständiges Modbus-Gerät auf derselben IP mit eigener Unit-ID
@@ -5126,7 +5146,11 @@ class InverterHub extends IPSModule
         if ($reg !== '') {
             IPS_SetInfo($vid, $reg);
         }
-        if ($archive) {
+        // Auto-Archivierung nur bei NEU angelegter Variable und nur, wenn der
+        // Nutzer sie nicht abgeschaltet hat (Migrations-Vorbedingung, s. o.).
+        // Bereits geloggte Variablen fassen wir nie an - ein Nutzer, der die
+        // Archivierung von Hand ausgeschaltet hat, soll das behalten.
+        if ($archive && $created && $this->ReadPropertyBoolean('AutoArchive')) {
             $this->SetArchive($vid);
         }
     }
