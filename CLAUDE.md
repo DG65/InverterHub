@@ -469,16 +469,30 @@ Inexogy.** Der Zähler ist eine mögliche, bevorzugte Quelle — nie eine Voraus
 Nutzung liegt hinter `function_exists`/`IPS_ModuleExists`, mit Rückfall auf das bisherige
 Verhalten.
 
-Zuständigkeit: Zähler gehören zu **MeterHub** (wie SMA Energy Meter/Speedwire). Inexogy liefert
-per Cloud-API (kein Modbus) — also erneut ein eigener Empfangsweg, MeterHubs Architekturfrage.
-Die Rechnungsprüfung selbst (Bezugsenergie je Slot × Preis) liegt beim **EMS**.
+Zuständigkeit: Zähler gehören zu **MeterHub**. Entschieden (MeterHub, 2026-07-23): Inexogy wird
+eine zweite Transportklasse INNERHALB MeterHub (Pull/HTTPS-Timer, `InexogyHttpClient` neben
+`ModbusTcpClient`, OAuth 1.0a) — kein eigenes Modul (die Trennlinie ist Push vs. Pull, nicht
+Modbus vs. Cloud; Speedwire war Push → eigenes Modul). Die Rechnungsprüfung selbst
+(Bezugsenergie je Slot × Preis) liegt beim **EMS**.
+
+**Vertragskennzeichen — NICHT selbst erfinden.** MeterHub erweitert `MHUB_GetFunctions`/
+`MHUBV_GetFunctions` additiv um ein Zwei-Achsen-Modell (Format wird im EMS-Strang abgesegnet):
+
+```
+latency:   'realtime' | 'delayed'    — darf ein Echtzeit-Regler darauf regeln?
+authority: 'billing'  | 'auxiliary'  — steht der Wert auf der Rechnung?
+```
+
+Die beiden Achsen sind orthogonal: Dietmar hat bald ZWEI `grid`-Zähler am selben Anschluss —
+Inexogy (`billing` + `delayed`) und einen lokalen Modbus-Zähler (`auxiliary` + `realtime`). Ein
+einzelnes „billingGrade"-Flag könnte das nicht trennen — deshalb **kein eigenes Feld**, sondern
+`authority` konsumieren.
 
 **Berührungspunkt bei uns:** Die Netzbezug-Balken im Strompreis-Reiter des `InverterHubMonitor`
-integrieren ihn derzeit aus der Wechselrichter-Netzleistung (`meter_total`). Sobald MeterHub
-einen abrechnungsgenauen Netzzähler bereitstellt (als `grid`-Funktion, idealerweise mit
-Kennzeichnung „Netzübergabepunkt/abrechnungsgenau"), sollte der Reiter diese Quelle **bevorzugt**
-nutzen — aber weiter zurückfallen auf die Integration, wenn kein solcher Zähler da ist. Erst
-umsetzen, wenn MeterHub das Bereitstellungsformat festgelegt hat.
+integrieren ihn derzeit aus der Wechselrichter-Netzleistung (`meter_total`). Sobald das Format
+steht, den Balken auf die Quelle mit **`function == 'grid'` UND `authority == 'billing'`**
+umstellen — mit Rückfall auf die Integration, wenn keine solche vorhanden ist. Erst umsetzen,
+wenn MeterHub sich meldet (Format vom EMS abgesegnet). Nicht pollen — MeterHub gibt Bescheid.
 
 ## Verbund-Konvention: Kacheln mit Datumssteuerung bedienen sich identisch
 
