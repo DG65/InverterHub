@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.70.1-beta.1 (2026-07-23)
+
+- **Eingesteckte Wallbox wird nicht mehr ausgegraut, auch wenn sie gerade nicht lädt.** Bisher
+  hing die Aktiv-Darstellung eines Knotens allein an der Leistung (< 20 W = grau). Eine Wallbox,
+  deren „Verbunden-Bedingung" erfüllt ist (Fahrzeug eingesteckt), erschien dadurch grau, sobald
+  das Laden pausierte oder das Fahrzeug voll war — obwohl der konfigurierte Zustand „eingesteckt"
+  zutraf. Jetzt gilt eine eingesteckte Wallbox als aktiv: farbiger Ring mit Ladestand statt grau.
+  Die Fluss-Animation (Blitze/Leuchten) bleibt leistungsabhängig, ein ruhender Knoten pulsiert
+  also nicht. Ohne konfigurierte Verbunden-Bedingung bleibt es beim leistungsabhängigen
+  Verhalten. Gemeldet von sirkentucky.
+
 ## 0.70.0-beta.1 (2026-07-23)
 
 - **Netzbezug-Balken nutzen bevorzugt den abrechnungsgenauen Zähler.** Ist über MeterHub ein

@@ -868,6 +868,8 @@ function buildItems(d, consumerColor) {
       // false = geschätzter Wert (siehe fmtPower). Das Modul setzt das Feld immer,
       // auch bei manuell zugewiesenen Verbrauchern und Zählern (dort true).
       measured: c.measured,
+      // Eingesteckte Wallbox: auch bei 0 W farbig statt ausgegraut (s. updateOuterNode).
+      plugged: !!c.plugged,
       color: () => col,
       dir: () => 'out',
     });
@@ -1194,7 +1196,11 @@ function applyNodeState(g, glow, color, magnitude, active, cx, cy, baseScale) {
 function updateOuterNode(refs, item, d) {
   const w = item.value ?? 0;
   const magnitude = Math.abs(w);
-  const active = magnitude > (item.minMagnitude ?? 20);
+  // Eine eingesteckte Wallbox (item.plugged) gilt als aktiv, auch ohne
+  // Ladeleistung - sie erscheint farbig mit Ladestand statt ausgegraut. Die
+  // Fluss-Animation (Blitze/Glow) bleibt trotzdem leistungsabhängig, ein
+  // ruhender Knoten bekommt sie über magnitude≈0 also nicht.
+  const active = magnitude > (item.minMagnitude ?? 20) || !!item.plugged;
   const color = item.grey ? C_GREY : (active ? item.color(w) : C_GREY);
 
   applyNodeState(refs.g, refs.glow, color, magnitude, active,

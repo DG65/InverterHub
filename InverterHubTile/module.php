@@ -964,6 +964,12 @@ class InverterHubTile extends IPSModule
                     $entry['socHave'] = false;
                     $entry['soc']     = null;
                 }
+                // Ist die Verbunden-Bedingung der Wallbox erfüllt, gilt sie als
+                // "eingesteckt" und wird auch bei 0 W farbig (nicht ausgegraut)
+                // dargestellt - "angesteckt, lädt gerade nicht" ist ein echter
+                // Zustand, kein inaktiver Knoten. Ohne konfigurierte Bedingung
+                // (null) bleibt es beim rein leistungsabhängigen Verhalten.
+                $entry['plugged'] = ($this->CondMet($row['plugID'], $row['plugOp'], $row['plugVal']) === true);
             }
 
             $out[] = $entry;
