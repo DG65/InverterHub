@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.72.0-beta.1 (2026-07-24)
+
+- **Neuer Hersteller (Read-Only-Vorabversion): FoxESS H1/H3.** Basierend auf der vollständig
+  gelesenen offiziellen Registerdokumentation (V1.01). Liest PV1/PV2, Batterie (inkl. BMS-Werte
+  und Batteriestatus), Netz, AC-Wirkleistung, EPS/Ersatzstrom, Smart-Meter-Leistung,
+  Temperaturen, Betriebsstatus und alle Energiezähler (Tag/Gesamt) aus dem dokumentierten
+  Echtzeit-Block (96 zusammenhängende Register, Funktionscode 0x04 wie in der Doku belegt).
+  **Bewusst noch nicht enthalten:** Konfigurations-/Steuerregister (Work Mode, Lade-Fenster,
+  SOC-Grenzen, Export-Limit) und die Fernsteuerungs-Sollwertregister — für beide ist aus der
+  Dokumentation nicht zweifelsfrei ableitbar, ob sie denselben Funktionscode nutzen wie der
+  Echtzeit-Block; das wird erst an echter Hardware verifiziert, bevor es gebaut wird. Ebenso
+  nicht angeboten: die Factory-Reset- und Lösch-Kommandos. Beta-Tester: StephanBERN.
+
 ## 0.71.3-beta.1 (2026-07-24)
 
 - **Bestehende Energiezähler-Variablen werden jetzt HISTORIENERHALTEND korrigiert.** Build 182
