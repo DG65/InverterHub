@@ -5202,7 +5202,7 @@ class InverterHub extends IPSModule
         // Bereits geloggte Variablen fassen wir nie an - ein Nutzer, der die
         // Archivierung von Hand ausgeschaltet hat, soll das behalten.
         if ($archive && $created && $this->ReadPropertyBoolean('AutoArchive')) {
-            $this->SetArchive($vid);
+            $this->SetArchive($vid, $isEnergy);
         }
     }
 
@@ -5263,12 +5263,27 @@ class InverterHub extends IPSModule
         return 0;
     }
 
-    private function SetArchive($vid)
+    // Aggregationstyp beim ERSTMALIGEN Archivieren setzen: 1 (Zähler) für
+    // kumulative Energie-Idents (Profil ~Electricity/IHB.Wh - Ertrag, Bezug,
+    // Einspeisung usw.), sonst 0 (Standard/Mittelwert) für Momentanwerte.
+    //
+    // ACHTUNG, real gemeldeter Fehler (Tester sirkentucky, 24.07.2026): Hier
+    // stand zuvor UNBEDINGT AggregationType 0, auch für Energie-Idents. Für
+    // einen kWh-Zähler ist das falsch - AC_GetAggregatedValues liefert dann
+    // bei Zeitreihen-Auswertungen den ROHSTAND statt des Periodenverbrauchs
+    // (siehe die Counter-Aggregations-Falle, an anderer Stelle bereits
+    // dokumentiert). Der Nutzer hatte es von Hand auf „Zähler" umgestellt,
+    // aber jede Neuanlage der Variable (z. B. nach Loeschen) setzte es wieder
+    // auf Standard zurueck.
+    // Nur bei ERSTANLAGE gesetzt (Aufrufer prueft $created) - eine vom Nutzer
+    // manuell geaenderte Aggregation an einer bestehenden Variable wird nie
+    // wieder ueberschrieben.
+    private function SetArchive($vid, bool $isEnergy = false)
     {
         $archiveIDs = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
         if (count($archiveIDs) > 0) {
             AC_SetLoggingStatus($archiveIDs[0], $vid, true);
-            AC_SetAggregationType($archiveIDs[0], $vid, 0);
+            AC_SetAggregationType($archiveIDs[0], $vid, $isEnergy ? 1 : 0);
         }
     }
 

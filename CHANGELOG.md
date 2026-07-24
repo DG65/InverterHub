@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.71.2-beta.1 (2026-07-24)
+
+- **Energiezähler-Variablen (kWh) bekamen beim Anlegen den falschen Archiv-Aggregationstyp.**
+  Neu angelegte Energie-Variablen (Ertrag, Bezug, Einspeisung usw. — Profil `~Electricity`/
+  `IHB.Wh`) wurden fest auf „Standard/Mittelwert" archiviert statt auf „Zähler". Für einen
+  kumulativen kWh-Wert ist das falsch: `AC_GetAggregatedValues` liefert damit bei
+  Zeitreihen-Auswertungen den Rohstand statt des Periodenverbrauchs, und eine manuelle
+  Umstellung auf „Zähler" wurde beim nächsten Neuanlegen der Variable wieder überschrieben.
+  Jetzt wird beim erstmaligen Archivieren anhand des Profils erkannt, ob es sich um einen
+  kumulativen Energiewert handelt, und entsprechend „Zähler" statt „Standard" gesetzt. Betrifft
+  nur neu angelegte Variablen; bereits bestehende werden wie gehabt nie automatisch verändert.
+  Gemeldet von sirkentucky.
+
 ## 0.71.1-beta.1 (2026-07-23)
 
 - **Monitor: PV-Prognose-Instanz wird bei mehreren nicht mehr stillschweigend geraten.** Bisher
