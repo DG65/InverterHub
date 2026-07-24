@@ -245,8 +245,8 @@ bei den anderen Herstellern, aber der zuverlässigste Weg.
 
 ## Verwandte Projekte
 
-Teil der **DG65 Energie-Suite** — welche Modulstände zusammenpassen, listet das zentrale
-Manifest: [SUITE.md](https://github.com/DG65/EMS/blob/main/SUITE.md).
+Teil des **NRG-Stack** — welche Modulstände zusammenpassen, listet
+[SUITE.md](https://github.com/DG65/EMS/blob/main/SUITE.md).
 
 ### EnergiePrognose (PV- und Verbrauchsprognose)
 
