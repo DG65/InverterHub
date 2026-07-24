@@ -5203,6 +5203,21 @@ class InverterHub extends IPSModule
         // Archivierung von Hand ausgeschaltet hat, soll das behalten.
         if ($archive && $created && $this->ReadPropertyBoolean('AutoArchive')) {
             $this->SetArchive($vid, $isEnergy);
+        } elseif ($archive && $isEnergy && !$created) {
+            // Bestandskorrektur (real gemeldeter Fehler, 24.07.2026): Vor
+            // Build 182 wurden Energie-Variablen mit Aggregationstyp
+            // "Standard" statt "Zaehler" archiviert. Fuer bereits vorhandene
+            // Variablen HISTORIENERHALTEND nachkorrigieren - AC_SetAggregationType
+            // aendert nur die Archiv-Metadaten (wie kuenftig aggregiert wird),
+            // NICHT die gespeicherten Werte. Kein Loeschen/Neuanlegen noetig.
+            // Laeuft bei jedem ApplyChanges automatisch mit (u. a. direkt nach
+            // einem Modul-Update) - ohne Zutun des Nutzers, ohne Datenverlust.
+            $archiveIDs = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
+            if (count($archiveIDs) > 0
+                && @AC_GetLoggingStatus($archiveIDs[0], $vid)
+                && @AC_GetAggregationType($archiveIDs[0], $vid) !== 1) {
+                AC_SetAggregationType($archiveIDs[0], $vid, 1);
+            }
         }
     }
 

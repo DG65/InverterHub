@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.71.3-beta.1 (2026-07-24)
+
+- **Bestehende Energiezähler-Variablen werden jetzt HISTORIENERHALTEND korrigiert.** Build 182
+  behob den falschen Aggregationstyp nur für neu angelegte Variablen. Wer die betroffenen
+  Energie-Werte (Ertrag, Bezug, Einspeisung usw.) schon vorher hatte, bekam den Fehler weiterhin
+  angezeigt — eine Korrektur hätte bisher Löschen und Neuanlegen der Variable erfordert, was die
+  komplette Archivhistorie vernichtet hätte. Das ist nicht nötig: Der Aggregationstyp ist eine
+  reine Archiv-Einstellung (`AC_SetAggregationType`), unabhängig von den gespeicherten Werten.
+  Ab diesem Build korrigiert das Modul bestehende Energie-Variablen beim nächsten
+  `ApplyChanges` automatisch von „Standard" auf „Zähler" — ohne die Variable anzufassen, ohne
+  einen einzigen Archivwert zu verändern oder zu löschen. Kein Handeln des Nutzers nötig.
+
 ## 0.71.2-beta.1 (2026-07-24)
 
 - **Energiezähler-Variablen (kWh) bekamen beim Anlegen den falschen Archiv-Aggregationstyp.**
