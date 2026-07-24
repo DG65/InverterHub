@@ -437,6 +437,37 @@ Umbaubedarf. Gilt erst, falls je eine Cloud-Anbindung entsteht (z. B. ein Herste
 
 Referenz: MeterHub/Inexogy-Treiber (OAuth1, Passwort nur beim Handshake).
 
+## Gemeinsame Profile NRG.* (Verbund-Konvention, 24.07.2026) — geplant, NICHT umgesetzt
+
+Physikalische Grundgrößen bekommen einen gemeinsamen `NRG.*`-Präfix statt je Modul ein eigenes
+Profil (`NRG.Watt` statt `IHUB.Watt`). Bewusst klein: nur **sechs** Profile — `NRG.Watt`,
+`NRG.kWh`, `NRG.Ampere`, `NRG.Volt`, `NRG.Percent`, `NRG.Celsius`. Modulspezifische Status-/
+Enum-Profile (Betriebsmodus, Netzquelle, Warncodes) bleiben beim eigenen Modul-Präfix. Anlage
+idempotent, kein Eigentümer-Modul: `IPS_VariableProfileExists('NRG.Watt')` prüfen, nur bei
+Fehlen anlegen (Muster GleitenderMittelwert). Details: EMS/SUITE.md, Abschnitt „Gemeinsame
+Variablenprofile".
+
+**Bei uns ist das kein Rename, sondern ein Design-Problem — deshalb noch nicht angefasst.**
+15 Treiber, **39 profildefinierende Stellen**, uneinheitliche Wertebereiche für dieselbe
+physikalische Größe: `*.Ampere` ist bei den meisten Treibern ±200 A, bei Victron und Huawei
+(Großanlagen) ±1000 A. Ein gemeinsames `NRG.Ampere` braucht EINEN Bereich für alle (also ±1000),
+das ist eine bewusste Entscheidung, keine reine Umbenennung — bei den kleineren Wechselrichtern
+kostet es etwas Anzeigefeinheit (Nachkommastellen/Skalenauflösung).
+
+**Zusätzliches Risiko: Live-Instanzen.** Ein Profilwechsel ändert `IPS_SetVariableCustomProfile`
+auf jeder bestehenden Instanz — anders als ein Rename im Code betrifft das laufende
+Installationen der Beta-Tester direkt (WebFront-Darstellung, ggf. Archiv-Skalierung). Das
+gehört nicht beiläufig in eine bereits sehr lange Sitzung, sondern in einen eigenen,
+gegengeprüften Umstellungs-Build mit Vorher/Nachher-Test an mindestens einer Live-Instanz.
+
+**Plan, wenn angegangen wird:**
+1. `NRG.*`-Profile mit vereinheitlichten Bereichen entwerfen (Ampere ±1000, Watt je nach größtem
+   Treiber, etc.) — Bereiche VOR dem Bau mit Dietmar abstimmen, nicht selbst festlegen.
+2. In allen 15 Treibern `getProfiles()` die generischen Einträge durch `NRG.*`-Referenzen
+   ersetzen; modulspezifische Profile (Status/Enum) bleiben unangetastet.
+3. Idempotente Anlage zentral im Hauptmodul (nicht je Treiber), analog GleitenderMittelwert.
+4. Vor dem Push: eine Instanz jedes betroffenen Herstellers im Browser/an echtem IPS gegentesten.
+
 ## Vertragsversionierung (Verbund-Konvention, 23.07.2026)
 
 Manifest: https://github.com/DG65/EMS/blob/main/SUITE.md. Betrifft uns bei jeder angebotenen und
