@@ -102,6 +102,23 @@ GoodweET-Variablen legen ließen. Dann plant das EMS ein ECO-Fenster, während p
 Regel eine Ladevorgabe schreibt — zwei Regler auf derselben Batterie, beide „korrekt". Beide
 Signal-Sitzungen haben dieser Rollenverteilung zugestimmt.
 
+**EMS-Prioritätshierarchie, zwei Situationen (EMS-Sitzung, 24.07.2026), relevant für
+`controlAuthority`:**
+- **Situation A** — das EMS besitzt den Schreibkanal (eigene Optimierung, §14a, Komfort,
+  Direktvermarktung) → echte interne Prioritätsordnung, das EMS entscheidet und schreibt über
+  uns. Das ist der `controlAuthority == 'ems'`-Fall.
+- **Situation B** — ein externer Akteur besitzt den Schreibkanal komplett außerhalb des EMS
+  (Tibber Grid Rewards → go-e-Cloud/Tesla-API, go-e Controller eigenständig). Das EMS hat dort
+  KEINE Override-Möglichkeit, teils keine Benachrichtigung — nur nachträgliche Erkennung und
+  Reaktion. Das ist der `controlAuthority == 'external'`-Fall: Wir setzen dort keine EMS-Vorgabe
+  um, unabhängig davon, ob das EMS den Eingriff überhaupt bemerkt.
+- **Schutz-Ebene 0** (Enteisung/Sterilisation/Mindest-SoC) bleibt unverändert ÜBER jeder
+  Prioritätsordnung — auch über `controlAuthority`, falls wir je selbst solche Schutzgrenzen
+  durchsetzen müssten.
+- **Verbund-Prinzip:** kein Abfangen/Nachahmen von Hersteller-Protokollen (MITM/Impersonation)
+  — verworfen, weil nicht auf andere NRG-Stack-Nutzer verallgemeinerbar. Nur offizielle,
+  dokumentierte APIs. Gilt auch für uns, falls wir je einen externen Regler „erkennen" wollten.
+
 ### Preiskurve fürs EMS (betrifft InverterHub nicht direkt)
 
 Für ein preisgetriebenes EMS wurde ein zweiter Verbund-Vertrag vereinbart. Hier nur als
