@@ -419,6 +419,24 @@ Botschaft sie nicht beschrieb.
   hält beide synchron (es ist schon vorgekommen, dass das Changelog eine Version nannte, die
   `library.json` noch nicht hatte).
 
+## Zugangsdaten (Verbund-Konvention, 23.07.2026) — derzeit ohne InverterHub-Bezug
+
+Alle unsere Treiber sind bislang reines lokales Modbus TCP — keine Zugangsdaten, kein akuter
+Umbaubedarf. Gilt erst, falls je eine Cloud-Anbindung entsteht (z. B. ein Herstellerportal):
+
+1. Handshake-/Token-Verfahren bevorzugen (OAuth o. ä.). Passwort nur beim einmaligen Handshake,
+   danach NICHT speichern — nur Token/Secret bleibt liegen.
+2. Passwörter nur dauerhaft speichern, wenn wirklich wiederholt gebraucht (kein Token-Weg
+   existiert). Handshake hat Vorrang.
+3. Speicherort für dauerhaft benötigte Tokens/Passwörter: `RegisterAttributeString` (NICHT
+   `RegisterPropertyString`) — Attribute erscheinen nicht im Konfigurationsformular.
+4. **IPS verschlüsselt nicht at rest** (weder Properties noch Attribute). „Sicher" heißt hier
+   „nicht im Formular/Log/Anzeigetext sichtbar", nicht „verschlüsselt" — so kommunizieren.
+5. Formulareingabe für ein einmaliges Passwort: `PasswordTextBox` (maskiert), Wert nach
+   Verwendung sofort leeren bzw. gar nicht als Property führen.
+
+Referenz: MeterHub/Inexogy-Treiber (OAuth1, Passwort nur beim Handshake).
+
 ## Vertragsversionierung (Verbund-Konvention, 23.07.2026)
 
 Manifest: https://github.com/DG65/EMS/blob/main/SUITE.md. Betrifft uns bei jeder angebotenen und
