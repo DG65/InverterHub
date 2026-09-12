@@ -1,5 +1,50 @@
 # Hinweise für die Arbeit an diesem Repository
 
+## `gridServiceCapabilities` — generische Netzdienlichkeits-Operationen (EMS-Vertrag, 12.09.2026)
+
+Verbund-Vertrag mit EMS für dessen netzdienliche Bausteine (Mittagsspitze in die Batterie,
+Netzladen bei Überschuss, Netzbezug bei Knappheit vermeiden, Einspeisen aus der Batterie bei
+Rot — Details: EMS/`EMS-Netzdienlich-Konzept.md`, Abschnitt 6). EMS fragt nur „kannst du das?",
+der Treiber übersetzt intern — genau das Muster von `controllable`/`controlAuthority`.
+
+**`IHUB_GetFunctions` 1.2 → 1.3 (additiv):** neues Feld `gridServiceCapabilities` (Array aus
+`chargeInhibit`, `gridCharge`, `dischargeToGrid`, `release`, leer wenn der Treiber nichts davon
+kann). Generisch über die Existenz der `svc_*`-Idents erkannt (`FindVarByIdent()`), kein
+Treiber-Sonderfall — ein künftiger Treiber mit denselben Idents taucht automatisch mit auf.
+
+**Nur beim GoodWe-Treiber implementiert** (Stand 12.09.2026). Sungrow (nur Start/Stop) und Deye
+(nur Ein/Aus) haben aktuell keine passenden Sollwert-Register gebaut, die übrigen 12 Treiber
+sind reine Lesetreiber — alle melden `gridServiceCapabilities: []`, EMS lässt den jeweiligen
+Baustein dort ohne Fehler aus.
+
+**Register-Mapping GoodWe** (`IHUB_GoodweDriver::writeControl()`, neue `svc_*`-Idents in der
+`GroupControl`-Gruppe):
+
+| Ident | Wirkung | Register-Schreibvorgang |
+|---|---|---|
+| `svc_charge_inhibit` (bool) | Laden sperren, Überschuss ins Netz | `true`: 47511=3 ("Entladen+Solar"), 47512=0, 47505=0 (enable aus). `false`: wie `svc_release`. |
+| `svc_grid_charge_w` (int, W) | Batterie lädt mit W aus dem Netz, Hausanschluss von EMS zu respektieren | `W>0`: 47511=9 ("Stromeinkauf", Netzbezug am NAP geregelt — sicherer als Modus 11, EMS-Test 24.08.), 47512=W, 47505=0. `0`: wie `svc_release`. |
+| `svc_discharge_to_grid_w` (int, W) | Einspeisen aus der Batterie (nur B4/Rot, von EMS begrenzt) | `W>0`: 47511=3 ("Entladen+Solar" — Xset ist echter Sollwert, KEINE Obergrenze, EMS-Fund 12.09.), 47512=W, 47505=0. `0`: wie `svc_release`. |
+| `svc_release` (bool) | zurück in WR-Eigenregelung | 47511=1 ("Automatik"), 47512=0, 47505=0. |
+
+**Bewusst `enable`(47505)=0 bei allen drei Sollwert-Operationen, nie 1.** Der 255/STOPPED-
+Totmann-Rückfall tritt laut unserem A/B-Test (29.08.2026, s. u.) nur bei `enable=true` ohne
+zyklischen Heartbeat auf — mit `enable=false` hält der gesetzte Modus dauerhaft, ohne dass EMS
+selbst einen Heartbeat bauen müsste. Das war die zentrale Absicherung, die wir EMS empfohlen
+haben (`ctl_ems_enable=false` ist seit dem A/B-Test ohnehin die generelle Empfehlung, s. u.).
+
+**Ein Steuerpfad je Instanz — von EMS selbst durchzusetzen, nicht hier.** `svc_*` und `ctl_*`
+schreiben bei GoodWe dieselben Register (47511/47512/47505). EMS hat zugesichert, pro Instanz
+entweder `ctl_*` (heutige Automatik-/Grid-Rewards-/Tagesplan-Steuerung) oder `svc_*`
+(netzdienliche Bausteine) zu nutzen, nie beide gleichzeitig — wir erzwingen das nicht
+zusätzlich (kein Konflikt-Lock), das widerspräche „InverterHub trifft keine Steuerungspolitik".
+
+**Sicherheitsgrenzen (Hausanschluss, SOC-Reserve, Rückfall bei Kommunikationsausfall, Stopp am
+SOC-Limit bei erzwungenem Entladen) liegen vollständig bei EMS** — konsistent mit der
+Architekturentscheidung vom 29.08.2026 (s. u.): InverterHub ist reine Ausführungs-/
+Meldeschicht, setzt eine Operation einmal um und liest zurück, ohne eigene Wiederholung oder
+Watchdog.
+
 ## `IHUB_ModbusTcpClient` verwertete Antworten ohne Transaktions-ID-Prüfung (02.09.2026)
 
 Real gemeldet (Dashboard-Sitzung, 02.09.2026): Auf Dietmars Anlage (#52838) wurde nachts gegen

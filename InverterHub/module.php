@@ -565,6 +565,23 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
                 ['ctl_soc_max',       'SOC Max. Ladung (bestätigt wirkungslos)', 'I', 'GWH.Percent', false, 'control', 'RW 45559'],
                 ['ctl_internet',      'Cloud-Verbindung',     'B', '~Switch',      false, 'control', 'RW 47017'],
                 ['ctl_restart',       'WR Neustart',          'B', '~Switch',      false, 'control', 'WO 45220'],
+                // Generische Netzdienlichkeits-Operationen (Verbund-Vertrag mit
+                // EMS, IHUB_GetFunctions 1.2 -> 1.3, "gridServiceCapabilities" -
+                // 12.09.2026). Schreiben dieselben Register wie die ctl_*-Idents
+                // oben - EMS nutzt fuer eine Instanz entweder ctl_* (heutige
+                // Automatik-/Grid-Rewards-/Tagesplan-Steuerung) ODER svc_*
+                // (neue netzdienliche Bausteine), nie beide gleichzeitig auf
+                // derselben Instanz (sonst zwei Regler auf einer Batterie -
+                // das durchzusetzen liegt bei EMS, nicht hier). Alle drei
+                // Sollwert-Operationen fahren bewusst mit enable=false (47505)
+                // statt true: Der 255/STOPPED-Ruecklauf tritt laut unserem
+                // A/B-Test (29.08.2026) nur bei enable=true ohne Heartbeat
+                // auf - mit enable=false haelt der gesetzte Modus dauerhaft,
+                // ohne dass EMS selbst einen Totmann-Heartbeat bauen muesste.
+                ['svc_charge_inhibit',      'Netzdienlich: Laden sperren',            'B', '~Switch',     false, 'control', 'schreibt 47511=3 (Entladen+Solar), 47512=0, 47505=false'],
+                ['svc_grid_charge_w',       'Netzdienlich: Netzladen (W)',             'I', 'GWH.WattEMS', false, 'control', 'schreibt 47511=9 (Stromeinkauf, NAP-geregelt), 47512=W, 47505=false; 0 = Freigabe'],
+                ['svc_discharge_to_grid_w', 'Netzdienlich: Einspeisen aus Batterie (W)', 'I', 'GWH.WattEMS', false, 'control', 'schreibt 47511=3 (Entladen+Solar, Xmax = W), 47512=W, 47505=false; 0 = Freigabe'],
+                ['svc_release',             'Netzdienlich: Freigeben (Automatik)',     'B', '~Switch',     false, 'control', 'schreibt 47511=1 (Automatik), 47512=0, 47505=false'],
             ]],
         ];
     }
@@ -1053,7 +1070,81 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
                     $hub->SetVarBool('ctl_restart', false);
                 }
                 break;
+
+            // Generische Netzdienlichkeits-Operationen (EMS-Vertrag, s. o. bei
+            // GroupControl). Alle vier schreiben mit enable=false (REG_EMS_ENABLE
+            // = 0), damit kein Totmann-Heartbeat noetig ist. Nach jeder Operation
+            // werden die jeweils ANDEREN svc_*-Statusvariablen auf ihren
+            // Neutralzustand zurueckgesetzt, damit nie mehrere gleichzeitig
+            // "aktiv" anzeigen (immer nur eine Operation kann real gelten).
+            case 'svc_charge_inhibit':
+                if ((bool)$value) {
+                    $this->writeGridService($mb, $hub, self::EMS_MODE_DISCHARGE_PV, 0);
+                    $hub->SetVarBool('svc_charge_inhibit', true);
+                    $hub->SetVarInt('svc_grid_charge_w', 0);
+                    $hub->SetVarInt('svc_discharge_to_grid_w', 0);
+                } else {
+                    $this->releaseGridService($mb, $hub);
+                }
+                break;
+
+            case 'svc_grid_charge_w':
+                $val = max(0, min(self::EMS_POWER_MAX, (int)$value));
+                if ($val === 0) {
+                    $this->releaseGridService($mb, $hub);
+                    break;
+                }
+                $this->writeGridService($mb, $hub, self::EMS_MODE_GRID_BUY, $val);
+                $hub->SetVarInt('svc_grid_charge_w', $val);
+                $hub->SetVarBool('svc_charge_inhibit', false);
+                $hub->SetVarInt('svc_discharge_to_grid_w', 0);
+                break;
+
+            case 'svc_discharge_to_grid_w':
+                $val = max(0, min(self::EMS_POWER_MAX, (int)$value));
+                if ($val === 0) {
+                    $this->releaseGridService($mb, $hub);
+                    break;
+                }
+                $this->writeGridService($mb, $hub, self::EMS_MODE_DISCHARGE_PV, $val);
+                $hub->SetVarInt('svc_discharge_to_grid_w', $val);
+                $hub->SetVarBool('svc_charge_inhibit', false);
+                $hub->SetVarInt('svc_grid_charge_w', 0);
+                break;
+
+            case 'svc_release':
+                if ((bool)$value) {
+                    $this->releaseGridService($mb, $hub);
+                }
+                break;
         }
+    }
+
+    // EMS-Leistungsmodi, die die generischen svc_*-Operationen ansteuern
+    // (Auszug aus EMS_MODES, hier benannt statt als Magic Number).
+    const EMS_MODE_DISCHARGE_PV = 3; // "Entladen + Solar" - Xset ist Sollwert, keine Obergrenze (EMS-Fund 12.09.2026)
+    const EMS_MODE_GRID_BUY     = 9; // "Stromeinkauf" - Netzbezug am Netzanschlusspunkt geregelt, sicherer als 11 (EMS-Test 24.08.2026)
+    const EMS_MODE_AUTO         = 1; // "Automatik" - WR-Eigenregelung, Ziel von svc_release
+
+    private function writeGridService($mb, $hub, int $mode, int $powerW): void
+    {
+        if ($mb->writeSingle(self::REG_EMS_POWER_MODE, $mode)) {
+            $hub->SetVarInt('ctl_ems_mode', $mode);
+        }
+        if ($mb->writeSingle(self::REG_EMS_POWER_SET, $powerW)) {
+            $hub->SetVarInt('ctl_ems_power', $powerW);
+        }
+        if ($mb->writeSingle(self::REG_EMS_ENABLE, 0)) {
+            $hub->SetVarBool('ctl_ems_enable', false);
+        }
+    }
+
+    private function releaseGridService($mb, $hub): void
+    {
+        $this->writeGridService($mb, $hub, self::EMS_MODE_AUTO, 0);
+        $hub->SetVarBool('svc_charge_inhibit', false);
+        $hub->SetVarInt('svc_grid_charge_w', 0);
+        $hub->SetVarInt('svc_discharge_to_grid_w', 0);
     }
 }
 
@@ -5111,13 +5202,33 @@ class InverterHub extends IPSModule
                 $mpptVoltageIDs[] = $v;
             }
         }
+        // Netzdienlichkeits-Faehigkeiten (EMS-Vertrag, 12.09.2026): generisch
+        // ueber die Existenz der svc_*-Idents erkannt, kein Treiber-Sonderfall
+        // noetig - ein neuer Treiber, der diese Idents registriert (siehe
+        // GoodWe GroupControl), taucht automatisch mit auf. Aktuell nur beim
+        // GoodWe-Treiber vorhanden; leeres Array bei allen anderen 14.
+        $gridServiceCapabilities = [];
+        if ($find('svc_charge_inhibit') > 0) {
+            $gridServiceCapabilities[] = 'chargeInhibit';
+        }
+        if ($find('svc_grid_charge_w') > 0) {
+            $gridServiceCapabilities[] = 'gridCharge';
+        }
+        if ($find('svc_discharge_to_grid_w') > 0) {
+            $gridServiceCapabilities[] = 'dischargeToGrid';
+        }
+        if ($find('svc_release') > 0) {
+            $gridServiceCapabilities[] = 'release';
+        }
         return [
             // 1.0 -> 1.1: batteryTempIDs/batterySocIDs/batterySohIDs/
             // batteryCapacityID. 1.1 -> 1.2: mpptPowerIDs/mpptCurrentIDs/
-            // mpptVoltageIDs. Beides additiv, kein Feld entfernt/umbenannt/
-            // umgedeutet, Major bleibt unveraendert (siehe CLAUDE.md
-            // "Vertragsversionierung").
-            'contractVersion'  => '1.2',
+            // mpptVoltageIDs. 1.2 -> 1.3: gridServiceCapabilities (EMS-Vertrag,
+            // 12.09.2026, Netzdienlich-Konzept). Alles additiv, kein Feld
+            // entfernt/umbenannt/umgedeutet, Major bleibt unveraendert (siehe
+            // CLAUDE.md "Vertragsversionierung").
+            'contractVersion'  => '1.3',
+            'gridServiceCapabilities' => $gridServiceCapabilities,
             'instanceID'       => $this->InstanceID,
             'manufacturer'     => $this->ReadPropertyString('Manufacturer'),
             // Immer false bei einer PHYSISCHEN Instanz (dieses Modul). Reserviert

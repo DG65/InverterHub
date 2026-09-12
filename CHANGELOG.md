@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.76.0-beta.1 (2026-09-12)
+
+- **`IHUB_GetFunctions` 1.2 → 1.3: `gridServiceCapabilities`.** Neuer, additiver Verbund-Vertrag
+  mit EMS für dessen netzdienliche Bausteine (Mittagsspitze in die Batterie, Netzladen bei
+  Netzüberschuss, Einspeisen aus der Batterie bei Netzknappheit). Vier generische Steuer-Idents
+  (`svc_charge_inhibit`, `svc_grid_charge_w`, `svc_discharge_to_grid_w`, `svc_release`), aktuell
+  nur beim GoodWe-Treiber umgesetzt — die übrigen 14 Treiber melden weiterhin eine leere
+  Fähigkeitenliste. Details/Register-Mapping in `CLAUDE.md`.
+
 ## 0.75.1-beta.1 (2026-09-02)
 
 - **Fehlerhafte Modbus-Antworten (fehlende Transaktions-ID-Prüfung) behoben:** Im Batch-Modus
