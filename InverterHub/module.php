@@ -350,6 +350,12 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
             ['bat_discharge_max_w', 'Bat. max. Entladeleistung','F', 'GWH.Watt', false, 'batcommon', 'BMS calc'],
             ['connected',     'Verbindung',          'B', '~Alert.Reversed',   false, 'errors',    ''],
             ['riso',          'Isolationswiderstand','F', 'GWH.KOhm',          true,  'device',    'DSP 35365'],
+            // Live gefunden (28.07.2026, EMS-Sitzung): deutsche 70%-Regel-
+            // Abregelung. Laut GoodWe-Doku nur 70 oder 100 sinnvoll ("Only
+            // can set 70, only for German"). Bisher rein lesend, keine
+            // Steuerung - Abregelung wird ueber SEMS+/den Netzbetreiber
+            // gesetzt, nicht ueber InverterHub.
+            ['derate_pct',    '70%-Regel Abregelung','I', 'GWH.Percent',       true,  'grid',      'RW 45263'],
         ];
     }
 
@@ -491,6 +497,22 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
                 ['warn_code',  'Warncode',      'I', '', true, 'errors', 'DSP 32000'],
                 ['err_msg',    'Fehlercode',    'I', '', true, 'errors', 'DSP 32002'],
                 ['err_detail', 'Fehler Detail', 'S', '', true, 'errors', ''],
+                // Live gefunden (28.07.2026, EMS-Sitzung): 'warn_code'/'err_msg'
+                // oben sind WECHSELRICHTER-seitige Codes und erfassen BMS-
+                // Schutzereignisse (z.B. Ausgangsport-Ueberspannung bei fast
+                // vollem SOC) NICHT - die stehen nur im SEMS+-Portal. Eigener,
+                // separater Registerblock fuer die Batterie-BMS.
+                ['bms1_err_code',  'BMS1 Fehlercode',  'I', '', true, 'errors', 'DSP 37006/37012'],
+                ['bms1_warn_code', 'BMS1 Warncode',    'I', '', true, 'errors', 'DSP 37010/37013'],
+                // Live gefunden (28.07.2026): bms1_err_code/warn_code oben
+                // blieben WAEHREND eines aktiven SEMS+-Alarms (Batteriestring-
+                // Ueberspannung) durchgehend 0 - die falsche Fundstelle. Die
+                // tatsaechlich bit-codierte Diagnose steht in DiagStatusL
+                // (Register 35220, U32, "Table 8-14 Diagnostic Status"), u.a.
+                // Bit 15 BatteryOvercharge, Bit 17 BMSOvercharge. Roh als
+                // Ganzzahl abgelegt (kein Bit-Decode in der UI) - Bits bei
+                // Bedarf gegen die Tabelle in CLAUDE.md pruefen.
+                ['diag_status_l', 'Diagnose-Status (Bitfeld)', 'I', '', true, 'errors', 'DSP 35220 (U32), Table 8-14'],
             ]],
             'GroupDevice' => ['caption' => 'Geräteinformation (Seriennummer, Modell, Firmware)', 'vars' => [
                 ['dev_sn',      'Seriennummer', 'S', '', false, 'device', 'DSP 35003'],
@@ -573,7 +595,30 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
         ];
     }
 
-    public function readFast($mb, $hub){
+    // Verbindungs-Konkurrenz mit RequestAction()/writeControl() (24.08.2026,
+    // live an Dietmars Anlage + unabhaengig von EMS bestaetigt, siehe CLAUDE.md
+    // "GoodWe reagiert schleppend auf Schaltbefehle"): readFast() las bisher
+    // JEDEN der ~15-20 Register-Bloecke ueber eine EIGENE, frisch geoeffnete
+    // Verbindung (kein Batch-Modus, anders als beim Sungrow-Treiber). Faellt
+    // ein RequestAction()-Schreibbefehl (eigene, ebenfalls frische Verbindung
+    // ueber GetModbusClient()) in dieses mehrere Sekunden lange Lesefenster,
+    // konkurrieren beide um die GoodWe-Firmware - beobachtetes Symptom: der
+    // Schaltbefehl wird laut IPS-Variable sofort uebernommen, die reale
+    // Batterieleistung bleibt aber 20-50+ Sekunden bei ~0W/Rauschen. Analog zum
+    // Sungrow-WiNet-S-Muster oben: EINE wiederverwendete Verbindung fuer den
+    // gesamten Lesezyklus verkuerzt das Konfliktfenster von mehreren Sekunden
+    // auf einen Bruchteil.
+    public function readFast($mb, $hub)
+    {
+        $mb->beginBatch();
+        try {
+            return $this->readFastInner($mb, $hub);
+        } finally {
+            $mb->endBatch();
+        }
+    }
+
+    private function readFastInner($mb, $hub){
         $inv     = $mb->readHolding(35103, 42);
         $bat1blk = $mb->readHolding(35174, 18);
         $bat2blk = $mb->readHolding(35262, 7);
@@ -599,6 +644,11 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
 
         $pvTotal = ($pvext !== null) ? (float)$mb->u32($pvext, 0) : 0.0;
         $hub->SetVarFloat('pv_total', $pvTotal);
+
+        $derateBlk = $mb->readHolding(45263, 1);
+        if ($derateBlk !== null) {
+            $hub->SetVarInt('derate_pct', $mb->u16($derateBlk, 0));
+        }
 
         $risoBlk = $mb->readHolding(35365, 1);
         if ($risoBlk !== null) {
@@ -834,6 +884,23 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
                 $sys = $mb->u16($err, 2);
                 if ($sys & 0x01) { $detail[] = 'Systemfehler 1'; }
                 $hub->SetVarStr('err_detail', empty($detail) ? 'OK' : implode(', ', $detail));
+            }
+            // Separater BMS-Fehler-/Warncode-Block (37006/37010/37012/37013) -
+            // NICHT identisch mit den WR-seitigen Codes oben, s. Kommentar bei
+            // der Variablendefinition.
+            $bmsErrL  = $mb->readHolding(37006, 1);
+            $bmsWarnL = $mb->readHolding(37010, 1);
+            $bmsErrH  = $mb->readHolding(37012, 1);
+            $bmsWarnH = $mb->readHolding(37013, 1);
+            if ($bmsErrL !== null && $bmsErrH !== null) {
+                $hub->SetVarInt('bms1_err_code', ($mb->u16($bmsErrH, 0) << 16) | $mb->u16($bmsErrL, 0));
+            }
+            if ($bmsWarnL !== null && $bmsWarnH !== null) {
+                $hub->SetVarInt('bms1_warn_code', ($mb->u16($bmsWarnH, 0) << 16) | $mb->u16($bmsWarnL, 0));
+            }
+            $diagL = $mb->readHolding(35220, 2);
+            if ($diagL !== null) {
+                $hub->SetVarInt('diag_status_l', ($mb->u16($diagL, 0) << 16) | $mb->u16($diagL, 1));
             }
         }
     }

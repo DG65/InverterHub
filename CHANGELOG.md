@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.76.1-beta.3 (2026-09-12)
+
+- **GoodWe: Batch-Modus gegen Verbindungs-Konkurrenz bei Schaltbefehlen** (nachgezogen aus
+  `ems-integration`, dort seit 24.08.2026): `readFast()` öffnete bisher für jeden der ~15-20
+  Register-Blöcke eine eigene, frisch geöffnete Verbindung — fiel ein Schaltbefehl
+  (`RequestAction`) in dieses mehrere Sekunden lange Lesefenster, konkurrierte er mit den
+  laufenden Lese-Verbindungen um die GoodWe-Firmware (Symptom: Schaltbefehl laut IPS-Variable
+  sofort übernommen, reale Batterieleistung blieb aber 20-50+ Sekunden bei ~0 W). `readFast()`
+  läuft jetzt wie beim Sungrow-Treiber in `beginBatch()`/`endBatch()` — eine wiederverwendete
+  Verbindung für den gesamten Lesezyklus.
+- **GoodWe: zusätzliche Diagnostik nachgezogen** — `diag_status_l` (Bitfeld-Diagnose, Register
+  35220, u. a. Batterieüberladung/BMS-Überladung), `bms1_err_code`/`bms1_warn_code` (separater
+  BMS-Fehler-/Warncode-Block, erfasst Batteriestring-Schutzereignisse, die die
+  wechselrichterseitigen `warn_code`/`err_msg`-Register nicht zeigen) und `derate_pct`
+  (70%-Regel-Abregelung, rein anzeigend).
+
 ## 0.76.1-beta.2 (2026-09-12)
 
 - **Anzeigename im Modulbaum gekürzt:** „InverterHub for IP-Symcon" → „InverterHub"

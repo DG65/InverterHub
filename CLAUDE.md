@@ -1,5 +1,25 @@
 # Hinweise für die Arbeit an diesem Repository
 
+## Branch-Drift `ems-integration` → `beta`: Batch-Fix + Diagnostik nachgezogen (12.09.2026)
+
+Beim Diffen für die EMS-Sitzung (Anlass: neuer `gridServiceCapabilities`-Vertrag) aufgefallen:
+mehrere echte GoodWe-Treiber-Verbesserungen waren nur auf `ems-integration` entstanden und nie
+auf `beta` (Produktion, 240 Installationen) portiert worden. Nachgezogen (0.76.1-beta.3):
+Batch-Modus-Fix (s. u. „GoodWe reagiert schleppend..."), `diag_status_l`/`bms1_err_code`/
+`bms1_warn_code` (Bitfeld-/BMS-Diagnostik), `derate_pct` (70%-Regel-Anzeige).
+
+**Bewusst NICHT mitgezogen** (auf Dietmars Anweisung, nur „Batch-Fix und Diagnostik"):
+`ctl_soc_max` (bestätigt wirkungsloses Steuerregister, s. u.), das komplette
+`gridServiceCapabilities`/`svc_*`-Feature (neuer, noch nicht production-reifer EMS-Vertrag,
+Live-Verifikation läuft aktuell nur auf `ems-integration`) sowie der 255/STOPPED-Totmann-
+Profileintrag samt `ctl_ems_mode`/`ctl_ems_power`-Rücklesung (an die `svc_*`-Architektur
+gekoppelt). Diese Lücke ist also weiterhin bewusst vorhanden, nicht übersehen.
+
+**Lehre für künftige Sitzungen:** Bei Arbeit auf `ems-integration`, die reine Bugfixes/Diagnostik
+am Kerntreiber betrifft (nicht EMS-spezifische Steuerlogik), prüfen, ob dieselbe Änderung auch
+auf `beta` gehört — sonst driften die Branches unbemerkt auseinander und Produktionsnutzer
+verpassen echte Fehlerbehebungen.
+
 ## `IHUB_ModbusTcpClient` verwertete Antworten ohne Transaktions-ID-Prüfung (02.09.2026)
 
 Real gemeldet (Dashboard-Sitzung): Auf Dietmars Anlage (#52838) wurde nachts gegen 03:00 Uhr ein
