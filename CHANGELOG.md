@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.76.0-beta.4 (2026-09-12)
+
+- **`svc_*`: Abbruch bei fehlgeschlagenem Null-Schritt (EMS-Fund):** Scheiterte bislang der
+  Null-Schritt (Leistung vorab auf 0) bei einem echten Moduswechsel, wurde der Modus trotzdem
+  geschrieben — genau der Zwischenzustand (neuer Modus mit alter Leistung), den der Null-Schritt
+  verhindern soll. `writeGridService()` bricht jetzt in diesem Fall sofort ab (Modus/Leistung/
+  enable bleiben unangetastet, Wechselrichter bleibt im alten Zustand) und meldet es sichtbar.
+
 ## 0.76.0-beta.3 (2026-09-12)
 
 - **`svc_*`-Schreibreihenfolge erneut korrigiert (EMS-Fund, zweite Runde):** Die vorige

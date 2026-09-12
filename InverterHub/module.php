@@ -1160,7 +1160,14 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
             if ($mb->writeSingle(self::REG_EMS_POWER_SET, 0)) {
                 $hub->SetVarInt('ctl_ems_power', 0);
             } else {
-                $ok = false;
+                // Null-Schritt fehlgeschlagen (EMS-Fund 13.09.2026): den
+                // Moduswechsel HIER abbrechen statt trotzdem fortzufahren -
+                // sonst liefe genau der Zwischenzustand, den der Null-Schritt
+                // verhindern soll (neuer Modus mit der alten Leistung). WR
+                // bleibt im alten, bekannten Zustand; EMS versucht es im
+                // naechsten Zyklus erneut.
+                $hub->WarnUser('Netzdienlich: Moduswechsel abgebrochen - Leistung konnte nicht vorab auf 0 gesetzt werden, Wechselrichter bleibt im bisherigen Modus.');
+                return false;
             }
             if ($mb->writeSingle(self::REG_EMS_POWER_MODE, $mode)) {
                 $hub->SetVarInt('ctl_ems_mode', $mode);

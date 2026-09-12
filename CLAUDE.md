@@ -59,6 +59,12 @@ flackern. `writeGridService()` liest dafür den zuletzt bekannten Modus aus `ctl
 `enable=false` wird in beiden Zweigen zuletzt geschrieben (idempotent, verändert für sich genommen
 weder Modus noch Leistung). EMS übernimmt dieselbe Logik in `setGoodweMode()`.
 
+**Scheitert der Null-Schritt, wird der Moduswechsel abgebrochen, nicht fortgesetzt** (EMS-Fund
+13.09.2026, dritte Runde). Schriebe man den Modus trotzdem, liefe genau der Zwischenzustand, den
+der Null-Schritt verhindern soll (neuer Modus mit der alten Leistung). `writeGridService()` gibt
+in diesem Fall sofort `false` zurück, ohne Modus/Leistung/enable weiter anzufassen — der
+Wechselrichter bleibt im alten, bekannten Zustand, EMS versucht es im nächsten Zyklus erneut.
+
 **Teilerfolg wird nicht als „aktiv" gemeldet.** Scheitert einer der drei Schreibvorgänge, bleibt
 der bisherige `svc_*`-Anzeigezustand stehen (statt einen ungewissen WR-Zustand als aktiv zu
 behaupten) und `WarnUser()` meldet den Teilerfolg sichtbar. `writeGridService()` gibt dafür
