@@ -33,6 +33,22 @@ zyklischen Heartbeat auf — mit `enable=false` hält der gesetzte Modus dauerha
 selbst einen Heartbeat bauen müsste. Das war die zentrale Absicherung, die wir EMS empfohlen
 haben (`ctl_ems_enable=false` ist seit dem A/B-Test ohnehin die generelle Empfehlung, s. u.).
 
+**Schreibreihenfolge in `writeGridService()`: enable → Leistung → Modus, NICHT Modus zuerst**
+(EMS-Fund 13.09.2026). Modus 3 ist ein erzwungener Sollwert (Xset), keine Obergrenze. Schriebe
+man zuerst den Modus, gilt für den Moment bis zum nächsten Schreibvorgang noch die ALTE Leistung
+unter dem NEUEN Modus — ein Wechsel aus Modus 4/9 (z. B. 7400 W) in Modus 3 würde kurz mit
+Xset=7400 entladen statt mit der eigentlich gewollten neuen Leistung. Genau das Muster des
+Vorfalls vom 12.09.2026 00:02 Uhr (12 kW, davon 9 kW ins Netz). Deshalb: erst `enable=false`
+(nichts hängt im Heartbeat-Kontext), dann die Zielleistung (bei „Laden sperren" also 0), zuletzt
+der Modus — der greift dann sofort mit dem bereits korrekten Sollwert. EMS übernimmt dieselbe
+Reihenfolge in `setGoodweMode()`.
+
+**Teilerfolg wird nicht als „aktiv" gemeldet.** Scheitert einer der drei Schreibvorgänge, bleibt
+der bisherige `svc_*`-Anzeigezustand stehen (statt einen ungewissen WR-Zustand als aktiv zu
+behaupten) und `WarnUser()` meldet den Teilerfolg sichtbar. `writeGridService()` gibt dafür
+`bool` zurück (alle drei Schreibvorgänge erfolgreich); die Statusvariablen werden nur bei `true`
+gesetzt.
+
 **Ein Steuerpfad je Instanz — von EMS selbst durchzusetzen, nicht hier.** `svc_*` und `ctl_*`
 schreiben bei GoodWe dieselben Register (47511/47512/47505). EMS hat zugesichert, pro Instanz
 entweder `ctl_*` (heutige Automatik-/Grid-Rewards-/Tagesplan-Steuerung) oder `svc_*`

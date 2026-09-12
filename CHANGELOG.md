@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.76.0-beta.2 (2026-09-12)
+
+- **`svc_*`-Schreibreihenfolge korrigiert (EMS-Fund):** `writeGridService()` schrieb bisher
+  Modus → Leistung → enable. Da Modus 3 ein erzwungener Sollwert ist (keine Obergrenze), galt
+  zwischen Modus- und Leistungs-Schreibvorgang kurz die ALTE Leistung unter dem NEUEN Modus —
+  ein Wechsel aus Modus 4/9 in Modus 3 konnte so kurzzeitig mit der alten (ggf. hohen) Leistung
+  entladen. Neue Reihenfolge: enable=false → Leistung → Modus.
+- **Teilerfolg wird nicht mehr als „aktiv" angezeigt:** Scheitert einer der drei Schreibvorgänge,
+  bleibt der bisherige `svc_*`-Anzeigezustand stehen und eine Warnung wird sichtbar gemeldet,
+  statt einen ungewissen Wechselrichter-Zustand als aktiv zu behaupten.
+
 ## 0.76.0-beta.1 (2026-09-12)
 
 - **`IHUB_GetFunctions` 1.2 → 1.3: `gridServiceCapabilities`.** Neuer, additiver Verbund-Vertrag

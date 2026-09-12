@@ -1072,17 +1072,21 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
                 break;
 
             // Generische Netzdienlichkeits-Operationen (EMS-Vertrag, s. o. bei
-            // GroupControl). Alle vier schreiben mit enable=false (REG_EMS_ENABLE
-            // = 0), damit kein Totmann-Heartbeat noetig ist. Nach jeder Operation
-            // werden die jeweils ANDEREN svc_*-Statusvariablen auf ihren
-            // Neutralzustand zurueckgesetzt, damit nie mehrere gleichzeitig
-            // "aktiv" anzeigen (immer nur eine Operation kann real gelten).
+            // GroupControl). Die jeweils ANDEREN svc_*-Statusvariablen werden
+            // nur bei vollstaendigem Erfolg auf ihren Neutralzustand
+            // zurueckgesetzt, damit nie mehrere gleichzeitig "aktiv" anzeigen
+            // (immer nur eine Operation kann real gelten) - misslingt ein
+            // Schreibvorgang, bleibt der bisherige Anzeigezustand stehen,
+            // statt einen ungewissen WR-Zustand als "aktiv" zu behaupten.
             case 'svc_charge_inhibit':
                 if ((bool)$value) {
-                    $this->writeGridService($mb, $hub, self::EMS_MODE_DISCHARGE_PV, 0);
-                    $hub->SetVarBool('svc_charge_inhibit', true);
-                    $hub->SetVarInt('svc_grid_charge_w', 0);
-                    $hub->SetVarInt('svc_discharge_to_grid_w', 0);
+                    if ($this->writeGridService($mb, $hub, self::EMS_MODE_DISCHARGE_PV, 0)) {
+                        $hub->SetVarBool('svc_charge_inhibit', true);
+                        $hub->SetVarInt('svc_grid_charge_w', 0);
+                        $hub->SetVarInt('svc_discharge_to_grid_w', 0);
+                    } else {
+                        $hub->WarnUser('Netzdienlich "Laden sperren" nur teilweise geschrieben - Wechselrichter-Zustand ungewiss, Register gegenlesen.');
+                    }
                 } else {
                     $this->releaseGridService($mb, $hub);
                 }
@@ -1094,10 +1098,13 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
                     $this->releaseGridService($mb, $hub);
                     break;
                 }
-                $this->writeGridService($mb, $hub, self::EMS_MODE_GRID_BUY, $val);
-                $hub->SetVarInt('svc_grid_charge_w', $val);
-                $hub->SetVarBool('svc_charge_inhibit', false);
-                $hub->SetVarInt('svc_discharge_to_grid_w', 0);
+                if ($this->writeGridService($mb, $hub, self::EMS_MODE_GRID_BUY, $val)) {
+                    $hub->SetVarInt('svc_grid_charge_w', $val);
+                    $hub->SetVarBool('svc_charge_inhibit', false);
+                    $hub->SetVarInt('svc_discharge_to_grid_w', 0);
+                } else {
+                    $hub->WarnUser('Netzdienlich "Netzladen" nur teilweise geschrieben - Wechselrichter-Zustand ungewiss, Register gegenlesen.');
+                }
                 break;
 
             case 'svc_discharge_to_grid_w':
@@ -1106,10 +1113,13 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
                     $this->releaseGridService($mb, $hub);
                     break;
                 }
-                $this->writeGridService($mb, $hub, self::EMS_MODE_DISCHARGE_PV, $val);
-                $hub->SetVarInt('svc_discharge_to_grid_w', $val);
-                $hub->SetVarBool('svc_charge_inhibit', false);
-                $hub->SetVarInt('svc_grid_charge_w', 0);
+                if ($this->writeGridService($mb, $hub, self::EMS_MODE_DISCHARGE_PV, $val)) {
+                    $hub->SetVarInt('svc_discharge_to_grid_w', $val);
+                    $hub->SetVarBool('svc_charge_inhibit', false);
+                    $hub->SetVarInt('svc_grid_charge_w', 0);
+                } else {
+                    $hub->WarnUser('Netzdienlich "Einspeisen aus Batterie" nur teilweise geschrieben - Wechselrichter-Zustand ungewiss, Register gegenlesen.');
+                }
                 break;
 
             case 'svc_release':
@@ -1126,25 +1136,41 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
     const EMS_MODE_GRID_BUY     = 9; // "Stromeinkauf" - Netzbezug am Netzanschlusspunkt geregelt, sicherer als 11 (EMS-Test 24.08.2026)
     const EMS_MODE_AUTO         = 1; // "Automatik" - WR-Eigenregelung, Ziel von svc_release
 
-    private function writeGridService($mb, $hub, int $mode, int $powerW): void
+    // Reihenfolge enable -> Leistung -> Modus (EMS-Fund 13.09.2026): Modus 3
+    // ist ein erzwungener Sollwert (Xset), keine Obergrenze. Schriebe man
+    // zuerst den Modus, gilt fuer den Moment bis zum naechsten Schreibvorgang
+    // noch die ALTE Leistung unter dem NEUEN Modus - z. B. Wechsel aus Modus
+    // 4/9 (7400 W) in Modus 3 wuerde kurz mit Xset=7400 entladen, statt mit
+    // der eigentlich gewollten neuen Leistung. Erst enable aus (nichts haengt
+    // im Heartbeat-Kontext), dann die Zielleistung, zuletzt der Modus - der
+    // greift dann sofort mit dem bereits korrekten Sollwert. EMS uebernimmt
+    // dieselbe Reihenfolge in setGoodweMode().
+    private function writeGridService($mb, $hub, int $mode, int $powerW): bool
     {
-        if ($mb->writeSingle(self::REG_EMS_POWER_MODE, $mode)) {
-            $hub->SetVarInt('ctl_ems_mode', $mode);
-        }
-        if ($mb->writeSingle(self::REG_EMS_POWER_SET, $powerW)) {
-            $hub->SetVarInt('ctl_ems_power', $powerW);
-        }
-        if ($mb->writeSingle(self::REG_EMS_ENABLE, 0)) {
+        $okEnable = $mb->writeSingle(self::REG_EMS_ENABLE, 0);
+        if ($okEnable) {
             $hub->SetVarBool('ctl_ems_enable', false);
         }
+        $okPower = $mb->writeSingle(self::REG_EMS_POWER_SET, $powerW);
+        if ($okPower) {
+            $hub->SetVarInt('ctl_ems_power', $powerW);
+        }
+        $okMode = $mb->writeSingle(self::REG_EMS_POWER_MODE, $mode);
+        if ($okMode) {
+            $hub->SetVarInt('ctl_ems_mode', $mode);
+        }
+        return $okEnable && $okPower && $okMode;
     }
 
     private function releaseGridService($mb, $hub): void
     {
-        $this->writeGridService($mb, $hub, self::EMS_MODE_AUTO, 0);
-        $hub->SetVarBool('svc_charge_inhibit', false);
-        $hub->SetVarInt('svc_grid_charge_w', 0);
-        $hub->SetVarInt('svc_discharge_to_grid_w', 0);
+        if ($this->writeGridService($mb, $hub, self::EMS_MODE_AUTO, 0)) {
+            $hub->SetVarBool('svc_charge_inhibit', false);
+            $hub->SetVarInt('svc_grid_charge_w', 0);
+            $hub->SetVarInt('svc_discharge_to_grid_w', 0);
+        } else {
+            $hub->WarnUser('Netzdienlich "Freigeben" nur teilweise geschrieben - Wechselrichter-Zustand ungewiss, Register gegenlesen.');
+        }
     }
 }
 
