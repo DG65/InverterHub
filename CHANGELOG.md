@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.76.0-beta.3 (2026-09-12)
+
+- **`svc_*`-Schreibreihenfolge erneut korrigiert (EMS-Fund, zweite Runde):** Die vorige
+  Reihenfolge (enable → Leistung → Modus) hatte dasselbe Loch in der Gegenrichtung — kurz galt
+  der ALTE Modus mit der NEUEN Leistung. Da Modus 3 ein erzwungener Sollwert ist, hat jede feste
+  Zwei-Schritt-Reihenfolge für irgendeinen Übergang ein Loch. Neu: Übergang über Null, aber nur
+  bei echtem Moduswechsel — Leistung=0 → Modus=Ziel → Leistung=Zielwert (falls >0) → enable=false.
+  Bleibt der Modus gleich (nur die Leistung ändert sich), entfällt der Null-Schritt.
+
 ## 0.76.0-beta.2 (2026-09-12)
 
 - **`svc_*`-Schreibreihenfolge korrigiert (EMS-Fund):** `writeGridService()` schrieb bisher

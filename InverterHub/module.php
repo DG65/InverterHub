@@ -1136,30 +1136,54 @@ class IHUB_GoodweDriver implements IHUB_InverterDriverInterface
     const EMS_MODE_GRID_BUY     = 9; // "Stromeinkauf" - Netzbezug am Netzanschlusspunkt geregelt, sicherer als 11 (EMS-Test 24.08.2026)
     const EMS_MODE_AUTO         = 1; // "Automatik" - WR-Eigenregelung, Ziel von svc_release
 
-    // Reihenfolge enable -> Leistung -> Modus (EMS-Fund 13.09.2026): Modus 3
-    // ist ein erzwungener Sollwert (Xset), keine Obergrenze. Schriebe man
-    // zuerst den Modus, gilt fuer den Moment bis zum naechsten Schreibvorgang
-    // noch die ALTE Leistung unter dem NEUEN Modus - z. B. Wechsel aus Modus
-    // 4/9 (7400 W) in Modus 3 wuerde kurz mit Xset=7400 entladen, statt mit
-    // der eigentlich gewollten neuen Leistung. Erst enable aus (nichts haengt
-    // im Heartbeat-Kontext), dann die Zielleistung, zuletzt der Modus - der
-    // greift dann sofort mit dem bereits korrekten Sollwert. EMS uebernimmt
-    // dieselbe Reihenfolge in setGoodweMode().
+    // Uebergang ueber Null, aber NUR bei echtem Moduswechsel (EMS-Fund
+    // 13.09.2026, zweite Korrektur - jede feste Zwei-Schritt-Reihenfolge
+    // (Modus->Leistung oder Leistung->Modus) hat fuer irgendeinen Uebergang
+    // ein Loch: Modus 3 ist ein erzwungener Sollwert (Xset), keine Obergrenze,
+    // also gilt zwischen den beiden Schreibvorgaengen kurz entweder der ALTE
+    // Modus mit der NEUEN Leistung oder der NEUE Modus mit der ALTEN Leistung
+    // - je nach Reihenfolge ein Entladestoss in die eine oder andere Richtung.
+    // Sicher ist nur: Leistung erst auf 0 (harmlos unter JEDEM Modus - Modus 3
+    // mit 0 sperrt das Laden, Modus 9 mit 0 hat keinen Netzbezug-Sollwert,
+    // Modus 1 ignoriert den Wert ohnehin), dann Modus wechseln, dann die
+    // Zielleistung setzen. Bleibt der Modus gleich (nur die Leistung aendert
+    // sich, z. B. Grid-Rewards-Nachfuehren), entfaellt der Null-Schritt - er
+    // wuerde nur unnoetig auf 0 flackern. enable=false zuletzt, unabhaengig
+    // vom Zweig (idempotent, kein Modus-/Leistungswechsel dadurch). EMS
+    // uebernimmt dieselbe Logik in setGoodweMode().
     private function writeGridService($mb, $hub, int $mode, int $powerW): bool
     {
-        $okEnable = $mb->writeSingle(self::REG_EMS_ENABLE, 0);
-        if ($okEnable) {
+        $modeChanges = $hub->GetVarInt('ctl_ems_mode') !== $mode;
+        $ok = true;
+
+        if ($modeChanges) {
+            if ($mb->writeSingle(self::REG_EMS_POWER_SET, 0)) {
+                $hub->SetVarInt('ctl_ems_power', 0);
+            } else {
+                $ok = false;
+            }
+            if ($mb->writeSingle(self::REG_EMS_POWER_MODE, $mode)) {
+                $hub->SetVarInt('ctl_ems_mode', $mode);
+            } else {
+                $ok = false;
+            }
+        }
+
+        if (!$modeChanges || $powerW > 0) {
+            if ($mb->writeSingle(self::REG_EMS_POWER_SET, $powerW)) {
+                $hub->SetVarInt('ctl_ems_power', $powerW);
+            } else {
+                $ok = false;
+            }
+        }
+
+        if ($mb->writeSingle(self::REG_EMS_ENABLE, 0)) {
             $hub->SetVarBool('ctl_ems_enable', false);
+        } else {
+            $ok = false;
         }
-        $okPower = $mb->writeSingle(self::REG_EMS_POWER_SET, $powerW);
-        if ($okPower) {
-            $hub->SetVarInt('ctl_ems_power', $powerW);
-        }
-        $okMode = $mb->writeSingle(self::REG_EMS_POWER_MODE, $mode);
-        if ($okMode) {
-            $hub->SetVarInt('ctl_ems_mode', $mode);
-        }
-        return $okEnable && $okPower && $okMode;
+
+        return $ok;
     }
 
     private function releaseGridService($mb, $hub): void

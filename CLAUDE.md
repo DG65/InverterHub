@@ -33,15 +33,31 @@ zyklischen Heartbeat auf — mit `enable=false` hält der gesetzte Modus dauerha
 selbst einen Heartbeat bauen müsste. Das war die zentrale Absicherung, die wir EMS empfohlen
 haben (`ctl_ems_enable=false` ist seit dem A/B-Test ohnehin die generelle Empfehlung, s. u.).
 
-**Schreibreihenfolge in `writeGridService()`: enable → Leistung → Modus, NICHT Modus zuerst**
-(EMS-Fund 13.09.2026). Modus 3 ist ein erzwungener Sollwert (Xset), keine Obergrenze. Schriebe
-man zuerst den Modus, gilt für den Moment bis zum nächsten Schreibvorgang noch die ALTE Leistung
-unter dem NEUEN Modus — ein Wechsel aus Modus 4/9 (z. B. 7400 W) in Modus 3 würde kurz mit
-Xset=7400 entladen statt mit der eigentlich gewollten neuen Leistung. Genau das Muster des
-Vorfalls vom 12.09.2026 00:02 Uhr (12 kW, davon 9 kW ins Netz). Deshalb: erst `enable=false`
-(nichts hängt im Heartbeat-Kontext), dann die Zielleistung (bei „Laden sperren" also 0), zuletzt
-der Modus — der greift dann sofort mit dem bereits korrekten Sollwert. EMS übernimmt dieselbe
-Reihenfolge in `setGoodweMode()`.
+**Schreibreihenfolge in `writeGridService()`: Übergang über Null, aber NUR bei echtem
+Moduswechsel** (EMS-Fund 13.09.2026, zweite Korrektur — die erste eigene Korrektur
+„enable → Leistung → Modus" war noch falsch, siehe unten). Modus 3 ist ein erzwungener
+Sollwert (Xset), keine Obergrenze — deshalb hat **jede** feste Zwei-Schritt-Reihenfolge
+(Modus→Leistung oder Leistung→Modus) für irgendeinen Übergang ein Loch:
+
+- Modus zuerst: kurz gilt der NEUE Modus mit der ALTEN Leistung (Vorfall 12.09.2026 00:02 Uhr,
+  12 kW davon 9 kW ins Netz beim Wechsel aus Modus 4/9 mit 7400 W nach Modus 3).
+- Leistung zuerst (unsere erste, ebenfalls falsche Korrektur): kurz gilt der ALTE Modus mit der
+  NEUEN Leistung — z. B. von `svc_discharge_to_grid_w=500` (Modus 3) nach `svc_grid_charge_w=7400`
+  liefe Modus 3 kurz mit Xset 7400 W, derselbe Entladestoß nur andersherum ausgelöst.
+
+**Sicher ist nur ein Übergang über Null**, und zwar nur beim Moduswechsel selbst:
+1. Leistung (47512) = 0 — harmlos unter jedem Modus (Modus 3+0 = Laden sperren, Modus 9+0 = kein
+   Netzbezug-Sollwert, Modus 1 ignoriert den Wert ohnehin).
+2. Modus (47511) = Ziel.
+3. Leistung (47512) = Zielwert, falls > 0.
+4. `enable` (47505) = false.
+
+**Der Null-Schritt entfällt, wenn der Modus gleich bleibt** (nur die Leistung ändert sich, z. B.
+Grid-Rewards-Nachführen alle 30s) — sonst würde jeder Nachführ-Zyklus unnötig kurz auf 0 W
+flackern. `writeGridService()` liest dafür den zuletzt bekannten Modus aus `ctl_ems_mode`
+(`GetVarInt`, vom letzten `readFastInner()`-Zyklus) und vergleicht ihn gegen den Zielmodus.
+`enable=false` wird in beiden Zweigen zuletzt geschrieben (idempotent, verändert für sich genommen
+weder Modus noch Leistung). EMS übernimmt dieselbe Logik in `setGoodweMode()`.
 
 **Teilerfolg wird nicht als „aktiv" gemeldet.** Scheitert einer der drei Schreibvorgänge, bleibt
 der bisherige `svc_*`-Anzeigezustand stehen (statt einen ungewissen WR-Zustand als aktiv zu
