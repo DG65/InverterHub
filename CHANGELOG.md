@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.76.1-beta.2 (2026-09-12)
+
+- **Anzeigename im Modulbaum gekürzt:** „InverterHub for IP-Symcon" → „InverterHub"
+  (Anglizismus/Redundanz entfernt, Symcon zeigt ohnehin nur IP-Symcon-Module an).
+
 ## 0.76.1-beta.1 (2026-09-02)
 
 - **Fehlerhafte Modbus-Antworten (fehlende Transaktions-ID-Prüfung) behoben:** Im Batch-Modus
