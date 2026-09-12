@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.76.1-beta.4 (2026-09-12)
+
+- **Dauerhafter Regressionstest für `IHUB_ModbusTcpClient`:** `.tools/test-modbus-client.php`
+  (Aufbau von MeterHub übernommen) — echter Modbus-TCP-Testserver, prüft Batch- vs.
+  Einzel-Verbindungsmodus und explizit den Transaktions-ID-Fund vom 02./12.09.2026 (fremder
+  Frame mit falscher TID vor der echten Antwort). Keine Verhaltensänderung am Modul.
+
 ## 0.76.1-beta.3 (2026-09-12)
 
 - **GoodWe: Batch-Modus gegen Verbindungs-Konkurrenz bei Schaltbefehlen** (nachgezogen aus

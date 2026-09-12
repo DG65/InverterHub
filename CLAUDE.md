@@ -41,6 +41,12 @@ dupliziert, dort ausführlicher dokumentiert).
 das MBAP-Längenfeld ein und prüfen die Transaktions-ID; Nichttreffer werden verworfen. Mit einem
 Socket-Pair-Testskript gegen die exakt gemeldeten Werte (3991/9) verifiziert.
 
+**Dauerhafter Regressionstest (12.09.2026):** `.tools/test-modbus-client.php` — Muster von
+MeterHubs gleichnamigem Prüfstand übernommen (echter Modbus-TCP-Server per `proc_open`, Modi
+normal/dropafter1/exception/silent/stray). Prüft Batch- vs. Einzel-Verbindungsmodus und explizit
+den `stray`-Fall (fremder Frame mit falscher TID, Wert `0xDEAD`) gegen genau dieses Fehlerbild.
+`php .tools/test-modbus-client.php` vor jeder Änderung an `IHUB_ModbusTcpClient` laufen lassen.
+
 ## Der Modul-Verbund
 
 Dieses Repo gehört zu einer Gruppe eigenständiger IP-Symcon-Module, die zusammenwirken. An
