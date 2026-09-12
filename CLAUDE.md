@@ -1,5 +1,29 @@
 # Hinweise für die Arbeit an diesem Repository
 
+## Offener Punkt für später: Fatal Error bei Alt-Instanzen, falls Tile-Entfernung je auf main/beta geht
+
+Real beobachtet (EMS-Meldung, 12.09.2026): Dietmar wechselte auf seiner Anlage manuell von
+`beta` (0.76.1-beta.1) auf `ems-integration` (0.76.0-beta.4). Seine dort noch vorhandenen
+`InverterHubTile`-/`InverterHubMonitor`-Instanzen stürzten mit `Fatal error: require_once ...
+Failed opening required` ab — beide Module sind auf `ems-integration` bewusst entfernt
+(NRGDashboard übernimmt die Anzeige, s. u. „`InverterHubTile`/`InverterHubMonitor`/
+`InverterHubEnergy` entfernt"), aber die Instanzen existieren noch und finden ihren Code nicht.
+
+**Kein aktuelles Store-Risiko:** `ems-integration` ist kein Verteilungskanal — nur `main`/`beta`
+gehen über den Symcon Module Store an echte Nutzer, und dort existieren die beiden Module
+unverändert weiter. Betrifft also ausschließlich Dietmars eigenes manuelles Branch-Wechseln.
+
+**Wird aber real, sobald/falls die Tile-Entfernung je auf `main`/`beta` ausgerollt wird** — dann
+träfe jeder Nutzer mit einer bestehenden Tile-/Monitor-Instanz denselben Fatal Error beim
+Update. Für DIESEN Tag vormerken (noch nicht umgesetzt, keine Entscheidung nötig, solange die
+Module auf `beta`/`main` bleiben):
+- Denkbar: eine Übergangsversion beider Module, die nur noch eine Instanz-Registrierung ohne
+  echte Logik enthält („ersetzt durch NRGDashboard, bitte löschen") statt hart zu fehlen.
+- Denkbar: Hinweis im „Was ist neu"-Panel VOR der eigentlichen Entfernung, mit Anleitung zum
+  Löschen der Alt-Instanzen.
+- Von EMS vorgeschlagen, hier nur gesammelt — Entscheidung liegt bei Dietmar, wenn die
+  Migration ansteht.
+
 ## `gridServiceCapabilities` — generische Netzdienlichkeits-Operationen (EMS-Vertrag, 12.09.2026)
 
 Verbund-Vertrag mit EMS für dessen netzdienliche Bausteine (Mittagsspitze in die Batterie,
