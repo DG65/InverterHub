@@ -135,6 +135,14 @@ derselben Batch-Verbindung erhalten (`batchLeftover`), damit eine nur leicht ver
 inhaltlich korrekte Antwort nicht verloren geht. Mit einem Socket-Pair-Testskript verifiziert
 (simulierter Stale-Frame mit den exakt gemeldeten Werten 3991/9 wurde korrekt verworfen).
 
+**Dauerhafter Regressionstest (12.09.2026):** `.tools/test-modbus-client.php` — Muster von
+MeterHubs gleichnamigem Prüfstand übernommen (echter Modbus-TCP-Server per `proc_open`, Modi
+normal/dropafter1/exception/silent/stray), statt den Ad-hoc-Socket-Pair-Test wegzuwerfen. Prüft
+u. a. Batch- vs. Einzel-Verbindungsmodus (Server-seitige Verbindungszählung) und explizit den
+`stray`-Fall (fremder Frame mit falscher TID vor der echten Antwort, Wert `0xDEAD`) gegen genau
+dieses Fehlerbild. `php .tools/test-modbus-client.php` vor jeder Änderung an
+`IHUB_ModbusTcpClient` laufen lassen, 0 = bestanden.
+
 **Nicht behoben, weil separates Thema:** Der ursprüngliche 32-Bit-Wert kam über `pv_total`
 (`pv_real`/`pv_total`-Fallback-Kette bei anderen Treibern betrifft dasselbe Muster). Dashboards
 eigener generischer Ausreißer-Schutz (>1 MW verwerfen) bleibt sinnvoll als zusätzliches

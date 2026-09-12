@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.76.0-beta.6 (2026-09-12)
+
+- **Dauerhafter Regressionstest für `IHUB_ModbusTcpClient`:** `.tools/test-modbus-client.php`
+  (Aufbau von MeterHub übernommen) — echter Modbus-TCP-Testserver, prüft Batch- vs.
+  Einzel-Verbindungsmodus und explizit den Transaktions-ID-Fund vom 12.09.2026 (fremder Frame
+  mit falscher TID vor der echten Antwort). Kein Verhaltensänderung am Modul, nur Testabdeckung.
+
 ## 0.76.0-beta.5 (2026-09-12)
 
 - **Anzeigename im Modulbaum gekürzt:** „NRG-Stack InverterHub for IP-Symcon" → „NRG-Stack
