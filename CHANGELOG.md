@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.76.0-beta.5 (2026-09-12)
+
+- **Anzeigename im Modulbaum gekürzt:** „NRG-Stack InverterHub for IP-Symcon" → „NRG-Stack
+  InverterHub" (Anglizismus/Redundanz entfernt, Symcon zeigt ohnehin nur IP-Symcon-Module an).
+
 ## 0.76.0-beta.4 (2026-09-12)
 
 - **`svc_*`: Abbruch bei fehlgeschlagenem Null-Schritt (EMS-Fund):** Scheiterte bislang der
